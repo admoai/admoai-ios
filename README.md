@@ -50,12 +50,10 @@ let sdk = AdMoai(config: config)
 
 // Configure user settings globally
 sdk.setUserConfig(
-    UserConfig(
-        id: "user_123",
-        ip: "203.0.113.1",
-        timezone: TimeZone.current.identifier,
-        consent: User.Consent(gdpr: true)
-    )
+    id: "user_123",
+    ip: "203.0.113.1",
+    timezone: TimeZone.current.identifier,
+    consent: User.Consent(gdpr: true)
 )
 ```
 
@@ -76,20 +74,18 @@ You can also build the request with targeting and user settings:
 ```swift
 let request = sdk.createRequestBuilder()
     .addPlacement(key: "home")
+
     // Override user settings for this request
-    .setUser(User(
-        id: "different_user",
-        ip: "203.0.113.2",
-        timezone: "America/New_York",
-        consent: User.Consent(gdpr: false)
-    ))
+    .setUserId("different_user")
+    .setUserIp("203.0.113.2")
+    .setUserTimezone("America/New_York")
+    .setUserConsent(User.Consent(gdpr: false))
+
     // Add targeting
+    .addGeoTargeting(2643743)  // London
     .addLocationTargeting(latitude: 37.7749, longitude: -122.4194)
-    .setCustomTargeting([
-        Targeting.CustomKeyValue(key: "age", value: 25),
-        Targeting.CustomKeyValue(key: "category", value: "travel")
-    ])
-    .addCustomTargeting(key: "vip", value: true)
+
+    // Build request
     .build()
 ```
 
