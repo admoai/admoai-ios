@@ -138,7 +138,7 @@ public class DecisionRequestBuilder {
         return self
     }
 
-    public func addCustomTargeting(_ key: String, value: AnyCodable) -> DecisionRequestBuilder {
+    public func addCustomTargeting(key: String, value: AnyCodable) -> DecisionRequestBuilder {
         var currentCustom = targeting?.custom ?? []
         currentCustom.append(Targeting.CustomKeyValue(key: key, value: value))
         return setCustomTargeting(currentCustom)
