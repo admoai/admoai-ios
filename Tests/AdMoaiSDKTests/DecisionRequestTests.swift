@@ -3,7 +3,7 @@ import Testing
 
 @testable import AdMoai
 
-private let baseURL = "http://localhost:8080"
+private let baseURL = "https://mock.api.admoai.com"
 
 struct DecisionRequestTests {
     @Test
@@ -11,7 +11,7 @@ struct DecisionRequestTests {
         let config = SDKConfig(baseUrl: baseURL)
         let sdk = AdMoai(config: config)
 
-        let builder = sdk.createDecisionRequestBuilder()
+        let builder = sdk.createRequestBuilder()
         let request =
             builder
             .addPlacement(key: "home", count: 2)
@@ -34,12 +34,12 @@ struct DecisionRequestTests {
         let config = SDKConfig(baseUrl: baseURL)
         let sdk = AdMoai(config: config)
 
-        let request = sdk.createDecisionRequestBuilder()
+        let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .build()
 
         do {
-            let response = try await sdk.requestDecision(request)
+            let response = try await sdk.requestAds(request)
             #expect(response.body.success)
 
             if let decision = response.body.data?.first {
@@ -56,11 +56,11 @@ struct DecisionRequestTests {
         let config = SDKConfig(baseUrl: baseURL)
         let sdk = AdMoai(config: config)
 
-        let request = sdk.createDecisionRequestBuilder()
+        let request = sdk.createRequestBuilder()
             .addPlacement(key: "invalid_placement")
             .build()
 
-        let response = try await sdk.requestDecision(request)
+        let response = try await sdk.requestAds(request)
         #expect(response.response.statusCode == 422)
         #expect(response.body.success == false)
     }
@@ -70,15 +70,18 @@ struct DecisionRequestTests {
         let config = SDKConfig(baseUrl: "invalid-url")
         let sdk = AdMoai(config: config)
 
-        let request = sdk.createDecisionRequestBuilder()
+        let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .build()
 
         do {
-            let response = try await sdk.requestDecision(request)
-            throw APIError.unexpectedStatusCode(response.response.statusCode)
-        } catch let error as NSError where error.domain == NSURLErrorDomain {
-            #expect(error.code == NSURLErrorUnsupportedURL)
+            _ = try await sdk.requestAds(request)
+        } catch let error as APIError {
+            if case .networkError(let underlyingError) = error {
+                #expect(underlyingError.localizedDescription.contains("unsupported URL"))
+            } else {
+                throw error
+            }
         }
     }
 }
