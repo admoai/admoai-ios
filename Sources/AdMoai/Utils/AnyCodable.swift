@@ -1,7 +1,7 @@
 import Foundation
 
 public struct AnyCodable: Codable {
-    private let value: Any
+    internal let value: Any
 
     public init(_ value: Any) {
         self.value = value
