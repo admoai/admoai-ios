@@ -3,7 +3,7 @@ import Testing
 
 @testable import AdMoai
 
-private let baseURL = "http://localhost:8080"
+private let baseURL = "https://mock.api.admoai.com"
 
 // MARK: - SDK Initialization Tests
 @Test
@@ -27,6 +27,9 @@ func testSDKInitialization() {
 func testAppConfigManagement() {
     let config = SDKConfig(baseUrl: baseURL)
     var sdk = AdMoai(config: config)
+
+    // Test default
+    #expect(sdk.appConfig == .systemDefault())
 
     // Test clear
     sdk.clearAppConfig()
@@ -57,9 +60,16 @@ func testDeviceConfigManagement() {
     let config = SDKConfig(baseUrl: baseURL)
     var sdk = AdMoai(config: config)
 
+    // Test default
+    #expect(sdk.deviceConfig == .systemDefault())
+
     // Test clear
     sdk.clearDeviceConfig()
     #expect(sdk.deviceConfig == .clear())
+
+    // Test reset
+    sdk.resetDeviceConfig()
+    #expect(sdk.deviceConfig == .systemDefault())
 
     // Test custom config
     sdk.setDeviceConfig(
@@ -86,8 +96,7 @@ func testUserConfigManagement() {
     let config = SDKConfig(baseUrl: baseURL)
     var sdk = AdMoai(config: config)
 
-    // Test clear
-    sdk.clearUserConfig()
+    // Test default
     #expect(sdk.userConfig == .clear())
 
     // Test custom config
@@ -104,4 +113,8 @@ func testUserConfigManagement() {
     #expect(sdk.userConfig.ip == "192.168.1.1")
     #expect(sdk.userConfig.timezone == "America/New_York")
     #expect(sdk.userConfig.consent.gdpr == true)
+
+    // Test clear
+    sdk.clearUserConfig()
+    #expect(sdk.userConfig == .clear())
 }
