@@ -5,12 +5,12 @@ struct GeoTargetingPicker: View {
     @Binding var targeting: Targeting
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
-    
+
     private struct City: Identifiable {
         let id: Int  // Geoname ID
         let name: String
         let country: String
-        
+
         static let available: [City] = [
             City(id: 2_643_743, name: "London", country: "UK"),
             City(id: 3_530_597, name: "Miami", country: "US"),
@@ -37,7 +37,11 @@ struct GeoTargetingPicker: View {
         List {
             Section {
                 Text(
-                    "This is a sample list of cities. The actual implementation must use the correct Geoname IDs for the cities and countries you want to target.\nThe user's IP address automatically determines the Geoname ID for their city and country, but setting geo-targeting will override these values."
+                    """
+                    This is a sample list of cities. The actual implementation must use the correct Geoname IDs for the cities and countries you want to target.
+
+                    The user's IP address automatically determines the Geoname ID for their city and country, but setting geo-targeting will override these values.
+                    """
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -92,7 +96,7 @@ struct GeoTargetingPicker: View {
                             geo: nil,
                             location: targeting.location,
                             custom: targeting.custom
-                        )   
+                        )
                     } label: {
                         Text("Clear Selection")
                     }
@@ -101,5 +105,11 @@ struct GeoTargetingPicker: View {
         }
         .navigationTitle("Geo Targeting")
         .searchable(text: $searchText, prompt: "Search cities")
+    }
+}
+
+#Preview {
+    NavigationStack {
+        GeoTargetingPicker(targeting: .constant(Targeting()))
     }
 }

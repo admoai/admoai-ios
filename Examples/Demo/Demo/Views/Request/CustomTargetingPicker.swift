@@ -3,75 +3,86 @@ import SwiftUI
 
 struct CustomTargetingPicker: View {
     @Binding var targeting: Targeting
+    @State private var customs: [Targeting.CustomKeyValue] = []
 
     var body: some View {
-        List {
-            Section {
-                Text(
-                    "Add custom key-value pairs for targeting. Note: This demo only supports string values, but the SDK supports boolean and numeric values as well.\n\nThe key and value must be valid according to the ad server preset settings. For this demo you can use 'category' as a valid key with possible values like 'sports', 'news', 'entertainment', or 'technology'."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
+        VStack {
+            List {
+                Section {
+                    Text("""
+Add custom key-value pairs for targeting. Note: This demo only supports string values, but the SDK supports boolean and numeric values as well.
 
-            Section {
-                ForEach((targeting.custom ?? []).indices, id: \.self) { index in
-                    CustomTargetRow(
-                        keyValue: (targeting.custom ?? [])[index],
-                        onUpdate: { newKeyValue in
-                            var newCustoms = targeting.custom ?? []
-                            newCustoms[index] = newKeyValue
-                            targeting = Targeting(
-                                geo: targeting.geo,
-                                location: targeting.location,
-                                custom: newCustoms.isEmpty ? nil : newCustoms
+The key and value must be valid according to the ad server preset settings. For this demo you can use 'category' as a valid key with possible values like 'sports', 'news', 'entertainment', or 'technology'.
+"""
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
+                if !customs.isEmpty {
+                    ForEach(0..<customs.count, id: \.self) { index in
+                        Section {
+                            CustomTargetRow(
+                                keyValue: customs[index],
+                                onUpdate: { newKeyValue in
+                                    customs[index] = newKeyValue
+                                    updateTargeting()
+                                }
                             )
                         }
-                    )
-                }
-                .onDelete { indexSet in
-                    var newCustoms = targeting.custom ?? []
-                    newCustoms.remove(atOffsets: indexSet)
-                    targeting = Targeting(
-                        geo: targeting.geo,
-                        location: targeting.location,
-                        custom: newCustoms.isEmpty ? nil : newCustoms
-                    )
-                }
-
-                Button {
-                    var newCustoms = targeting.custom ?? []
-                    newCustoms.append(
-                        Targeting.CustomKeyValue(
-                            key: "",
-                            value: AnyCodable("")
-                        )
-                    )
-                    targeting = Targeting(
-                        geo: targeting.geo,
-                        location: targeting.location,
-                        custom: newCustoms
-                    )
-                } label: {
-                    Label("Add Custom Target", systemImage: "plus.circle.fill")
-                }
-            }
-
-            if !(targeting.custom?.isEmpty ?? true) {
-                Section {
-                    Button(role: .destructive) {
-                        targeting = Targeting(
-                            geo: targeting.geo,
-                            location: targeting.location,
-                            custom: nil
-                        )
-                    } label: {
-                        Text("Clear All")
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                customs.remove(at: index)
+                                updateTargeting()
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
+
+            VStack(spacing: 12) {
+                Button {
+                    customs.append((key: "", value: ""))
+                    updateTargeting()
+                } label: {
+                    Label("Add Custom Target", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 12)
+                        .background(.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                Button {
+                    customs.removeAll()
+                    updateTargeting()
+                } label: {
+                    Text("Clear All")
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.red)
+                        .padding(.vertical, 12)
+                        .background(.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .disabled(customs.isEmpty)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
         }
         .navigationTitle("Custom Targeting")
+        .onAppear {
+            customs = targeting.custom ?? []
+        }
+    }
+
+    private func updateTargeting() {
+        targeting = Targeting(
+            geo: targeting.geo,
+            location: targeting.location,
+            custom: customs.isEmpty ? nil : customs
+        )
     }
 }
 
@@ -87,21 +98,7 @@ private struct CustomTargetRow: View {
         self.keyValue = keyValue
         self.onUpdate = onUpdate
         _key = State(initialValue: keyValue.key)
-
-        // Extract just the value from AnyCodable(value: "actual_value")
-        let fullString = String(describing: keyValue.value)
-        let valueStart = fullString.firstIndex(of: "\"")
-        let valueEnd = fullString.lastIndex(of: "\"")
-
-        if let start = valueStart, let end = valueEnd,
-            start != end
-        {
-            let startIndex = fullString.index(after: start)
-            let value = String(fullString[startIndex..<end])
-            _value = State(initialValue: value)
-        } else {
-            _value = State(initialValue: "")
-        }
+        _value = State(initialValue: keyValue.value as? String ?? "")
     }
 
     var body: some View {
@@ -117,11 +114,17 @@ private struct CustomTargetRow: View {
         .padding(.vertical, 8)
         .onChange(of: key) { _ in
             guard !key.isEmpty else { return }
-            onUpdate(.init(key: key, value: AnyCodable(value)))
+            onUpdate((key: key, value: value))
         }
         .onChange(of: value) { _ in
             guard !key.isEmpty else { return }
-            onUpdate(.init(key: key, value: AnyCodable(value)))
+            onUpdate((key: key, value: value))
         }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        CustomTargetingPicker(targeting: .constant(Targeting()))
     }
 }

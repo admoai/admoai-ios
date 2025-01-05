@@ -1,67 +1,85 @@
 import AdMoai
 import SwiftUI
 
-// Extension to make LocationCoordinate identifiable
-private var coordinateIds: [String: String] = [:]
-
-extension Targeting.LocationCoordinate: Identifiable {
-    public var id: String {
-        let key = "\(latitude),\(longitude)"
-        if coordinateIds[key] == nil {
-            coordinateIds[key] = UUID().uuidString
-        }
-        return coordinateIds[key]!
-    }
-}
-
 struct LocationTargetingPicker: View {
     @Binding var targeting: Targeting
     @Environment(\.dismiss) private var dismiss
     @State private var coordinates: [Targeting.LocationCoordinate] = []
 
     var body: some View {
-        List {
-            Section {
-                Text(
-                    "Add latitude and longitude coordinates to target specific locations. You can add multiple coordinates to target different areas."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
-
-            Section {
-                ForEach(coordinates.indices, id: \.self) { index in
-                    CoordinateRow(
-                        coordinate: coordinates[index],
-                        onUpdate: { newCoordinate in
-                            coordinates[index] = newCoordinate
-                            updateTargeting()
-                        }
-                    )
-                }
-                .onDelete { indexSet in
-                    coordinates.remove(atOffsets: indexSet)
-                    updateTargeting()
-                }
-
-                Button {
-                    coordinates.append(Targeting.LocationCoordinate(latitude: 0, longitude: 0))
-                    updateTargeting()
-                } label: {
-                    Label("Add Location", systemImage: "plus.circle.fill")
-                }
-            }
-
-            if !coordinates.isEmpty {
+        VStack {
+            List {
                 Section {
-                    Button(role: .destructive) {
-                        coordinates.removeAll()
-                        updateTargeting()
-                    } label: {
-                        Text("Clear All")
+                    Text(
+                        "Add latitude and longitude coordinates to target specific locations. You can add multiple coordinates to target different areas."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+
+                if !coordinates.isEmpty {
+                    ForEach(0..<coordinates.count, id: \.self) { index in
+                        Section {
+                            CoordinateRow(
+                                coordinate: coordinates[index],
+                                onUpdate: { newCoordinate in
+                                    coordinates[index] = newCoordinate
+                                    updateTargeting()
+                                }
+                            )
+                        }
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                coordinates.remove(at: index)
+                                updateTargeting()
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
+
+            VStack(spacing: 12) {
+                Button {
+                    coordinates.append((latitude: 0, longitude: 0))
+                    updateTargeting()
+                } label: {
+                    Label("Add Location", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 12)
+                        .background(.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                Button {
+                    coordinates.append(setRandomCoordinate())
+                    updateTargeting()
+                } label: {
+                    Label("Add Random Location", systemImage: "dice")
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.blue)
+                        .padding(.vertical, 12)
+                        .background(.blue.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                Button {
+                    coordinates.removeAll()
+                    updateTargeting()
+                } label: {
+                    Text("Clear All")
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(.red)
+                        .padding(.vertical, 12)
+                        .background(.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .disabled(coordinates.isEmpty)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
         }
         .navigationTitle("Location Targeting")
         .onAppear {
@@ -69,17 +87,16 @@ struct LocationTargetingPicker: View {
         }
     }
 
-    private func updateTargeting() {
-        let uniqueCoordinates = coordinates.reduce(into: [Targeting.LocationCoordinate]()) {
-            result, coordinate in
-            if !result.contains(coordinate) {
-                result.append(coordinate)
-            }
-        }
+    private func setRandomCoordinate() -> Targeting.LocationCoordinate {
+        let randomLatitude = (Double.random(in: -90...90) * 10000).rounded() / 10000
+        let randomLongitude = (Double.random(in: -180...180) * 10000).rounded() / 10000
+        return (latitude: randomLatitude, longitude: randomLongitude)
+    }
 
+    private func updateTargeting() {
         targeting = Targeting(
             geo: targeting.geo,
-            location: uniqueCoordinates.isEmpty ? nil : uniqueCoordinates,
+            location: coordinates.isEmpty ? nil : coordinates,
             custom: targeting.custom
         )
     }
@@ -103,59 +120,35 @@ private struct CoordinateRow: View {
     }
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text("Latitude")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack {
+            LabeledContent("Latitude") {
                 TextField("Latitude", text: $latitude)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .onChange(of: latitude) { _, _ in updateCoordinate() }
             }
 
-            VStack(alignment: .leading) {
-                Text("Longitude")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            LabeledContent("Longitude") {
                 TextField("Longitude", text: $longitude)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .onChange(of: longitude) { _, _ in updateCoordinate() }
             }
-
-            Button {
-                setRandomCoordinate()
-            } label: {
-                Image(systemName: "dice")
-            }
-            .buttonStyle(.borderless)
-        }
-        .onChange(of: coordinate) { _, newCoordinate in
-            latitude = String(newCoordinate.latitude)
-            longitude = String(newCoordinate.longitude)
         }
     }
 
     private func updateCoordinate() {
         guard let lat = Double(latitude),
             let lon = Double(longitude)
-        else { return }
-
-        onUpdate(
-            Targeting.LocationCoordinate(
-                latitude: lat,
-                longitude: lon
-            ))
+        else {
+            return
+        }
+        onUpdate((latitude: lat, longitude: lon))
     }
+}
 
-    private func setRandomCoordinate() {
-        // Random coordinates within reasonable bounds
-        let lat = Double.random(in: -90...90)
-        let lon = Double.random(in: -180...180)
-
-        latitude = String(format: "%.6f", lat)
-        longitude = String(format: "%.6f", lon)
-        updateCoordinate()
+#Preview {
+    NavigationStack {
+        LocationTargetingPicker(targeting: .constant(Targeting()))
     }
 }

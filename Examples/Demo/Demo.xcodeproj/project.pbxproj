@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8216F2972D13CC5A00BCC1F2 /* AdMoai in Frameworks */ = {isa = PBXBuildFile; productRef = 8216F2962D13CC5A00BCC1F2 /* AdMoai */; };
+		8220D5C72D282EF200618809 /* AdMoai in Frameworks */ = {isa = PBXBuildFile; productRef = 8220D5C62D282EF200618809 /* AdMoai */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8216F2972D13CC5A00BCC1F2 /* AdMoai in Frameworks */,
+				8220D5C72D282EF200618809 /* AdMoai in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,7 +78,7 @@
 			);
 			name = Demo;
 			packageProductDependencies = (
-				8216F2962D13CC5A00BCC1F2 /* AdMoai */,
+				8220D5C62D282EF200618809 /* AdMoai */,
 			);
 			productName = Demo;
 			productReference = 828CE7C82D0B464100C10F6C /* Demo.app */;
@@ -110,7 +110,7 @@
 			mainGroup = 828CE7BF2D0B464100C10F6C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				828CE7EE2D0B482200C10F6C /* XCLocalSwiftPackageReference "../../../admoai-ios" */,
+				8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../../../admoai-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 828CE7C92D0B464100C10F6C /* Products */;
@@ -352,16 +352,15 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		828CE7EE2D0B482200C10F6C /* XCLocalSwiftPackageReference "../../../admoai-ios" */ = {
+		8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../../../admoai-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../../../admoai-ios";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		8216F2962D13CC5A00BCC1F2 /* AdMoai */ = {
+		8220D5C62D282EF200618809 /* AdMoai */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 828CE7EE2D0B482200C10F6C /* XCLocalSwiftPackageReference "../../../admoai-ios" */;
 			productName = AdMoai;
 		};
 /* End XCSwiftPackageProductDependency section */
