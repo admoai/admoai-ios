@@ -49,6 +49,9 @@ public enum Format: String, Encodable {
 }
 
 public struct Targeting: Encodable {
+    public typealias LocationCoordinate = (latitude: Double, longitude: Double)
+    public typealias CustomKeyValue = (key: String, value: Any)
+
     public let geo: [Int]?
     public let location: [LocationCoordinate]?
     public let custom: [CustomKeyValue]?
@@ -63,51 +66,30 @@ public struct Targeting: Encodable {
         self.custom = custom
     }
 
-    public struct LocationCoordinate: Encodable, Equatable {
-        public let latitude: Double
-        public let longitude: Double
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(geo, forKey: .geo)
 
-        public init(latitude: Double, longitude: Double) {
-            self.latitude = latitude
-            self.longitude = longitude
+        if let locations = location {
+            try container.encode(
+                locations.map { coord in
+                    ["latitude": coord.latitude, "longitude": coord.longitude]
+                }, forKey: .location)
         }
 
-        public static func == (lhs: LocationCoordinate, rhs: LocationCoordinate) -> Bool {
-            lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
+        if let customs = custom {
+            let encodableCustoms = customs.map { kv in
+                [
+                    "key": AnyCodable(kv.key),
+                    "value": AnyCodable(kv.value),
+                ]
+            }
+            try container.encode(encodableCustoms, forKey: .custom)
         }
     }
 
-    public struct CustomKeyValue: Encodable, Equatable {
-        public let key: String
-        public let value: AnyCodable
-
-        public init(key: String, value: AnyCodable) {
-            self.key = key
-            self.value = value
-        }
-
-        public static func == (lhs: CustomKeyValue, rhs: CustomKeyValue) -> Bool {
-            // Compare keys
-            guard lhs.key == rhs.key else { return false }
-
-            // Compare values based on their actual types
-            if let lhsBool = lhs.value as? Bool,
-                let rhsBool = rhs.value as? Bool
-            {
-                return lhsBool == rhsBool
-            }
-            if let lhsNumber = lhs.value as? Double,
-                let rhsNumber = rhs.value as? Double
-            {
-                return lhsNumber == rhsNumber
-            }
-            if let lhsString = lhs.value as? String,
-                let rhsString = rhs.value as? String
-            {
-                return lhsString == rhsString
-            }
-            return false
-        }
+    private enum CodingKeys: String, CodingKey {
+        case geo, location, custom
     }
 }
 

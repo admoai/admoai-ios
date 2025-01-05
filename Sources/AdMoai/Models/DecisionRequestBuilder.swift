@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 public class DecisionRequestBuilder {
     private var placements: [Placement] = []
@@ -96,12 +95,23 @@ public class DecisionRequestBuilder {
     public func setLocationTargeting(_ locations: [Targeting.LocationCoordinate]?)
         -> DecisionRequestBuilder
     {
+        let uniqueLocations = locations?.reduce(into: [Targeting.LocationCoordinate]()) {
+            result, coordinate in
+            let exists = result.contains { existing in
+                existing.latitude == coordinate.latitude
+                    && existing.longitude == coordinate.longitude
+            }
+            if !exists {
+                result.append(coordinate)
+            }
+        }
+
         if targeting == nil {
-            targeting = Targeting(location: locations)
+            targeting = Targeting(location: uniqueLocations)
         } else {
             targeting = Targeting(
                 geo: targeting?.geo,
-                location: locations,
+                location: uniqueLocations,
                 custom: targeting?.custom
             )
         }
@@ -110,43 +120,51 @@ public class DecisionRequestBuilder {
 
     public func addLocationTargeting(latitude: Double, longitude: Double) -> DecisionRequestBuilder
     {
-        let coordinate = Targeting.LocationCoordinate(latitude: latitude, longitude: longitude)
         var currentLocations = targeting?.location ?? []
-        currentLocations.append(coordinate)
+        currentLocations.append((latitude: latitude, longitude: longitude))
         return setLocationTargeting(currentLocations)
     }
 
-    public func addLocationTargeting(_ location: Targeting.LocationCoordinate)
+    public func addLocationTargeting(_ latitude: Double, _ longitude: Double)
         -> DecisionRequestBuilder
     {
-        var currentLocations = targeting?.location ?? []
-        currentLocations.append(location)
-        return setLocationTargeting(currentLocations)
+        addLocationTargeting(latitude: latitude, longitude: longitude)
     }
 
     public func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
     {
+        let uniqueCustom = custom?.reduce(into: [Targeting.CustomKeyValue]()) { result, keyValue in
+            result.removeAll { $0.key == keyValue.key }
+            result.append(keyValue)
+        }
+
         if targeting == nil {
-            targeting = Targeting(custom: custom)
+            targeting = Targeting(custom: uniqueCustom)
         } else {
             targeting = Targeting(
                 geo: targeting?.geo,
                 location: targeting?.location,
-                custom: custom
+                custom: uniqueCustom
             )
         }
         return self
     }
 
-    public func addCustomTargeting(key: String, value: AnyCodable) -> DecisionRequestBuilder {
+    public func addCustomTargeting(key: String, value: String) -> DecisionRequestBuilder {
         var currentCustom = targeting?.custom ?? []
-        currentCustom.append(Targeting.CustomKeyValue(key: key, value: value))
+        currentCustom.append((key: key, value: value))
         return setCustomTargeting(currentCustom)
     }
 
-    public func addCustomTargeting(_ custom: Targeting.CustomKeyValue) -> DecisionRequestBuilder {
+    public func addCustomTargeting<T: Numeric>(key: String, value: T) -> DecisionRequestBuilder {
         var currentCustom = targeting?.custom ?? []
-        currentCustom.append(custom)
+        currentCustom.append((key: key, value: value))
+        return setCustomTargeting(currentCustom)
+    }
+
+    public func addCustomTargeting(key: String, value: Bool) -> DecisionRequestBuilder {
+        var currentCustom = targeting?.custom ?? []
+        currentCustom.append((key: key, value: value))
         return setCustomTargeting(currentCustom)
     }
 
