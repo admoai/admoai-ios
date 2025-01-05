@@ -3,8 +3,7 @@ import Testing
 
 @testable import AdMoai
 
-// private let baseURL = "https://mock.api.admoai.com"
-private let baseURL = "http://localhost:8080"
+private let baseURL = "https://mock.api.admoai.com"
 private let config = SDKConfig(baseUrl: baseURL)
 private let sdk = AdMoai(config: config)
 
