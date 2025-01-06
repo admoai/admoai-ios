@@ -92,6 +92,17 @@ public class DecisionRequestBuilder {
         return setGeoTargeting(currentGeo)
     }
 
+    public func clearGeoTargeting() -> DecisionRequestBuilder {
+        if targeting != nil {
+            targeting = Targeting(
+                geo: nil,
+                location: targeting?.location,
+                custom: targeting?.custom
+            )
+        }
+        return self
+    }
+
     public func setLocationTargeting(_ locations: [Targeting.LocationCoordinate]?)
         -> DecisionRequestBuilder
     {
@@ -131,6 +142,17 @@ public class DecisionRequestBuilder {
         addLocationTargeting(latitude: latitude, longitude: longitude)
     }
 
+    public func clearLocationTargeting() -> DecisionRequestBuilder {
+        if targeting != nil {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: nil,
+                custom: targeting?.custom
+            )
+        }
+        return self
+    }
+
     public func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
     {
         let uniqueCustom = custom?.reduce(into: [Targeting.CustomKeyValue]()) { result, keyValue in
@@ -166,6 +188,17 @@ public class DecisionRequestBuilder {
         var currentCustom = targeting?.custom ?? []
         currentCustom.append((key: key, value: value))
         return setCustomTargeting(currentCustom)
+    }
+
+    public func clearCustomTargeting() -> DecisionRequestBuilder {
+        if targeting != nil {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: targeting?.location,
+                custom: nil
+            )
+        }
+        return self
     }
 
     // User methods
@@ -234,6 +267,30 @@ public class DecisionRequestBuilder {
     public func disableDeviceCollection() -> DecisionRequestBuilder {
         collectDeviceData = false
         device = nil
+        return self
+    }
+
+    public func clearPlacements() -> DecisionRequestBuilder {
+        placements.removeAll()
+        return self
+    }
+
+    public func clearTargeting() -> DecisionRequestBuilder {
+        targeting = nil
+        return self
+    }
+
+    public func clearUser() -> DecisionRequestBuilder {
+        user = nil
+        return self
+    }
+
+    public func clearAll() -> DecisionRequestBuilder {
+        _ = clearPlacements()
+        _ = clearTargeting()
+        _ = clearUser()
+        _ = disableDeviceCollection()
+        _ = disableAppCollection()
         return self
     }
 

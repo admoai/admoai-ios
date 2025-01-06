@@ -290,4 +290,64 @@ struct DecisionRequestTests {
             }
         }
     }
+
+    @Test
+    func testClearingOperations() {
+        let builder = sdk.createRequestBuilder()
+            .addPlacement(key: "home")
+            .addGeoTargeting(5819)
+            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)
+            .addCustomTargeting(key: "category", value: "news")
+            .setUserId("user123")
+
+        // Test individual clear operations
+        var request = builder.clearPlacements().build()
+        #expect(request.placements.isEmpty)
+        #expect(request.targeting?.geo?.isEmpty == false)
+
+        request = builder.clearTargeting().build()
+        #expect(request.targeting == nil)
+        #expect(request.user != nil)
+
+        request = builder.clearUser().build()
+        #expect(request.user == nil)
+
+        // Test clearAll operation
+        request =
+            builder
+            .addPlacement(key: "home")
+            .addCustomTargeting(key: "weather", value: "sunny")
+            .setUserId("user123")
+            .clearAll()
+            .build()
+
+        #expect(request.placements.isEmpty)
+        #expect(request.targeting == nil)
+        #expect(request.user == nil)
+        #expect(request.device == nil)
+        #expect(request.app == nil)
+    }
+
+    @Test
+    func testSpecificTargetingClears() {
+        let builder = sdk.createRequestBuilder()
+            .addGeoTargeting(5819)
+            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)
+            .addCustomTargeting(key: "category", value: "news")
+
+        var request = builder.clearGeoTargeting().build()
+        #expect(request.targeting?.geo == nil)
+        #expect(request.targeting?.location != nil)
+        #expect(request.targeting?.custom != nil)
+
+        request = builder.clearLocationTargeting().build()
+        #expect(request.targeting?.geo == nil)
+        #expect(request.targeting?.location == nil)
+        #expect(request.targeting?.custom != nil)
+
+        request = builder.clearCustomTargeting().build()
+        #expect(request.targeting?.geo == nil)
+        #expect(request.targeting?.location == nil)
+        #expect(request.targeting?.custom == nil)
+    }
 }
