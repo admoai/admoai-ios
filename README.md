@@ -45,7 +45,6 @@ Then run `swift package resolve` to download and integrate the package.
 ```swift
 // Initialize SDK with base URL and optional configurations
 let config = SDKConfig(baseUrl: "https://example.api.admoai.com")
-
 let sdk = AdMoai(config: config)
 
 // Configure user settings globally
@@ -84,6 +83,7 @@ let request = sdk.createRequestBuilder()
     // Add targeting
     .addGeoTargeting(2643743)  // London
     .addLocationTargeting(latitude: 37.7749, longitude: -122.4194)
+    .addCustomTargeting(key: "category", value: "news")
 
     // Build request
     .build()
@@ -109,6 +109,13 @@ if let decision = response.body.data?.first,
         UIApplication.shared.open(url)
     }
 }
+```
+
+4. Clean up on logout:
+
+```swift
+// Reset user configuration when user logs out
+sdk.clearUserConfig()  // Resets to: id = nil, ip = nil, timezone = nil, consent.gdpr = false
 ```
 
 ## Event Tracking
@@ -148,6 +155,9 @@ sdk.fireClick(tracking: creative.tracking, key: "slide1")
 sdk.fireCustom(tracking: creative.tracking, key: "companionOpened")
 ```
 
+> [!NOTE]
+> The `key` parameter is optional for impressions and clicks, defaulting to `default`.
+
 ### Utility Functions
 
 Here's an example of utility functions to handle tracking and URL opening:
@@ -173,7 +183,7 @@ func handleCustomEvent(tracking: Tracking, key: String) {
 ```
 
 > [!NOTE]
-> The SDK automatically handles impression and custom event tracking through URL sessions. For clicks, opening the URL in a browser handles both the tracking and destination URL redirection in a single request. The key parameter is optional for impressions and clicks, defaulting to "default".
+> For click tracking, opening the URL in a browser handles both the tracking and destination URL redirection in a single request.
 
 ## Demo App
 
@@ -181,4 +191,4 @@ For a complete example implementation, check out the [demo app](Examples/Demo/RE
 
 ## Documentation
 
-For detailed documentation, please visit our [documentation site](https://docs.admoai.com).
+For detailed documentation, please visit the [SDK documentation](https://admoai.github.io/admoai-ios/documentation/admoai) or our [documentation site](https://docs.admoai.com).
