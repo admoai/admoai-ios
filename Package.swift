@@ -13,6 +13,9 @@ let package = Package(
             name: "AdMoai",
             targets: ["AdMoai"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0")
+    ],
     targets: [
         .target(
             name: "AdMoai"),
