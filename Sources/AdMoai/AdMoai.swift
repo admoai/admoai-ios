@@ -136,7 +136,7 @@ public struct AdMoai {
         }
     }
 
-    public func fireClick(tracking: Tracking, key: String) {
+    public func fireClick(tracking: Tracking, key: String = "default") {
         if let url = tracking.getClickUrl(key: key) {
             fireTracking(url: url)
         }
