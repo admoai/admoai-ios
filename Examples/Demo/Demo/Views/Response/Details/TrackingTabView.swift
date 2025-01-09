@@ -10,6 +10,7 @@ private enum TrackingButtonState {
 
 struct TrackingTabView: View {
     let creative: Creative
+    @EnvironmentObject private var viewModel: ContentViewModel
 
     var body: some View {
         List {
@@ -52,6 +53,7 @@ struct TrackingItemView: View {
     let key: String
     let url: String
     @State private var buttonState: TrackingButtonState = .ready
+    @EnvironmentObject private var viewModel: ContentViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -108,27 +110,11 @@ struct TrackingItemView: View {
             return
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        viewModel.sdk.fireTracking(url: url.absoluteString)
 
-        let config = URLSessionConfiguration.default
-        config.httpShouldSetCookies = false
-        config.httpShouldUsePipelining = true
-        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-
-        let session = URLSession(configuration: config)
-
-        session.dataTask(with: request) { _, response, error in
-            DispatchQueue.main.async {
-                if error == nil {
-                    buttonState = .success
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        buttonState = .ready
-                    }
-                } else {
-                    buttonState = .error
-                }
-            }
-        }.resume()
+        buttonState = .success
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            buttonState = .ready
+        }
     }
 }

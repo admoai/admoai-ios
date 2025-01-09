@@ -17,7 +17,7 @@ final class ContentViewModel: ObservableObject {
     @Published var collectAppData = true
     @Published var collectDeviceData = true
 
-    private var sdk: AdMoai
+    var sdk: AdMoai
 
     // MARK: - Initialization
 
