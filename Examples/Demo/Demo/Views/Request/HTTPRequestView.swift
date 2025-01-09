@@ -76,9 +76,13 @@ struct HTTPRequestView: View {
 #Preview {
     HTTPRequestView(
         request: HTTPRequest(
-            path: "/v1/decisions",
+            path: "/v1/decision",
             method: .get,
-            headers: [:],
+            headers: [
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Accept-Language": "en"
+            ],
             body: """
                 {
                   "placement": {
