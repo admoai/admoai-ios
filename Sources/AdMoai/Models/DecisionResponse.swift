@@ -13,6 +13,9 @@ public struct Creative: Decodable {
     public let advertiser: Advertiser
     public let template: Template
     public let tracking: Tracking
+    // Existing fields...
+    public let delivery: String // "vast_tag", "vast_xml", "json"
+    public let vast: VastData?
 }
 
 public struct Content: Decodable {
@@ -56,10 +59,17 @@ public struct Template: Decodable {
     public let style: String
 }
 
+public struct VastData: Decodable {
+    public let tagUrl: String? // For vast_tag delivery
+    public let xmlBase64: String? // For vast_xml delivery
+}
+
 public struct Tracking: Decodable {
     public let impressions: [TrackingItem]
     public let clicks: [TrackingItem]?
     public let custom: [TrackingItem]?
+    // Existing fields...
+    public let videoEvents: [TrackingItem]? // For JSON delivery video tracking
 
     public func hasTrackingFor(type: TrackingType, key: String) -> Bool {
         switch type {
