@@ -1,5 +1,10 @@
 # AdMoai iOS SDK
 
+[![Swift Package Manager](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)](https://swift.org/package-manager/)
+[![Platform](https://img.shields.io/badge/platform-iOS%2014%2B%20%7C%20macOS%2011%2B-blue.svg)](https://developer.apple.com)
+[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+
 AdMoai iOS SDK is a native advertising solution that enables seamless integration of ads into iOS applications. The SDK provides a robust API for requesting and displaying various ad formats with advanced targeting capabilities.
 
 ## Features
@@ -189,6 +194,27 @@ func handleCustomEvent(tracking: Tracking, key: String) {
 
 For a complete example implementation, check out the [demo app](Examples/Demo/README.md).
 
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+
+- How to submit Pull Requests
+- Commit message conventions (Conventional Commits)
+- Code style and testing requirements
+- Development workflow
+
 ## Documentation
 
 For detailed documentation, please visit the [SDK documentation](https://admoai.github.io/admoai-ios/documentation/admoai) or our [documentation site](https://docs.admoai.com).
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **API Documentation**: https://admoai.github.io/admoai-ios/documentation/admoai
+- **Issues**: [GitHub Issues](https://github.com/admoai/admoai-ios/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/admoai/admoai-ios/discussions)
+- **Email**: support@admoai.com
+
