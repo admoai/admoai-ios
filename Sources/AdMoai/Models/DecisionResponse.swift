@@ -13,6 +13,7 @@ public struct Creative: Decodable {
     public let advertiser: Advertiser
     public let template: Template
     public let tracking: Tracking
+    public let verificationScriptResources: [VerificationScriptResource]?
 }
 
 public struct Content: Decodable {
@@ -105,4 +106,10 @@ public enum TrackingType: String {
     case impression = "impression"
     case click = "click"
     case custom = "custom"
+}
+
+public struct VerificationScriptResource: Decodable {
+    public let vendorKey: String
+    public let scriptUrl: String
+    public let verificationParameters: String
 }

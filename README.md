@@ -190,6 +190,74 @@ func handleCustomEvent(tracking: Tracking, key: String) {
 > [!NOTE]
 > For click tracking, opening the URL in a browser handles both the tracking and destination URL redirection in a single request.
 
+## Open Measurement Integration
+
+The AdMoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party verification SDKs such as IAS (Integral Ad Science) or DoubleVerify.
+
+### Accessing Verification Resources
+
+Each creative may include Open Measurement verification script resources that contain the necessary data for third-party verification:
+
+```swift
+if let creative = decision.creatives?.first {
+    // Check if the creative has OM verification data
+    if creative.hasOMVerification() {
+        // Get the verification resources
+        if let verificationResources = creative.getVerificationResources() {
+            for resource in verificationResources {
+                print("Vendor: \(resource.vendorKey)")
+                print("Script URL: \(resource.scriptUrl)")
+                print("Parameters: \(resource.verificationParameters)")
+                
+                // Use these values with your third-party verification SDK
+                // Example: IAS or DoubleVerify integration
+            }
+        }
+    }
+}
+```
+
+### Verification Script Resource Properties
+
+Each `VerificationScriptResource` contains:
+
+- **vendorKey**: The identifier for the verification vendor (e.g., "ias", "doubleverify")
+- **scriptUrl**: The URL to the verification script that needs to be loaded
+- **verificationParameters**: Additional parameters required for verification setup
+
+### Integration Example
+
+Here's a complete example of how to extract and use OM data:
+
+```swift
+func setupOMVerification(for creative: Creative) {
+    guard creative.hasOMVerification(),
+          let resources = creative.getVerificationResources() else {
+        return
+    }
+    
+    for resource in resources {
+        // Extract OM data
+        let vendorKey = resource.vendorKey
+        let scriptUrl = resource.scriptUrl
+        let parameters = resource.verificationParameters
+        
+        // Integrate with your chosen verification SDK
+        // Example pseudocode:
+        // if vendorKey == "ias" {
+        //     IASSDK.setupVerification(scriptUrl: scriptUrl, parameters: parameters)
+        // } else if vendorKey == "doubleverify" {
+        //     DoubleVerifySDK.setupVerification(scriptUrl: scriptUrl, parameters: parameters)
+        // }
+    }
+}
+```
+
+### Important Notice
+
+> [!WARNING]
+> **OM Certification Notice**: The AdMoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. The final integration and certification responsibility lies with the publisher. Publishers must ensure that their implementation with third-party verification SDKs (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. AdMoai acts as a data provider only; publishers are responsible for the proper implementation and certification of their OM integration.
+
 ## Demo App
 
 For a complete example implementation, check out the [demo app](Examples/Demo/README.md).
