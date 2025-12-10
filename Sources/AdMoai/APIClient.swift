@@ -3,13 +3,21 @@ import OSLog
 
 internal class AdMoaiClient {
     private let baseURL: String
+    private let apiVersion: String?
+    private let defaultLanguage: String?
     private let session: URLSession
     private let logger: Logger
 
     public init(
-        baseURL: String, sessionConfiguration: URLSessionConfiguration = .default, logger: Logger
+        baseURL: String,
+        apiVersion: String? = nil,
+        defaultLanguage: String? = nil,
+        sessionConfiguration: URLSessionConfiguration = .default,
+        logger: Logger
     ) {
         self.baseURL = baseURL
+        self.apiVersion = apiVersion
+        self.defaultLanguage = defaultLanguage
         self.logger = logger
         self.session = URLSession(configuration: sessionConfiguration)
     }
@@ -122,13 +130,25 @@ internal class AdMoaiClient {
     public func createDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
         let body = try JSONEncoder().encode(request)
 
+        var headers: [String: String] = [
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        ]
+        
+        // Add Accept-Language header if configured
+        if let defaultLanguage = defaultLanguage {
+            headers["Accept-Language"] = defaultLanguage
+        }
+        
+        // Add API version header if configured
+        if let apiVersion = apiVersion {
+            headers["X-Decision-Version"] = apiVersion
+        }
+
         return HTTPRequest(
             path: "/v1/decision",
             method: .post,
-            headers: [
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            ],
+            headers: headers,
             body: body
         )
     }
