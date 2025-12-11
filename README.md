@@ -1,6 +1,13 @@
 # AdMoai iOS SDK
 
+
 The AdMoai iOS SDK is a lightweight wrapper around the Decision Engine API, enabling iOS applications to request, render, and track native and video advertisements with advanced targeting capabilities.
+
+[![Swift Package Manager](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)](https://swift.org/package-manager/)
+[![Platform](https://img.shields.io/badge/platform-iOS%2014%2B%20%7C%20macOS%2011%2B-blue.svg)](https://developer.apple.com)
+[![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+
 
 ## Features
 
@@ -351,17 +358,25 @@ See the [Demo App](Examples/Demo/README.md) for complete integration examples de
 
 ---
 
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+
+- How to submit Pull Requests
+- Commit message conventions (Conventional Commits)
+- Code style and testing requirements
+- Development workflow
+
 ## Documentation
 
+
 For detailed documentation, please visit:
-- [SDK Documentation](https://admoai.github.io/admoai-ios/documentation/admoai)
 - [API Documentation](https://docs.admoai.com)
 
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/admoai/admoai-ios/issues)
 - **Email**: support@admoai.com
 
 ---
@@ -369,3 +384,9 @@ For detailed documentation, please visit:
 ## License
 
 Copyright 2025 Admoai Inc. All rights reserved.
+=======
+For detailed documentation, please visit the [SDK documentation](https://admoai.github.io/admoai-ios/documentation/admoai) or our [documentation site](https://docs.admoai.com).
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
