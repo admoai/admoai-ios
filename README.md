@@ -275,10 +275,6 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 For detailed documentation, please visit the [SDK documentation](https://admoai.github.io/admoai-ios/documentation/admoai) or our [documentation site](https://docs.admoai.com).
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Support
 
 - **API Documentation**: https://admoai.github.io/admoai-ios/documentation/admoai
