@@ -1,11 +1,11 @@
-# AdMoai iOS SDK
+# Admoai iOS SDK
 
 [![Swift Package Manager](https://img.shields.io/badge/SPM-compatible-brightgreen.svg)](https://swift.org/package-manager/)
 [![Platform](https://img.shields.io/badge/platform-iOS%2014%2B%20%7C%20macOS%2011%2B-blue.svg)](https://developer.apple.com)
 [![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
-AdMoai iOS SDK is a native advertising solution that enables seamless integration of ads into iOS applications. The SDK provides a robust API for requesting and displaying various ad formats with advanced targeting capabilities.
+Admoai iOS SDK is a native advertising solution that enables seamless integration of ads into iOS applications. The SDK provides a robust API for requesting and displaying various ad formats with advanced targeting capabilities.
 
 ## Features
 
@@ -50,7 +50,7 @@ Then run `swift package resolve` to download and integrate the package.
 ```swift
 // Initialize SDK with base URL and optional configurations
 let config = SDKConfig(baseUrl: "https://example.api.admoai.com")
-let sdk = AdMoai(config: config)
+let sdk = Admoai(config: config)
 
 // Configure user settings globally
 sdk.setUserConfig(
@@ -123,6 +123,10 @@ if let decision = response.body.data?.first,
 sdk.clearUserConfig()  // Resets to: id = nil, ip = nil, timezone = nil, consent.gdpr = false
 ```
 
+## Sample App
+
+For a complete example implementation, check out the [demo app](Examples/Demo/README.md).
+
 ## Event Tracking
 
 The SDK automatically handles event tracking through URL sessions. Each creative contains tracking URLs for different events (impressions, clicks, custom events) that are called when triggered.
@@ -192,7 +196,7 @@ func handleCustomEvent(tracking: Tracking, key: String) {
 
 ## Open Measurement Integration
 
-The AdMoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party verification SDKs such as IAS (Integral Ad Science) or DoubleVerify.
+The Admoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party viewability and verification measurement providers, such as Integral Ad Science (IAS), DoubleVerify, Moat, and others.
 
 ### Accessing Verification Resources
 
@@ -208,7 +212,7 @@ if let creative = decision.creatives?.first {
                 print("Vendor: \(resource.vendorKey)")
                 print("Script URL: \(resource.scriptUrl)")
                 print("Parameters: \(resource.verificationParameters)")
-                
+
                 // Use these values with your third-party verification SDK
                 // Example: IAS or DoubleVerify integration
             }
@@ -235,13 +239,13 @@ func setupOMVerification(for creative: Creative) {
           let resources = creative.getVerificationResources() else {
         return
     }
-    
+
     for resource in resources {
         // Extract OM data
         let vendorKey = resource.vendorKey
         let scriptUrl = resource.scriptUrl
         let parameters = resource.verificationParameters
-        
+
         // Integrate with your chosen verification SDK
         // Example pseudocode:
         // if vendorKey == "ias" {
@@ -255,12 +259,8 @@ func setupOMVerification(for creative: Creative) {
 
 ### Important Notice
 
-> [!WARNING]
-> **OM Certification Notice**: The AdMoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. The final integration and certification responsibility lies with the publisher. Publishers must ensure that their implementation with third-party verification SDKs (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. AdMoai acts as a data provider only; publishers are responsible for the proper implementation and certification of their OM integration.
-
-## Demo App
-
-For a complete example implementation, check out the [demo app](Examples/Demo/README.md).
+> [!WARNING] 
+> **OM Certification Notice**: The Admoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. Publishers must ensure that their implementation with third-party verification providers (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. Admoai acts as a stict ad server only; publishers are responsible for the proper implementation of their OM integration.
 
 ## Contributing
 
@@ -286,3 +286,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](https://github.com/admoai/admoai-ios/discussions)
 - **Email**: support@admoai.com
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
