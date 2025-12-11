@@ -20,6 +20,8 @@ public struct AdMoai {
 
         self.client = AdMoaiClient(
             baseURL: config.baseUrl,
+            apiVersion: config.apiVersion,
+            defaultLanguage: config.defaultLanguage,
             sessionConfiguration: config.sessionConfiguration,
             logger: config.logger
         )
@@ -144,6 +146,12 @@ public struct AdMoai {
 
     public func fireCustom(tracking: Tracking, key: String) {
         if let url = tracking.getCustomUrl(key: key) {
+            fireTracking(url: url)
+        }
+    }
+
+    public func fireVideoEvent(tracking: Tracking, key: String) {
+        if let url = tracking.getVideoEventUrl(key: key) {
             fireTracking(url: url)
         }
     }

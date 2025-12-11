@@ -2,16 +2,30 @@ import OSLog
 
 public struct SDKConfig {
     public let baseUrl: String
+    /// API version for the Decision Engine (e.g., "2025-11-01"). Enables format filter for Video Ads.
+    public let apiVersion: String?
+    /// Default language for ad requests (e.g., "en", "es"). Sets Accept-Language header.
+    public let defaultLanguage: String?
     public let logger: Logger
     public let sessionConfiguration: URLSessionConfiguration
 
-    /// Initializes the SDKConfig with a base URL, logger, and session configuration.
+    /// Initializes the SDKConfig with a base URL, optional API version, logger, and session configuration.
+    /// - Parameters:
+    ///   - baseUrl: The Decision Engine API endpoint
+    ///   - apiVersion: Optional API version (e.g., "2025-11-01" for format filter support)
+    ///   - defaultLanguage: Optional default language for requests (e.g., "en", "es")
+    ///   - logger: Logger instance for SDK logging
+    ///   - sessionConfiguration: URL session configuration
     public init(
         baseUrl: String,
+        apiVersion: String? = nil,
+        defaultLanguage: String? = nil,
         logger: Logger = Logger(subsystem: "com.admoai.sdk", category: "AdMoaiSDK"),
         sessionConfiguration: URLSessionConfiguration = defaultSessionConfiguration()
     ) {
         self.baseUrl = baseUrl
+        self.apiVersion = apiVersion
+        self.defaultLanguage = defaultLanguage
         self.logger = logger
         self.sessionConfiguration = sessionConfiguration
         logger.debug("AdMoai SDK config initialized")

@@ -13,6 +13,9 @@ public struct Creative: Decodable {
     public let advertiser: Advertiser
     public let template: Template
     public let tracking: Tracking
+    // Existing fields...
+    public let delivery: String // "vast_tag", "vast_xml", "json"
+    public let vast: VastData?
 }
 
 public struct Content: Decodable {
@@ -56,10 +59,17 @@ public struct Template: Decodable {
     public let style: String
 }
 
+public struct VastData: Decodable {
+    public let tagUrl: String? // For vast_tag delivery
+    public let xmlBase64: String? // For vast_xml delivery
+}
+
 public struct Tracking: Decodable {
     public let impressions: [TrackingItem]
     public let clicks: [TrackingItem]?
     public let custom: [TrackingItem]?
+    // Existing fields...
+    public let videoEvents: [TrackingItem]? // For JSON delivery video tracking
 
     public func hasTrackingFor(type: TrackingType, key: String) -> Bool {
         switch type {
@@ -69,6 +79,8 @@ public struct Tracking: Decodable {
             return clicks?.contains { $0.key == key } ?? false
         case .custom:
             return custom?.contains { $0.key == key } ?? false
+        case .videoEvent:
+            return videoEvents?.contains { $0.key == key } ?? false
         }
     }
 
@@ -80,6 +92,8 @@ public struct Tracking: Decodable {
             return getClickUrl(key: key)
         case .custom:
             return getCustomUrl(key: key)
+        case .videoEvent:
+            return getVideoEventUrl(key: key)
         }
     }
 
@@ -94,6 +108,10 @@ public struct Tracking: Decodable {
     public func getCustomUrl(key: String) -> String? {
         custom?.first { $0.key == key }?.url
     }
+    
+    public func getVideoEventUrl(key: String) -> String? {
+        videoEvents?.first { $0.key == key }?.url
+    }
 }
 
 public struct TrackingItem: Decodable {
@@ -105,4 +123,5 @@ public enum TrackingType: String {
     case impression = "impression"
     case click = "click"
     case custom = "custom"
+    case videoEvent = "videoEvent"
 }
