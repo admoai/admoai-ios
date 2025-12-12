@@ -277,9 +277,6 @@ For detailed documentation, please visit the [SDK documentation](https://admoai.
 
 ## Support
 
-- **API Documentation**: https://admoai.github.io/admoai-ios/documentation/admoai
-- **Issues**: [GitHub Issues](https://github.com/admoai/admoai-ios/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/admoai/admoai-ios/discussions)
 - **Email**: support@admoai.com
 
 ## License
