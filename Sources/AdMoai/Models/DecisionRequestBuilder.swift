@@ -51,8 +51,8 @@ public class DecisionRequestBuilder {
     // Placement methods
     public func addPlacement(
         key: String,
-        count: Int = 1,
-        format: Format = .native,
+        count: Int? = nil,
+        format: Format? = nil,
         advertiserId: String? = nil,
         templateId: String? = nil
     ) -> DecisionRequestBuilder {
