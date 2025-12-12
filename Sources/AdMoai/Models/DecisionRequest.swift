@@ -24,15 +24,15 @@ public struct DecisionRequest: Encodable {
 
 public struct Placement: Encodable {
     public let key: String
-    public let count: Int
-    public let format: Format
+    public let count: Int?
+    public let format: Format?
     public let advertiserId: String?
     public let templateId: String?
 
     public init(
         key: String,
-        count: Int = 1,
-        format: Format = .native,
+        count: Int? = nil,
+        format: Format? = nil,
         advertiserId: String? = nil,
         templateId: String? = nil
     ) {
@@ -46,6 +46,7 @@ public struct Placement: Encodable {
 
 public enum Format: String, Encodable {
     case native = "native"
+    case video = "video"
 }
 
 public struct Targeting: Encodable {
