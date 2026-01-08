@@ -23,7 +23,7 @@ final class ContentViewModel: ObservableObject {
 
     init() {
         /// Initialize the SDK with a configuration
-        let config = SDKConfig(baseUrl: "https://mock.api.admoai.com")
+        let config = SDKConfig(baseUrl: "http://localhost:8080", apiVersion: "2025-11-01")
         self.sdk = AdMoai(config: config)
 
         /// For completeness, we can set the user config to a different user to see how the SDK behaves with different users.
@@ -40,6 +40,7 @@ final class ContentViewModel: ObservableObject {
             .addPlacement(placement)
             .setGeoTargeting(targeting.geo)
             .setLocationTargeting(targeting.location)
+            .setDestinationTargeting(targeting.destination)
             .setCustomTargeting(targeting.custom)
             .setUserIp(user.ip)
             .setUserId(user.id)

@@ -1,17 +1,17 @@
 import AdMoai
 import SwiftUI
 
-struct LocationTargetingPicker: View {
+struct DestinationTargetingPicker: View {
     @Binding var targeting: Targeting
     @Environment(\.dismiss) private var dismiss
-    @State private var coordinates: [Targeting.LocationCoordinate] = []
+    @State private var coordinates: [Targeting.DestinationCoordinate] = []
 
     var body: some View {
         VStack {
             List {
                 Section {
                     Text(
-                        "Add latitude and longitude coordinates to target specific locations. You can add multiple coordinates to target different areas."
+                        "Add destination coordinates with confidence level to target specific destinations. The min_confidence value (0.0-1.0) indicates the minimum confidence required for matching."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -20,7 +20,7 @@ struct LocationTargetingPicker: View {
                 if !coordinates.isEmpty {
                     ForEach(0..<coordinates.count, id: \.self) { index in
                         Section {
-                            CoordinateRow(
+                            DestinationCoordinateRow(
                                 coordinate: coordinates[index],
                                 onUpdate: { newCoordinate in
                                     coordinates[index] = newCoordinate
@@ -42,10 +42,10 @@ struct LocationTargetingPicker: View {
 
             VStack(spacing: 12) {
                 Button {
-                    coordinates.append((latitude: 0, longitude: 0))
+                    coordinates.append((latitude: 0, longitude: 0, minConfidence: 0.5))
                     updateTargeting()
                 } label: {
-                    Label("Add Location", systemImage: "plus")
+                    Label("Add Destination", systemImage: "plus")
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(.white)
                         .padding(.vertical, 12)
@@ -57,7 +57,7 @@ struct LocationTargetingPicker: View {
                     coordinates.append(setRandomCoordinate())
                     updateTargeting()
                 } label: {
-                    Label("Add Random Location", systemImage: "dice")
+                    Label("Add Random Destination", systemImage: "dice")
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(.blue)
                         .padding(.vertical, 12)
@@ -81,43 +81,46 @@ struct LocationTargetingPicker: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
         }
-        .navigationTitle("Location Targeting")
+        .navigationTitle("Destination Targeting")
         .onAppear {
-            coordinates = targeting.location ?? []
+            coordinates = targeting.destination ?? []
         }
     }
 
-    private func setRandomCoordinate() -> Targeting.LocationCoordinate {
+    private func setRandomCoordinate() -> Targeting.DestinationCoordinate {
         let randomLatitude = (Double.random(in: -90...90) * 10000).rounded() / 10000
         let randomLongitude = (Double.random(in: -180...180) * 10000).rounded() / 10000
-        return (latitude: randomLatitude, longitude: randomLongitude)
+        let randomConfidence = (Double.random(in: 0...1) * 100).rounded() / 100
+        return (latitude: randomLatitude, longitude: randomLongitude, minConfidence: randomConfidence)
     }
 
     private func updateTargeting() {
         targeting = Targeting(
             geo: targeting.geo,
-            location: coordinates.isEmpty ? nil : coordinates,
-            destination: targeting.destination,
+            location: targeting.location,
+            destination: coordinates.isEmpty ? nil : coordinates,
             custom: targeting.custom
         )
     }
 }
 
-private struct CoordinateRow: View {
-    let coordinate: Targeting.LocationCoordinate
-    let onUpdate: (Targeting.LocationCoordinate) -> Void
+private struct DestinationCoordinateRow: View {
+    let coordinate: Targeting.DestinationCoordinate
+    let onUpdate: (Targeting.DestinationCoordinate) -> Void
 
     @State private var latitude: String
     @State private var longitude: String
+    @State private var minConfidence: String
 
     init(
-        coordinate: Targeting.LocationCoordinate,
-        onUpdate: @escaping (Targeting.LocationCoordinate) -> Void
+        coordinate: Targeting.DestinationCoordinate,
+        onUpdate: @escaping (Targeting.DestinationCoordinate) -> Void
     ) {
         self.coordinate = coordinate
         self.onUpdate = onUpdate
         _latitude = State(initialValue: String(coordinate.latitude))
         _longitude = State(initialValue: String(coordinate.longitude))
+        _minConfidence = State(initialValue: String(coordinate.minConfidence))
     }
 
     var body: some View {
@@ -135,21 +138,31 @@ private struct CoordinateRow: View {
                     .multilineTextAlignment(.trailing)
                     .onChange(of: longitude) { _, _ in updateCoordinate() }
             }
+
+            LabeledContent("Min Confidence") {
+                TextField("0.0 - 1.0", text: $minConfidence)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .onChange(of: minConfidence) { _, _ in updateCoordinate() }
+            }
         }
     }
 
     private func updateCoordinate() {
         guard let lat = Double(latitude),
-            let lon = Double(longitude)
+            let lon = Double(longitude),
+            let conf = Double(minConfidence)
         else {
             return
         }
-        onUpdate((latitude: lat, longitude: lon))
+        onUpdate((latitude: lat, longitude: lon, minConfidence: conf))
     }
 }
 
 #Preview {
     NavigationStack {
-        LocationTargetingPicker(targeting: .constant(Targeting()))
+        DestinationTargetingPicker(targeting: .constant(Targeting()))
     }
 }
+
+

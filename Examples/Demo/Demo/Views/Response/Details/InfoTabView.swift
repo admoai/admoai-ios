@@ -17,14 +17,14 @@ struct InfoTabView: View {
 
             Section {
                 LabeledContent("Key") {
-                    Text(creative.template.key)
+                    Text(creative.template!.key)
                         .monospaced()
                 }
                 .font(.caption)
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
 
                 LabeledContent("Style") {
-                    Text(creative.template.style)
+                    Text((creative.template?.style!)!)
                         .monospaced()
                 }
                 .font(.caption)
@@ -49,7 +49,7 @@ struct InfoTabView: View {
                         }
 
                         LabeledContent("Advertiser ID") {
-                            Text(metadata.advertiserId)
+                            Text(metadata.advertiserId!)
                                 .monospaced()
                         }
 
@@ -68,7 +68,7 @@ struct InfoTabView: View {
                         }
 
                         LabeledContent("Language") {
-                            Text(metadata.language)
+                            Text(metadata.language!)
                         }
                     }
                     .font(.caption)
@@ -90,7 +90,7 @@ private struct AdvertiserView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: advertiser.logoUrl)) { phase in
+            AsyncImage(url: URL(string: advertiser.logoUrl!)) { phase in
                 switch phase {
                 case .empty:
                     Circle()
@@ -118,10 +118,10 @@ private struct AdvertiserView: View {
             .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(advertiser.name)
+                Text(advertiser.name!)
                     .font(.subheadline)
                     .bold()
-                Text(advertiser.legalName)
+                Text(advertiser.legalName!)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

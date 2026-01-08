@@ -14,9 +14,9 @@ struct TrackingTabView: View {
 
     var body: some View {
         List {
-            if !creative.tracking.impressions.isEmpty {
+            if !creative.tracking.impressions!.isEmpty {
                 Section {
-                    ForEach(creative.tracking.impressions, id: \.key) { item in
+                    ForEach(creative.tracking.impressions!, id: \.key) { item in
                         TrackingItemView(key: item.key, url: item.url)
                     }
                 } header: {

@@ -38,10 +38,59 @@ struct CarouselAdView: View {
     var body: some View {
         GeometryReader { geometry in
             let cardWidth = geometry.size.width - 64
+            carouselContent(cardWidth: cardWidth)
+        }
+        .frame(height: contentHeight)
+        .onReceive(timer) { _ in
+            guard !isUserSwiping else { return }
+            withAnimation(.spring()) {
+                currentIndex = (currentIndex + 1) % slides.count
+            }
+        }
+    }
 
+    // MARK: - Private Views
+
+    @ViewBuilder
+    private func carouselContent(cardWidth: CGFloat) -> some View {
             HStack(spacing: spacing) {
                 ForEach(slides) { slide in
+                slideCard(slide: slide, cardWidth: cardWidth)
+            }
+        }
+        .offset(x: -CGFloat(currentIndex) * (cardWidth + spacing) + offset + 32)
+        .gesture(dragGesture(cardWidth: cardWidth))
+    }
+
+    @ViewBuilder
+    private func slideCard(slide: CarouselSlide, cardWidth: CGFloat) -> some View {
                     VStack(spacing: 0) {
+            slideImage(slide: slide, cardWidth: cardWidth)
+            slideHeadline(slide: slide)
+            slideCallToAction(slide: slide)
+            advertiserInfoView()
+        }
+        .background(.white)
+        .cornerRadius(12)
+        .shadow(radius: 4, y: 3)
+        .frame(width: cardWidth)
+        .background(
+            GeometryReader { itemGeometry in
+                Color.clear.onAppear {
+                    contentHeight = max(contentHeight, itemGeometry.size.height)
+                }
+            }
+        )
+        .onTapGesture {
+            viewModel.handleAdClick(creative: creative, key: "slide\(slide.id)")
+        }
+        .onAppear {
+            viewModel.handleAdImpression(creative: creative, key: "slide\(slide.id)")
+        }
+    }
+
+    @ViewBuilder
+    private func slideImage(slide: CarouselSlide, cardWidth: CGFloat) -> some View {
                         AsyncImage(url: URL(string: slide.image)) { phase in
                             switch phase {
                             case .empty, .failure:
@@ -59,14 +108,20 @@ struct CarouselAdView: View {
                         .frame(width: cardWidth)
                         .frame(height: cardWidth * 9 / 16)
                         .clipped()
+    }
 
+    @ViewBuilder
+    private func slideHeadline(slide: CarouselSlide) -> some View {
                         Text(slide.headline)
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
                             .fixedSize(horizontal: false, vertical: true)
+    }
 
+    @ViewBuilder
+    private func slideCallToAction(slide: CarouselSlide) -> some View {
                         HStack(spacing: 4) {
                             Text(slide.cta)
                                 .font(.caption)
@@ -79,12 +134,14 @@ struct CarouselAdView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 16)
+    }
 
+    @ViewBuilder
+    private func advertiserInfoView() -> some View {
                         HStack(spacing: 8) {
-                            AsyncImage(url: URL(string: creative.advertiser.logoUrl)) {
-                                phase in
+            AsyncImage(url: URL(string: creative.advertiser.logoUrl ?? "")) { phase in
                                 switch phase {
-                                case .empty:
+                case .empty, .failure:
                                     Image(systemName: "building.2")
                                         .frame(width: 16, height: 16)
                                 case .success(let image):
@@ -93,15 +150,12 @@ struct CarouselAdView: View {
                                         .aspectRatio(contentMode: .fit)
                                         .frame(width: 16, height: 16)
                                         .clipShape(RoundedRectangle(cornerRadius: 4))
-                                case .failure:
-                                    Image(systemName: "building.2")
-                                        .frame(width: 16, height: 16)
                                 @unknown default:
                                     EmptyView()
                                 }
                             }
 
-                            Text(creative.advertiser.name)
+            Text(creative.advertiser.name ?? "Advertiser")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
@@ -118,27 +172,10 @@ struct CarouselAdView: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                     }
-                    .background(.white)
-                    .cornerRadius(12)
-                    .shadow(radius: 4, y: 3)
-                    .frame(width: cardWidth)
-                    .background(
-                        GeometryReader { itemGeometry in
-                            Color.clear.onAppear {
-                                contentHeight = max(contentHeight, itemGeometry.size.height)
-                            }
-                        }
-                    )
-                    .onTapGesture {
-                        viewModel.handleAdClick(creative: creative, key: "slide\(slide.id)")
-                    }
-                    .onAppear {
-                        viewModel.handleAdImpression(creative: creative, key: "slide\(slide.id)")
-                    }
-                }
-            }
-            .offset(x: -CGFloat(currentIndex) * (cardWidth + spacing) + offset + 32)
-            .gesture(
+
+    // MARK: - Gesture
+
+    private func dragGesture(cardWidth: CGFloat) -> some Gesture {
                 DragGesture()
                     .onChanged { value in
                         isUserSwiping = true
@@ -168,15 +205,6 @@ struct CarouselAdView: View {
 
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isUserSwiping = false
-                        }
-                    }
-            )
-        }
-        .frame(height: contentHeight)
-        .onReceive(timer) { _ in
-            guard !isUserSwiping else { return }
-            withAnimation(.spring()) {
-                currentIndex = (currentIndex + 1) % slides.count
             }
         }
     }

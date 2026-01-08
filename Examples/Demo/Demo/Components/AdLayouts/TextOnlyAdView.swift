@@ -16,7 +16,7 @@ struct TextOnlyAdView: View {
                 HStack(spacing: 8) {
                     // Advertiser info
                     HStack(spacing: 6) {
-                        AsyncImage(url: URL(string: creative.advertiser.logoUrl)) { phase in
+                        AsyncImage(url: URL(string: creative.advertiser.logoUrl ?? "")) { phase in
                             switch phase {
                             case .empty:
                                 Image(systemName: "building.2")
@@ -35,7 +35,7 @@ struct TextOnlyAdView: View {
                             }
                         }
 
-                        Text(creative.advertiser.name)
+                        Text(creative.advertiser.name ?? "Advertiser")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

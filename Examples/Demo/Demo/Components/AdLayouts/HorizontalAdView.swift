@@ -7,11 +7,11 @@ struct HorizontalAdView: View {
     private let aspectRatio: CGFloat = 4  // 4:1 ratio
 
     private var isImageRight: Bool {
-        creative.template.style == "imageRight"
+        creative.template?.style == "imageRight"
     }
 
     private var isImageOnly: Bool {
-        creative.template.style == "wideImageOnly"
+        creative.template?.style == "wideImageOnly"
     }
 
     private var wideImage: String? {
@@ -151,7 +151,7 @@ struct HorizontalAdView: View {
 
     private func advertiserInfoView(isOverlay: Bool = false) -> some View {
         HStack {
-            AsyncImage(url: URL(string: creative.advertiser.logoUrl)) { phase in
+            AsyncImage(url: URL(string: creative.advertiser.logoUrl ?? "")) { phase in
                 switch phase {
                 case .empty:
                     SkeletonShape(
@@ -170,7 +170,7 @@ struct HorizontalAdView: View {
                 }
             }
 
-            Text(creative.advertiser.name)
+            Text(creative.advertiser.name ?? "Advertiser")
                 .font(.caption)
                 .foregroundColor(isOverlay ? .white : .secondary)
 

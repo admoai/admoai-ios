@@ -81,6 +81,7 @@ The key and value must be valid according to the ad server preset settings. For 
         targeting = Targeting(
             geo: targeting.geo,
             location: targeting.location,
+            destination: targeting.destination,
             custom: customs.isEmpty ? nil : customs
         )
     }
