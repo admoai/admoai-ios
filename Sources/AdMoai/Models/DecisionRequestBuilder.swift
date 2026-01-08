@@ -80,6 +80,7 @@ public class DecisionRequestBuilder {
             targeting = Targeting(
                 geo: geoNameIds,
                 location: targeting?.location,
+                destination: targeting?.destination,
                 custom: targeting?.custom
             )
         }
@@ -97,6 +98,7 @@ public class DecisionRequestBuilder {
             targeting = Targeting(
                 geo: nil,
                 location: targeting?.location,
+                destination: targeting?.destination,
                 custom: targeting?.custom
             )
         }
@@ -123,6 +125,35 @@ public class DecisionRequestBuilder {
             targeting = Targeting(
                 geo: targeting?.geo,
                 location: uniqueLocations,
+                destination: targeting?.destination,
+                custom: targeting?.custom
+            )
+        }
+        return self
+    }
+
+    public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) 
+        -> DecisionRequestBuilder 
+    {
+        let uniqueDestinations = destinations?.reduce(into: [Targeting.DestinationCoordinate]()) { 
+            result, coordinate in
+            let exists = result.contains { existing in
+                existing.latitude == coordinate.latitude 
+                    && existing.longitude == coordinate.longitude
+                    && existing.minConfidence == coordinate.minConfidence
+            }
+            if !exists {
+                result.append(coordinate)
+            }
+        }
+        
+        if targeting == nil {
+            targeting = Targeting(destination: uniqueDestinations)
+        } else {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: targeting?.location,
+                destination: uniqueDestinations,
                 custom: targeting?.custom
             )
         }
@@ -142,11 +173,35 @@ public class DecisionRequestBuilder {
         addLocationTargeting(latitude: latitude, longitude: longitude)
     }
 
+    public func addDestinationTargeting(latitude: Double, longitude: Double, minConfidence: Double) -> DecisionRequestBuilder 
+    {
+        var currentDestinations = targeting?.destination ?? []
+        currentDestinations.append((latitude: latitude, longitude: longitude, minConfidence: minConfidence))
+        return setDestinationTargeting(currentDestinations)
+    }
+    
+    public func addDestinationTargeting(_ latitude: Double, _ longitude: Double, _ minConfidence: Double) -> DecisionRequestBuilder {
+        return addDestinationTargeting(latitude: latitude, longitude: longitude, minConfidence: minConfidence)
+    }
+
     public func clearLocationTargeting() -> DecisionRequestBuilder {
         if targeting != nil {
             targeting = Targeting(
                 geo: targeting?.geo,
                 location: nil,
+                destination: targeting?.destination,
+                custom: targeting?.custom
+            )
+        }
+        return self
+    }
+
+    public func clearDestinationTargeting() -> DecisionRequestBuilder {
+        if targeting != nil {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: targeting?.location,
+                destination: nil,
                 custom: targeting?.custom
             )
         }
@@ -166,6 +221,7 @@ public class DecisionRequestBuilder {
             targeting = Targeting(
                 geo: targeting?.geo,
                 location: targeting?.location,
+                destination: targeting?.destination,
                 custom: uniqueCustom
             )
         }
@@ -195,6 +251,7 @@ public class DecisionRequestBuilder {
             targeting = Targeting(
                 geo: targeting?.geo,
                 location: targeting?.location,
+                destination: targeting?.destination,
                 custom: nil
             )
         }

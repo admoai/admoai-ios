@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
+    @EnvironmentObject private var placementStore: PlacementStore
     @State private var showingRequest = false
     @State private var showingPreview = false
     @State private var showingRequestDetails = false
@@ -23,13 +24,12 @@ struct ContentView: View {
                     Section {
                         NavigationLink {
                             PlacementPicker(placement: $viewModel.placement)
+                                .environmentObject(placementStore)
                         } label: {
                             LabeledContent {
                                 Text(
-                                    placementMockData.first {
-                                        $0.id == viewModel.placement.key
-                                    }?
-                                    .name ?? viewModel.placement.key
+                                    placementStore.placement(forKey: viewModel.placement.key)?
+                                        .name ?? viewModel.placement.key
                                 )
                                 .foregroundStyle(.secondary)
                             } label: {
@@ -82,6 +82,22 @@ struct ContentView: View {
                                 }
                             } label: {
                                 Label("Location Targeting", systemImage: "mappin.and.ellipse")
+                            }
+                        }
+
+                        NavigationLink {
+                            DestinationTargetingPicker(targeting: $viewModel.targeting)
+                        } label: {
+                            LabeledContent {
+                                if viewModel.targeting.destination?.isEmpty ?? true {
+                                    Text("None")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("\(viewModel.targeting.destination?.count ?? 0) destinations")
+                                        .foregroundStyle(.secondary)
+                                }
+                            } label: {
+                                Label("Destination Targeting", systemImage: "flag.checkered")
                             }
                         }
 
@@ -342,4 +358,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(PlacementStore())
 }

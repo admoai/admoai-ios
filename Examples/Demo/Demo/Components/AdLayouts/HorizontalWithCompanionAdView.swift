@@ -153,7 +153,7 @@ private struct CompanionContentView: View {
 
                     // Advertiser info
                     HStack(spacing: 8) {
-                        AsyncImage(url: URL(string: creative.advertiser.logoUrl)) { phase in
+                        AsyncImage(url: URL(string: creative.advertiser.logoUrl ?? "")) { phase in
                             switch phase {
                             case .empty, .failure:
                                 Image(systemName: "building.2")
@@ -169,7 +169,7 @@ private struct CompanionContentView: View {
                             }
                         }
 
-                        Text(creative.advertiser.name)
+                        Text(creative.advertiser.name ?? "Advertiser")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
@@ -197,11 +197,11 @@ struct HorizontalWithCompanionAdView: View {
     // @State private var impressionId = UUID()
 
     private var isImageRight: Bool {
-        creative.template.style == "imageRight"
+        creative.template?.style == "imageRight"
     }
 
     private var isImageOnly: Bool {
-        creative.template.style == "wideImageOnly"
+        creative.template?.style == "wideImageOnly"
     }
 
     private var wideImage: String? {
@@ -368,7 +368,7 @@ struct HorizontalWithCompanionAdView: View {
 
     private func advertiserInfoView(isOverlay: Bool = false) -> some View {
         HStack {
-            AsyncImage(url: URL(string: creative.advertiser.logoUrl)) { phase in
+            AsyncImage(url: URL(string: creative.advertiser.logoUrl ?? "")) { phase in
                 switch phase {
                 case .empty:
                     SkeletonShape(
@@ -387,7 +387,7 @@ struct HorizontalWithCompanionAdView: View {
                 }
             }
 
-            Text(creative.advertiser.name)
+            Text(creative.advertiser.name ?? "Advertiser")
                 .font(.caption)
                 .foregroundColor(isOverlay ? .white : .secondary)
 

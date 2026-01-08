@@ -59,6 +59,7 @@ struct GeoTargetingPicker: View {
                         targeting = Targeting(
                             geo: newIds.isEmpty ? nil : Array(newIds),
                             location: targeting.location,
+                            destination: targeting.destination,
                             custom: targeting.custom
                         )
                     } label: {
@@ -95,6 +96,7 @@ struct GeoTargetingPicker: View {
                         targeting = Targeting(
                             geo: nil,
                             location: targeting.location,
+                            destination: targeting.destination,
                             custom: targeting.custom
                         )
                     } label: {

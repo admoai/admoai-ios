@@ -40,7 +40,7 @@ struct PreviewResultView: View {
                         PromotionsPreview(creative: creative)
                     case "rideSummary":
                         RideSummaryPreview(creative: creative)
-                    case "home":
+                    case "home", "TesterPlace":
                         HomePreview(creative: creative)
                     case "waiting":
                         WaitingPreview(creative: creative)
@@ -49,8 +49,8 @@ struct PreviewResultView: View {
                     default:
                         PlaceholderAdView(
                             placement: decision.placement,
-                            template: creative.template.key,
-                            style: creative.template.style
+                            template: creative.template!.key,
+                            style: (creative.template?.style!)!
                         )
                         .padding()
                     }

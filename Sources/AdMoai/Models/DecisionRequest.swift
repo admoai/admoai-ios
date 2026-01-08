@@ -51,19 +51,23 @@ public enum Format: String, Encodable {
 
 public struct Targeting: Encodable {
     public typealias LocationCoordinate = (latitude: Double, longitude: Double)
+    public typealias DestinationCoordinate = (latitude: Double, longitude: Double, minConfidence: Double)
     public typealias CustomKeyValue = (key: String, value: Any)
 
     public let geo: [Int]?
     public let location: [LocationCoordinate]?
+    public let destination: [DestinationCoordinate]?
     public let custom: [CustomKeyValue]?
 
     public init(
         geo: [Int]? = nil,
         location: [LocationCoordinate]? = nil,
+        destination: [DestinationCoordinate]? = nil,
         custom: [CustomKeyValue]? = nil
     ) {
         self.geo = geo
         self.location = location
+        self.destination = destination
         self.custom = custom
     }
 
@@ -78,6 +82,13 @@ public struct Targeting: Encodable {
                 }, forKey: .location)
         }
 
+        if let destinations = destination {
+            try container.encode(
+                destinations.map { coord in
+                    ["latitude": coord.latitude, "longitude": coord.longitude, "min_confidence": coord.minConfidence]
+                }, forKey: .destination)
+        }
+
         if let customs = custom {
             let encodableCustoms = customs.map { kv in
                 [
@@ -90,7 +101,7 @@ public struct Targeting: Encodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case geo, location, custom
+        case geo, location, destination, custom
     }
 }
 
