@@ -13,6 +13,7 @@ public struct Creative: Decodable {
     public let advertiser: Advertiser
     public let template: Template?
     public let tracking: Tracking
+    public let verificationScriptResources: [VerificationScriptResource]?
     public let delivery: String? // "vast_tag", "vast_xml", "json" - optional for native ads
     public let vast: VastData?
 }
@@ -129,4 +130,10 @@ public enum TrackingType: String {
     case click = "click"
     case custom = "custom"
     case videoEvent = "videoEvent"
+}
+
+public struct VerificationScriptResource: Decodable {
+    public let vendorKey: String
+    public let scriptUrl: String
+    public let verificationParameters: String
 }
