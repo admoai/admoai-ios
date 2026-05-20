@@ -129,7 +129,10 @@ public struct AdMoai {
             config.logger.error("Invalid tracking URL: \(url)")
             return
         }
-        var request = URLRequest(url: url)
+        var request = URLRequest(
+            url: url,
+            timeoutInterval: config.sessionConfiguration.timeoutIntervalForRequest
+        )
         if let defaultLanguage = config.defaultLanguage {
             request.setValue(defaultLanguage, forHTTPHeaderField: "Accept-Language")
         }
