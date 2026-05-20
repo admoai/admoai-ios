@@ -173,8 +173,12 @@ public class DecisionRequestBuilder {
         addLocationTargeting(latitude: latitude, longitude: longitude)
     }
 
-    public func addDestinationTargeting(latitude: Double, longitude: Double, minConfidence: Double) -> DecisionRequestBuilder 
+    public func addDestinationTargeting(latitude: Double, longitude: Double, minConfidence: Double) -> DecisionRequestBuilder
     {
+        precondition(
+            (0.0...1.0).contains(minConfidence),
+            "minConfidence must be in [0.0, 1.0], got \(minConfidence)"
+        )
         var currentDestinations = targeting?.destination ?? []
         currentDestinations.append((latitude: latitude, longitude: longitude, minConfidence: minConfidence))
         return setDestinationTargeting(currentDestinations)
