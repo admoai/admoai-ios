@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * `Priority` enum (`house`, `sponsorship`, `standard`, `unknown`) — `Metadata.priority` is now strongly typed ([#21](https://github.com/admoai/admoai-ios/pull/21))
 * `Accept-Language` and `X-Decision-Version` headers on tracking requests, matching decision request behavior ([#19](https://github.com/admoai/admoai-ios/pull/19))
-* `minConfidence` range validation `[0.0, 1.0]` in `addDestinationTargeting` ([#20](https://github.com/admoai/admoai-ios/pull/20))
+* `minConfidence` range validation `[0.0, 1.0]` in `addDestinationTargeting` and `setDestinationTargeting` ([#20](https://github.com/admoai/admoai-ios/pull/20))
 * `Version.swift` hardcoded `SDK_VERSION` constant — fixes `User-Agent: AdMoaiSDK/Unknown` in Swift Package Manager contexts ([#17](https://github.com/admoai/admoai-ios/pull/17))
 
 ### Fixed
