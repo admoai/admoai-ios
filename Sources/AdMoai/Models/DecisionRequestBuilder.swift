@@ -132,10 +132,16 @@ public class DecisionRequestBuilder {
         return self
     }
 
-    public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) 
-        -> DecisionRequestBuilder 
+    public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?)
+        -> DecisionRequestBuilder
     {
-        let uniqueDestinations = destinations?.reduce(into: [Targeting.DestinationCoordinate]()) { 
+        destinations?.forEach { coordinate in
+            precondition(
+                (0.0...1.0).contains(coordinate.minConfidence),
+                "minConfidence must be in [0.0, 1.0], got \(coordinate.minConfidence)"
+            )
+        }
+        let uniqueDestinations = destinations?.reduce(into: [Targeting.DestinationCoordinate]()) {
             result, coordinate in
             let exists = result.contains { existing in
                 existing.latitude == coordinate.latitude 
