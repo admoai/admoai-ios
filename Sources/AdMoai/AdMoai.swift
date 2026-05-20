@@ -16,7 +16,7 @@ public struct AdMoai {
         self.config = config
         self.appConfig = .systemDefault()
         self.deviceConfig = .systemDefault()
-        self.userConfig = .clear()
+        self.userConfig = userConfig ?? .clear()
 
         self.client = AdMoaiClient(
             baseURL: config.baseUrl,
