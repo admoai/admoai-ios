@@ -129,7 +129,17 @@ public struct AdMoai {
             config.logger.error("Invalid tracking URL: \(url)")
             return
         }
-        session.dataTask(with: url).resume()
+        var request = URLRequest(
+            url: url,
+            timeoutInterval: config.sessionConfiguration.timeoutIntervalForRequest
+        )
+        if let defaultLanguage = config.defaultLanguage {
+            request.setValue(defaultLanguage, forHTTPHeaderField: "Accept-Language")
+        }
+        if let apiVersion = config.apiVersion {
+            request.setValue(apiVersion, forHTTPHeaderField: "X-Decision-Version")
+        }
+        session.dataTask(with: request).resume()
     }
 
     public func fireImpression(tracking: Tracking, key: String = "default") {
