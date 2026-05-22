@@ -38,13 +38,23 @@ extension Array where Element == Content {
     }
 }
 
+public enum Priority: String, Decodable {
+    case house, sponsorship, standard
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Priority(rawValue: raw) ?? .unknown
+    }
+}
+
 public struct Metadata: Decodable {
     public let adId: String
     public let creativeId: String
     public let advertiserId: String?
     public let templateId: String
     public let placementId: String
-    public let priority: String
+    public let priority: Priority
     public let language: String?
     public let format: String?
     public let style: String?
