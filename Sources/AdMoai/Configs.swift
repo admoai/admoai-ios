@@ -42,10 +42,7 @@ public struct SDKConfig {
         return configuration
     }
 
-    private static let sdkVersion: String = {
-        Bundle(for: AdMoaiClient.self).infoDictionary?["CFBundleShortVersionString"] as? String
-            ?? "Unknown"
-    }()
+    private static let sdkVersion: String = SDK_VERSION
 }
 
 public protocol Clearable {
