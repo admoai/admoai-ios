@@ -22,6 +22,38 @@ func testSDKInitialization() {
     #expect(sdk.userConfig == .clear())
 }
 
+@Test
+func testSDKInitializationWithUserConfig() {
+    let config = SDKConfig(baseUrl: baseURL)
+    let userConfig = UserConfig(id: "user_init", ip: "1.2.3.4", timezone: "UTC", consent: User.Consent(gdpr: true))
+    let sdk = AdMoai(config: config, userConfig: userConfig)
+
+    // userConfig must NOT be silently discarded
+    #expect(sdk.userConfig.id == "user_init")
+    #expect(sdk.userConfig.ip == "1.2.3.4")
+    #expect(sdk.userConfig.timezone == "UTC")
+    #expect(sdk.userConfig.consent.gdpr == true)
+}
+
+@Test
+func testSDKVersionConstant() {
+    // SDK_VERSION must be a non-empty, non-"Unknown" string
+    #expect(!SDK_VERSION.isEmpty)
+    #expect(SDK_VERSION != "Unknown")
+    // Basic semver sanity: contains at least one dot
+    #expect(SDK_VERSION.contains("."))
+}
+
+@Test
+func testUserAgentHeaderContainsSDKVersion() {
+    let sessionConfig = SDKConfig.defaultSessionConfiguration()
+    let userAgent = sessionConfig.httpAdditionalHeaders?["User-Agent"] as? String
+    #expect(userAgent != nil)
+    #expect(userAgent?.hasPrefix("AdMoaiSDK/") == true)
+    #expect(userAgent?.contains("Unknown") == false)
+    #expect(userAgent == "AdMoaiSDK/\(SDK_VERSION)")
+}
+
 // MARK: - Configuration Management Tests
 @Test
 func testAppConfigManagement() {

@@ -291,6 +291,122 @@ struct DecisionRequestTests {
         }
     }
 
+    // MARK: - Destination Targeting
+
+    @Test
+    func testDestinationTargeting() throws {
+        let builder = sdk.createRequestBuilder()
+
+        let request = try builder
+            .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: 0.5)
+            .addDestinationTargeting(latitude: 48.8566, longitude: 2.3522, minConfidence: 0.8)
+            .build()
+
+        #expect(request.targeting?.destination?.count == 2)
+        #expect(
+            request.targeting?.destination?.contains(where: { d in
+                d.latitude == 72.51 && d.longitude == 120.64 && d.minConfidence == 0.5
+            }) == true)
+        #expect(
+            request.targeting?.destination?.contains(where: { d in
+                d.latitude == 48.8566 && d.longitude == 2.3522 && d.minConfidence == 0.8
+            }) == true)
+    }
+
+    @Test
+    func testDestinationTargetingBoundaryValues() throws {
+        // Exactly 0.0 and 1.0 are valid
+        let request = try sdk.createRequestBuilder()
+            .addDestinationTargeting(latitude: 0.0, longitude: 0.0, minConfidence: 0.0)
+            .addDestinationTargeting(latitude: 1.0, longitude: 1.0, minConfidence: 1.0)
+            .build()
+        #expect(request.targeting?.destination?.count == 2)
+    }
+
+    @Test
+    func testDestinationTargetingInvalidMinConfidenceTooHigh() {
+        #expect(throws: SDKError.self) {
+            try sdk.createRequestBuilder()
+                .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: 1.01)
+                .build()
+        }
+    }
+
+    @Test
+    func testDestinationTargetingInvalidMinConfidenceTooLow() {
+        #expect(throws: SDKError.self) {
+            try sdk.createRequestBuilder()
+                .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: -0.01)
+                .build()
+        }
+    }
+
+    @Test
+    func testSetDestinationTargetingValidation() throws {
+        // setDestinationTargeting also validates
+        #expect(throws: SDKError.self) {
+            try sdk.createRequestBuilder()
+                .setDestinationTargeting([
+                    (latitude: 1.0, longitude: 2.0, minConfidence: 0.5),
+                    (latitude: 3.0, longitude: 4.0, minConfidence: 2.0),  // invalid
+                ])
+                .build()
+        }
+    }
+
+    @Test
+    func testDestinationTargetingDeduplication() throws {
+        // Same (lat, lng, minConfidence) triple → deduplicated
+        let request = try sdk.createRequestBuilder()
+            .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: 0.5)
+            .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: 0.5)
+            .addDestinationTargeting(latitude: 48.86, longitude: 2.35, minConfidence: 0.8)
+            .build()
+        #expect(request.targeting?.destination?.count == 2)
+    }
+
+    @Test
+    func testDestinationTargetingMinConfidenceSerializationKey() throws {
+        // The JSON key must be snake_case min_confidence (not camelCase)
+        let request = try sdk.createRequestBuilder()
+            .addDestinationTargeting(latitude: 27.92, longitude: -160.32, minConfidence: 0.5)
+            .build()
+
+        let encoded = try JSONEncoder().encode(request)
+        let json = String(data: encoded, encoding: .utf8)!
+        #expect(json.contains("\"min_confidence\""))
+        #expect(!json.contains("\"minConfidence\""))
+    }
+
+    // MARK: - Priority Enum
+
+    @Test
+    func testPriorityEnumDecoding() throws {
+        let cases: [(String, Priority)] = [
+            ("house", .house),
+            ("sponsorship", .sponsorship),
+            ("standard", .standard),
+            ("unknown", .unknown),
+            ("HOUSE", .unknown),      // wrong casing → .unknown (graceful fallback)
+            ("anything_else", .unknown),
+        ]
+        for (raw, expected) in cases {
+            let json = "\"\(raw)\""
+            let decoded = try JSONDecoder().decode(Priority.self, from: json.data(using: .utf8)!)
+            #expect(decoded == expected, "Expected \(raw) → \(expected)")
+        }
+    }
+
+    @Test
+    func testPriorityRawValue() {
+        #expect(Priority.house.rawValue == "house")
+        #expect(Priority.sponsorship.rawValue == "sponsorship")
+        #expect(Priority.standard.rawValue == "standard")
+        #expect(Priority.unknown.rawValue == "unknown")
+    }
+
+    // MARK: - Clearing Operations
+
     @Test
     func testClearingOperations() {
         let builder = sdk.createRequestBuilder()
