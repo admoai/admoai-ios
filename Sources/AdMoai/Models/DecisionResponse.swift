@@ -44,6 +44,18 @@ public enum Priority: String, Decodable {
 
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
+/// Strongly-typed ad priority.
+///
+/// Use `.rawValue` to get the underlying string if needed.
+public enum Priority: String, Decodable {
+    case house = "house"
+    case sponsorship = "sponsorship"
+    case standard = "standard"
+    case unknown = "unknown"
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
         self = Priority(rawValue: raw) ?? .unknown
     }
 }
