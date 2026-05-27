@@ -5,24 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0](https://github.com/admoai/admoai-ios/admoai/admoai-ios/compare/v1.3.0...v1.4.0) (2026-05-27)
-
-
-### Added
-
-* add Accept-Language and X-Decision-Version headers to tracking requests ([#19](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/19)) ([4a0ed2b](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/4a0ed2b4d2d58be4232492296148a70d770e193b))
-* iOS SDK v1.4.0 — cross-SDK parity, Priority enum, validation, live integration tests ([#22](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/22)) ([7fd8bce](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/7fd8bce4158a361713e183fd87ab44b686c09144))
-* **ios-sdk:** Verification models and helper functions integrated. O… ([#3](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/3)) ([e9bf2d8](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/e9bf2d81ad68edafd41017049ae1cfc51b804e3d))
-* type Metadata.priority as a typed Priority enum ([#21](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/21)) ([8843a7e](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/8843a7efea9f65d37dc72682d58f180b0d5765b0)), closes [#16](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/16)
-* validate minConfidence range [0.0, 1.0] in addDestinationTargeting ([#20](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/20)) ([510e3e6](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/510e3e6eca07ff1ece3b6772d4270dea4f0f705a))
-
-
-### Fixed
-
-* apply userConfig parameter in AdMoai.init instead of ignoring it ([#18](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/18)) ([1e703ff](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/1e703ffe839b466c31386c1a5f03acb60373fd9f)), closes [#13](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/13)
-* use hardcoded SDK_VERSION constant for User-Agent header ([#17](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/17)) ([070bbb6](https://github.com/admoai/admoai-ios/admoai/admoai-ios/commit/070bbb6150cf026d5c1acd13f310423b789ce0ba)), closes [#12](https://github.com/admoai/admoai-ios/admoai/admoai-ios/issues/12)
-
-## [1.4.0](https://github.com/admoai/admoai-ios/compare/v1.3.0...v1.4.0) (2026-05-20)
+## [1.4.0](https://github.com/admoai/admoai-ios/compare/v1.3.0...v1.4.0) (2026-05-27)
 
 ### Added
 
