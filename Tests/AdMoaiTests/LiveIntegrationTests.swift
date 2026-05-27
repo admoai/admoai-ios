@@ -10,7 +10,7 @@
 /// ## Sections
 /// - §1  Request serialisation (no network) — JSON keys, encoding invariants
 /// - §2  Header assertions (no network) — `getHttpRequest()` inspection
-/// - §3  Live decision requests — 8 placements without version + 9 placements with version (17 requests)
+/// - §3  Live decision requests — 8 without version + 9 with version + 1 with Accept-Language (18 requests)
 /// - §4  Live video placement request
 /// - §5  Destination targeting live round-trip
 /// - §6  Typed error handling — 422 invalid placement, network error
@@ -290,6 +290,21 @@ struct LiveIntegrationDecisionTests {
                 }
             }
         }
+    }
+
+    /// A request with `Accept-Language: en` and `X-Decision-Version: 2025-11-01`
+    /// must be accepted by the server (HTTP 200). This is the only live test that
+    /// exercises the `Accept-Language` header end-to-end.
+    @Test
+    func testAcceptLanguageHeaderLive() async throws {
+        let request = sdkWithLanguage.createRequestBuilder()
+            .addPlacement(key: "home")
+            .withStandardTargeting()
+            .build()
+
+        let response = try await sdkWithLanguage.requestAds(request)
+        #expect(response.response.statusCode == 200)
+        #expect(response.body.success == true)
     }
 
     /// Multi-placement request: both `home` and `menu` in one call.
