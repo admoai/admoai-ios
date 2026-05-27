@@ -38,12 +38,6 @@ extension Array where Element == Content {
     }
 }
 
-public enum Priority: String, Decodable {
-    case house, sponsorship, standard
-    case unknown
-
-    public init(from decoder: Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
 /// Strongly-typed ad priority.
 ///
 /// Use `.rawValue` to get the underlying string if needed.

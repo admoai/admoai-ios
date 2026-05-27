@@ -130,7 +130,7 @@ public struct AdMoai {
             return
         }
         var request = URLRequest(
-            url: url,
+            url: parsedURL,
             timeoutInterval: config.sessionConfiguration.timeoutIntervalForRequest
         )
         if let defaultLanguage = config.defaultLanguage {
