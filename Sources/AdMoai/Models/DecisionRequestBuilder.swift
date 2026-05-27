@@ -1,5 +1,18 @@
 import Foundation
 
+/// Errors thrown by the SDK before a network request is made.
+public enum SDKError: Error, CustomStringConvertible, Equatable {
+    /// `minConfidence` was outside the valid range `[0.0, 1.0]`.
+    case invalidMinConfidence(Double)
+
+    public var description: String {
+        switch self {
+        case .invalidMinConfidence(let value):
+            return "minConfidence must be in [0.0, 1.0], got \(value)"
+        }
+    }
+}
+
 public class DecisionRequestBuilder {
     private var placements: [Placement] = []
     private var targeting: Targeting?
@@ -132,19 +145,26 @@ public class DecisionRequestBuilder {
         return self
     }
 
-    public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?)
+    /// Sets the destination targeting list, replacing any previous destinations.
+    ///
+    /// - Throws: ``SDKError/invalidMinConfidence(_:)`` if any coordinate's `minConfidence`
+    ///   is outside `[0.0, 1.0]`.
+    @discardableResult
+    public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) throws
         -> DecisionRequestBuilder
     {
-        destinations?.forEach { coordinate in
-            precondition(
-                (0.0...1.0).contains(coordinate.minConfidence),
-                "minConfidence must be in [0.0, 1.0], got \(coordinate.minConfidence)"
-            )
+        if let destinations = destinations {
+            for coord in destinations {
+                guard (0.0...1.0).contains(coord.minConfidence) else {
+                    throw SDKError.invalidMinConfidence(coord.minConfidence)
+                }
+            }
         }
+
         let uniqueDestinations = destinations?.reduce(into: [Targeting.DestinationCoordinate]()) {
             result, coordinate in
             let exists = result.contains { existing in
-                existing.latitude == coordinate.latitude 
+                existing.latitude == coordinate.latitude
                     && existing.longitude == coordinate.longitude
                     && existing.minConfidence == coordinate.minConfidence
             }
@@ -152,7 +172,7 @@ public class DecisionRequestBuilder {
                 result.append(coordinate)
             }
         }
-        
+
         if targeting == nil {
             targeting = Targeting(destination: uniqueDestinations)
         } else {
@@ -179,19 +199,28 @@ public class DecisionRequestBuilder {
         addLocationTargeting(latitude: latitude, longitude: longitude)
     }
 
-    public func addDestinationTargeting(latitude: Double, longitude: Double, minConfidence: Double) -> DecisionRequestBuilder
+    /// Appends a destination coordinate to the targeting list.
+    ///
+    /// - Throws: ``SDKError/invalidMinConfidence(_:)`` when `minConfidence` is outside `[0.0, 1.0]`.
+    @discardableResult
+    public func addDestinationTargeting(latitude: Double, longitude: Double, minConfidence: Double)
+        throws -> DecisionRequestBuilder
     {
-        precondition(
-            (0.0...1.0).contains(minConfidence),
-            "minConfidence must be in [0.0, 1.0], got \(minConfidence)"
-        )
         var currentDestinations = targeting?.destination ?? []
-        currentDestinations.append((latitude: latitude, longitude: longitude, minConfidence: minConfidence))
-        return setDestinationTargeting(currentDestinations)
+        currentDestinations.append(
+            (latitude: latitude, longitude: longitude, minConfidence: minConfidence))
+        return try setDestinationTargeting(currentDestinations)
     }
-    
-    public func addDestinationTargeting(_ latitude: Double, _ longitude: Double, _ minConfidence: Double) -> DecisionRequestBuilder {
-        return addDestinationTargeting(latitude: latitude, longitude: longitude, minConfidence: minConfidence)
+
+    /// Unlabelled convenience overload of ``addDestinationTargeting(latitude:longitude:minConfidence:)``.
+    ///
+    /// - Throws: ``SDKError/invalidMinConfidence(_:)`` when `minConfidence` is outside `[0.0, 1.0]`.
+    @discardableResult
+    public func addDestinationTargeting(_ latitude: Double, _ longitude: Double, _ minConfidence: Double)
+        throws -> DecisionRequestBuilder
+    {
+        try addDestinationTargeting(
+            latitude: latitude, longitude: longitude, minConfidence: minConfidence)
     }
 
     public func clearLocationTargeting() -> DecisionRequestBuilder {

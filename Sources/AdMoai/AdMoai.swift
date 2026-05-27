@@ -125,12 +125,12 @@ public struct AdMoai {
 
     // MARK: - Tracking
     public func fireTracking(url: String) {
-        guard let url = URL(string: url) else {
+        guard let parsedURL = URL(string: url) else {
             config.logger.error("Invalid tracking URL: \(url)")
             return
         }
         var request = URLRequest(
-            url: url,
+            url: parsedURL,
             timeoutInterval: config.sessionConfiguration.timeoutIntervalForRequest
         )
         if let defaultLanguage = config.defaultLanguage {
