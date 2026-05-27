@@ -37,12 +37,10 @@ public struct SDKConfig {
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
         configuration.httpAdditionalHeaders = [
-            "User-Agent": "AdMoaiSDK/\(sdkVersion)"
+            "User-Agent": "AdMoaiSDK/\(SDK_VERSION)"
         ]
         return configuration
     }
-
-    private static let sdkVersion: String = SDK_VERSION
 }
 
 public protocol Clearable {
