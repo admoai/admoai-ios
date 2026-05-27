@@ -3,7 +3,7 @@ import Testing
 
 @testable import AdMoai
 
-private let baseURL = "https://mock.api.admoai.com"
+private let baseURL = "https://api.mock.admoai.com"
 
 // MARK: - SDK Initialization Tests
 @Test

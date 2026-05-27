@@ -57,17 +57,24 @@ private let sdkWithLanguage = AdMoai(
     userConfig: UserConfig(id: "user_123", ip: "203.0.113.1", timezone: "America/Santiago")
 )
 
-/// All placement keys available on the mock server.
-private let placementKeys = [
+/// Placement keys that work without an explicit `format` filter.
+/// These return whatever format the decision-engine chooses (native or video).
+private let generalPlacementKeys = [
     "json_none",
     "vasttag_none",
-    "vast_xml_native_endcard",
     "json_native_endcard",
     "vasttag_native_endcard",
     "home",
     "menu",
     "freeMinutes",
     "search",
+]
+
+/// Placement keys that require `format: .video` AND the `2025-11-01` API version.
+/// `vast_xml_native_endcard` delivers exclusively as VAST XML video and returns 422
+/// when no explicit video format is requested.
+private let videoOnlyPlacementKeys = [
+    "vast_xml_native_endcard",
 ]
 
 // ---------------------------------------------------------------------------
@@ -208,11 +215,11 @@ struct LiveIntegrationHeaderTests {
 
 struct LiveIntegrationDecisionTests {
 
-    /// Each placement in `placementKeys` must return HTTP 200 and `success: true`
+    /// Each placement in `generalPlacementKeys` must return HTTP 200 and `success: true`
     /// when called without an explicit API version.
     @Test
     func testAllPlacementsWithoutAPIVersion() async throws {
-        for key in placementKeys {
+        for key in generalPlacementKeys {
             let request = sdk.createRequestBuilder()
                 .addPlacement(key: key)
                 .withStandardTargeting()
@@ -234,7 +241,7 @@ struct LiveIntegrationDecisionTests {
     /// with the `2025-11-01` API version.
     @Test
     func testAllPlacementsWithAPIVersion() async throws {
-        for key in placementKeys {
+        for key in generalPlacementKeys {
             let request = sdkWithVersion.createRequestBuilder()
                 .addPlacement(key: key)
                 .withStandardTargeting()
@@ -329,6 +336,33 @@ struct LiveIntegrationVideoTests {
         {
             // Video creatives should report their delivery mechanism
             #expect(creative.delivery != nil)
+        }
+    }
+
+    /// `videoOnlyPlacementKeys` (e.g. `vast_xml_native_endcard`) require both
+    /// `format: .video` AND the `2025-11-01` API version — the server returns 422
+    /// for those placements when no explicit video format is requested.
+    @Test
+    func testVideoOnlyPlacementsWithFormatAndAPIVersion() async throws {
+        for key in videoOnlyPlacementKeys {
+            let request = sdkWithVersion.createRequestBuilder()
+                .addPlacement(key: key, format: .video)
+                .build()
+
+            let response = try await sdkWithVersion.requestAds(request)
+            #expect(
+                response.response.statusCode == 200,
+                "Video-only placement '\(key)' with format+apiVersion: expected 200, got \(response.response.statusCode)"
+            )
+            #expect(
+                response.body.success == true,
+                "Video-only placement '\(key)': expected success"
+            )
+
+            // Delivery must be set for video creatives
+            if let creative = response.body.data?.first?.creatives?.first {
+                #expect(creative.delivery != nil, "Video creative should have a delivery field")
+            }
         }
     }
 }
