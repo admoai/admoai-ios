@@ -10,7 +10,7 @@
 /// ## Sections
 /// - §1  Request serialisation (no network) — JSON keys, encoding invariants
 /// - §2  Header assertions (no network) — `getHttpRequest()` inspection
-/// - §3  Live decision requests — 9 placements × 2 API versions (18 requests)
+/// - §3  Live decision requests — 8 placements without version + 9 placements with version (17 requests)
 /// - §4  Live video placement request
 /// - §5  Destination targeting live round-trip
 /// - §6  Typed error handling — 422 invalid placement, network error
@@ -57,9 +57,9 @@ private let sdkWithLanguage = AdMoai(
     userConfig: UserConfig(id: "user_123", ip: "203.0.113.1", timezone: "America/Santiago")
 )
 
-/// Placement keys that work without an explicit `format` filter.
-/// These return whatever format the decision-engine chooses (native or video).
-private let generalPlacementKeys = [
+/// Placement keys that work without an API version header.
+/// The decision-engine returns whatever format is available for each placement.
+private let placementsWithoutVersion = [
     "json_none",
     "vasttag_none",
     "json_native_endcard",
@@ -70,12 +70,9 @@ private let generalPlacementKeys = [
     "search",
 ]
 
-/// Placement keys that require `format: .video` AND the `2025-11-01` API version.
-/// `vast_xml_native_endcard` delivers exclusively as VAST XML video and returns 422
-/// when no explicit video format is requested.
-private let videoOnlyPlacementKeys = [
-    "vast_xml_native_endcard",
-]
+/// All placement keys, including `vastxml_native_endcard` which requires
+/// the `X-Decision-Version: 2025-11-01` header (but not a specific format).
+private let allPlacementKeys = placementsWithoutVersion + ["vastxml_native_endcard"]
 
 // ---------------------------------------------------------------------------
 // MARK: - §1  Request Serialisation (no network)
@@ -215,11 +212,11 @@ struct LiveIntegrationHeaderTests {
 
 struct LiveIntegrationDecisionTests {
 
-    /// Each placement in `generalPlacementKeys` must return HTTP 200 and `success: true`
+    /// Each placement in `placementsWithoutVersion` must return HTTP 200 and `success: true`
     /// when called without an explicit API version.
     @Test
     func testAllPlacementsWithoutAPIVersion() async throws {
-        for key in generalPlacementKeys {
+        for key in placementsWithoutVersion {
             let request = sdk.createRequestBuilder()
                 .addPlacement(key: key)
                 .withStandardTargeting()
@@ -237,11 +234,11 @@ struct LiveIntegrationDecisionTests {
         }
     }
 
-    /// Each placement must return HTTP 200 and `success: true` when called
-    /// with the `2025-11-01` API version.
+    /// All 9 placements must return HTTP 200 and `success: true` when called
+    /// with the `2025-11-01` API version (including `vastxml_native_endcard`).
     @Test
     func testAllPlacementsWithAPIVersion() async throws {
-        for key in generalPlacementKeys {
+        for key in allPlacementKeys {
             let request = sdkWithVersion.createRequestBuilder()
                 .addPlacement(key: key)
                 .withStandardTargeting()
@@ -319,10 +316,29 @@ struct LiveIntegrationDecisionTests {
 
 struct LiveIntegrationVideoTests {
 
-    /// A placement with `format: .video` and the 2025-11-01 API version should
-    /// return a response whose creative has a non-nil `delivery` field.
+    /// `vastxml_native_endcard` requires the `2025-11-01` API version header but
+    /// does NOT need an explicit `format: .video` — the server resolves the format
+    /// automatically and returns a VAST XML video creative.
     @Test
-    func testVideoFormatPlacementRequest() async throws {
+    func testVastXmlPlacementWithAPIVersion() async throws {
+        let request = sdkWithVersion.createRequestBuilder()
+            .addPlacement(key: "vastxml_native_endcard")
+            .build()
+
+        let response = try await sdkWithVersion.requestAds(request)
+        #expect(response.response.statusCode == 200)
+        #expect(response.body.success == true)
+
+        if let creative = response.body.data?.first?.creatives?.first {
+            // Should be delivered as vast_xml
+            #expect(creative.delivery != nil)
+        }
+    }
+
+    /// Explicitly requesting `format: .video` on a video placement with the API
+    /// version must also succeed and return a video creative.
+    @Test
+    func testVideoFormatExplicitRequest() async throws {
         let request = sdkWithVersion.createRequestBuilder()
             .addPlacement(key: "vasttag_none", format: .video)
             .build()
@@ -331,38 +347,8 @@ struct LiveIntegrationVideoTests {
         #expect(response.response.statusCode == 200)
         #expect(response.body.success == true)
 
-        if let decision = response.body.data?.first,
-           let creative = decision.creatives?.first
-        {
-            // Video creatives should report their delivery mechanism
+        if let creative = response.body.data?.first?.creatives?.first {
             #expect(creative.delivery != nil)
-        }
-    }
-
-    /// `videoOnlyPlacementKeys` (e.g. `vast_xml_native_endcard`) require both
-    /// `format: .video` AND the `2025-11-01` API version — the server returns 422
-    /// for those placements when no explicit video format is requested.
-    @Test
-    func testVideoOnlyPlacementsWithFormatAndAPIVersion() async throws {
-        for key in videoOnlyPlacementKeys {
-            let request = sdkWithVersion.createRequestBuilder()
-                .addPlacement(key: key, format: .video)
-                .build()
-
-            let response = try await sdkWithVersion.requestAds(request)
-            #expect(
-                response.response.statusCode == 200,
-                "Video-only placement '\(key)' with format+apiVersion: expected 200, got \(response.response.statusCode)"
-            )
-            #expect(
-                response.body.success == true,
-                "Video-only placement '\(key)': expected success"
-            )
-
-            // Delivery must be set for video creatives
-            if let creative = response.body.data?.first?.creatives?.first {
-                #expect(creative.delivery != nil, "Video creative should have a delivery field")
-            }
         }
     }
 }
