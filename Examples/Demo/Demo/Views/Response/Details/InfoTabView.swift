@@ -64,7 +64,7 @@ struct InfoTabView: View {
                         }
 
                         LabeledContent("Priority") {
-                            Text(metadata.priority.rawValue)
+                            Text(metadata.priority)
                         }
 
                         LabeledContent("Language") {
