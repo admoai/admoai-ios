@@ -1,0 +1,47 @@
+# Runs on every PR and on pushes to main: builds the AdMoai package, runs the
+# unit + live-integration test target (Swift Testing, needs Xcode 16+), and
+# builds the Examples/Demo app so the sample stays compilable against SDK HEAD.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to the same ref supersedes in-flight runs, saving runner minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test & demo
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pin to a stable Xcode that ships the Swift Testing framework the tests import.
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build AdMoai package
+        run: swift build
+
+      - name: Test (unit + live integration)
+        run: swift test
+
+      # Demo references the SDK via local SwiftPM path, so this catches API breaks.
+      - name: Build Demo sample app (iOS Simulator)
+        run: >
+          xcodebuild build
+          -project Examples/Demo/Demo.xcodeproj
+          -scheme Demo
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
