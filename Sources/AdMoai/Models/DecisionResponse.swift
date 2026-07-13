@@ -297,3 +297,106 @@ public struct VerificationScriptResource: Decodable {
     public let scriptUrl: String
     public let verificationParameters: String
 }
+
+// ---------------------------------------------------------------------------
+// MARK: - Tolerant Reader (whole-response) — PR B
+//
+// Extends the Tolerant Reader posture from the Journey types (PR A) to the rest of the
+// response tree so a future-version or partially-malformed response never throws. Rules:
+//   • scalar/object fields use `try? c.decode(T.self, forKey:)` (handles absent, null, AND
+//     wrong-type) with safe defaults — currently non-optional fields default to ""/empty
+//     rather than widening to Optional, preserving source compatibility (non-breaking).
+//   • list fields drop malformed/non-object entries via `SafelyDecodable` instead of failing
+//     the whole array.
+//   • custom `init(from:)` decoders live in extensions to preserve the synthesized
+//     memberwise inits used elsewhere.
+// ---------------------------------------------------------------------------
+
+extension Decision {
+    private enum TolerantKeys: String, CodingKey { case placement, creatives }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.placement = (try? c.decode(String.self, forKey: .placement)) ?? ""
+        self.creatives =
+            (try? c.decode([SafelyDecodable<Creative>].self, forKey: .creatives))?
+            .compactMap(\.value)
+    }
+}
+
+extension Metadata {
+    private enum TolerantKeys: String, CodingKey {
+        case adId, creativeId, advertiserId, templateId, placementId, priority
+        case language, format, style, duration, aspectRatio, isSkippable
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        // Currently non-optional id fields default to "" (non-breaking; never throw).
+        self.adId = (try? c.decode(String.self, forKey: .adId)) ?? ""
+        self.creativeId = (try? c.decode(String.self, forKey: .creativeId)) ?? ""
+        self.advertiserId = try? c.decode(String.self, forKey: .advertiserId)
+        self.templateId = (try? c.decode(String.self, forKey: .templateId)) ?? ""
+        self.placementId = (try? c.decode(String.self, forKey: .placementId)) ?? ""
+        self.priority = (try? c.decode(Priority.self, forKey: .priority)) ?? .unknown
+        self.language = try? c.decode(String.self, forKey: .language)
+        self.format = try? c.decode(String.self, forKey: .format)
+        self.style = try? c.decode(String.self, forKey: .style)
+        // Accept an integer or a JSON number that decodes as Double.
+        self.duration =
+            (try? c.decode(Int.self, forKey: .duration))
+            ?? (try? c.decode(Double.self, forKey: .duration)).map { Int($0) }
+        self.aspectRatio = try? c.decode(String.self, forKey: .aspectRatio)
+        self.isSkippable = try? c.decode(Bool.self, forKey: .isSkippable)
+    }
+}
+
+extension Advertiser {
+    private enum TolerantKeys: String, CodingKey { case id, name, legalName, logoUrl }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.id = try? c.decode(String.self, forKey: .id)
+        self.name = try? c.decode(String.self, forKey: .name)
+        self.legalName = try? c.decode(String.self, forKey: .legalName)
+        self.logoUrl = try? c.decode(String.self, forKey: .logoUrl)
+    }
+}
+
+extension Template {
+    private enum TolerantKeys: String, CodingKey { case key, style }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.key = (try? c.decode(String.self, forKey: .key)) ?? ""
+        self.style = try? c.decode(String.self, forKey: .style)
+    }
+}
+
+extension VastData {
+    private enum TolerantKeys: String, CodingKey { case tagUrl, xmlBase64 }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.tagUrl = try? c.decode(String.self, forKey: .tagUrl)
+        self.xmlBase64 = try? c.decode(String.self, forKey: .xmlBase64)
+    }
+}
+
+extension VerificationScriptResource {
+    private enum TolerantKeys: String, CodingKey { case vendorKey, scriptUrl, verificationParameters }
+
+    /// `vendorKey` and `scriptUrl` are **structurally required** — without them an OM resource
+    /// is unusable (nothing to identify/load), so they stay strict and a malformed one is
+    /// dropped at the array level (`Creative` uses `SafelyDecodable`). `verificationParameters`
+    /// is optional per the engine (typed `any`, always a String today), so it is tolerant and
+    /// defaults to `""` — a missing/object-shaped value must not discard an otherwise-usable
+    /// script (measurement integrity).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.vendorKey = try c.decode(String.self, forKey: .vendorKey)
+        self.scriptUrl = try c.decode(String.self, forKey: .scriptUrl)
+        self.verificationParameters =
+            (try? c.decode(String.self, forKey: .verificationParameters)) ?? ""
+    }
+}
