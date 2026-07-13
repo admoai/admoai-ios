@@ -210,6 +210,7 @@ struct LiveIntegrationHeaderTests {
 // MARK: - §3  Live Decision Requests (network required)
 // ---------------------------------------------------------------------------
 
+@Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationDecisionTests {
 
     /// Each placement in `placementsWithoutVersion` must return HTTP 200 and `success: true`
@@ -329,6 +330,7 @@ struct LiveIntegrationDecisionTests {
 // MARK: - §4  Live Video Placement (network required)
 // ---------------------------------------------------------------------------
 
+@Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationVideoTests {
 
     /// `vastxml_native_endcard` requires the `2025-11-01` API version header but
@@ -372,6 +374,7 @@ struct LiveIntegrationVideoTests {
 // MARK: - §5  Destination Targeting Live Round-trip (network required)
 // ---------------------------------------------------------------------------
 
+@Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationDestinationTests {
 
     /// A request containing destination targeting with a valid `minConfidence`
@@ -410,7 +413,7 @@ struct LiveIntegrationErrorTests {
 
     /// An unrecognised placement key should return HTTP 422 and `success: false`
     /// (in DEBUG mode the SDK lets 422 through; in RELEASE it throws `.validationError`).
-    @Test
+    @Test(.tags(.live), .enabled(if: LiveTestGate.enabled))
     func testInvalidPlacementReturns422() async throws {
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "this_placement_does_not_exist_xyz_abc")
@@ -461,6 +464,7 @@ struct LiveIntegrationErrorTests {
 // MARK: - §7  Priority Enum Live Round-trip (network required)
 // ---------------------------------------------------------------------------
 
+@Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationPriorityTests {
 
     /// Decoded `Metadata.priority` from a live response must be a named `Priority`

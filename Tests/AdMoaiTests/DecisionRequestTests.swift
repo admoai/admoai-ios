@@ -229,7 +229,7 @@ struct DecisionRequestTests {
             }) == false)
     }
 
-    @Test
+    @Test(.tags(.live), .enabled(if: LiveTestGate.enabled))
     func testDecisionRequest() async throws {
         let config = SDKConfig(baseUrl: baseURL)
         let sdk = AdMoai(config: config)
@@ -257,7 +257,7 @@ struct DecisionRequestTests {
         }
     }
 
-    @Test
+    @Test(.tags(.live), .enabled(if: LiveTestGate.enabled))
     func testInvalidPlacement() async throws {
         let config = SDKConfig(baseUrl: baseURL)
         let sdk = AdMoai(config: config)
