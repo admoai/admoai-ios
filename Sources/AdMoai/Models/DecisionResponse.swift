@@ -183,6 +183,9 @@ public struct Tracking: Decodable {
     public let clicks: [TrackingItem]?
     public let custom: [TrackingItem]?
     public let videoEvents: [TrackingItem]? // For JSON delivery video tracking
+    /// Journey Takeover Ads: completion beacons, populated only for `custom_event`
+    /// completion deals (one `{key,url}` entry). Fire once when the mapped action occurs.
+    public let completions: [TrackingItem]?
 
     public func hasTrackingFor(type: TrackingType, key: String) -> Bool {
         switch type {
@@ -194,6 +197,8 @@ public struct Tracking: Decodable {
             return custom?.contains { $0.key == key } ?? false
         case .videoEvent:
             return videoEvents?.contains { $0.key == key } ?? false
+        case .completion:
+            return completions?.contains { $0.key == key } ?? false
         }
     }
 
@@ -207,6 +212,8 @@ public struct Tracking: Decodable {
             return getCustomUrl(key: key)
         case .videoEvent:
             return getVideoEventUrl(key: key)
+        case .completion:
+            return getCompletionUrl(key: key)
         }
     }
 
@@ -225,12 +232,36 @@ public struct Tracking: Decodable {
     public func getVideoEventUrl(key: String) -> String? {
         videoEvents?.first { $0.key == key }?.url
     }
+
+    public func getCompletionUrl(key: String) -> String? {
+        completions?.first { $0.key == key }?.url
+    }
 }
 
 extension Tracking {
     /// Empty tracking block, used as a tolerant fallback when the block is missing/malformed.
     public init() {
-        self.init(impressions: nil, clicks: nil, custom: nil, videoEvents: nil)
+        self.init(impressions: nil, clicks: nil, custom: nil, videoEvents: nil, completions: nil)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case impressions, clicks, custom, videoEvents, completions
+    }
+
+    /// Tolerant decoder: every category drops malformed entries (via `SafelyDecodable`) so a
+    /// single bad `{key,url}` never fails the whole response. Covers the new `completions`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func list(_ key: CodingKeys) -> [TrackingItem]? {
+            (try? c.decode([SafelyDecodable<TrackingItem>].self, forKey: key))?.compactMap(\.value)
+        }
+        self.init(
+            impressions: list(.impressions),
+            clicks: list(.clicks),
+            custom: list(.custom),
+            videoEvents: list(.videoEvents),
+            completions: list(.completions)
+        )
     }
 }
 
@@ -244,6 +275,7 @@ public enum TrackingType: String {
     case click = "click"
     case custom = "custom"
     case videoEvent = "videoEvent"
+    case completion = "completion"
 }
 
 public struct VerificationScriptResource: Decodable {

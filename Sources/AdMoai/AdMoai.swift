@@ -160,9 +160,22 @@ public struct AdMoai {
     }
 
     // MARK: - Tracking
+    /// Fires a server-provided tracking URL verbatim (fire-and-forget GET).
+    ///
+    /// The engine's tracking URLs are opaque (`…/v1/tracking?e=<encrypted token>`); the SDK
+    /// never reconstructs them. `GET /v1/tracking` version-routes on `X-Tracking-Version`
+    /// and ignores `X-Decision-Version` — sending the wrong header silently falls back to a
+    /// legacy handler that skips Journey completion, so this sends `X-Tracking-Version`.
     public func fireTracking(url: String) {
-        guard let parsedURL = URL(string: url) else {
-            config.logger.error("Invalid tracking URL: \(url)")
+        // Require an absolute http(s) URL — `URL(string:)` alone accepts relative/scheme-less
+        // strings. On failure, log a redacted reason only; NEVER log the URL/query, which
+        // carries the sensitive opaque `e=` token.
+        guard let parsedURL = URL(string: url),
+            let scheme = parsedURL.scheme?.lowercased(),
+            scheme == "http" || scheme == "https",
+            parsedURL.host != nil
+        else {
+            config.logger.error("Ignoring invalid tracking URL (expected an absolute http(s) URL)")
             return
         }
         var request = URLRequest(
@@ -173,7 +186,7 @@ public struct AdMoai {
             request.setValue(defaultLanguage, forHTTPHeaderField: "Accept-Language")
         }
         if let apiVersion = config.apiVersion {
-            request.setValue(apiVersion, forHTTPHeaderField: "X-Decision-Version")
+            request.setValue(apiVersion, forHTTPHeaderField: "X-Tracking-Version")
         }
         session.dataTask(with: request).resume()
     }
@@ -200,5 +213,31 @@ public struct AdMoai {
         if let url = tracking.getVideoEventUrl(key: key) {
             fireTracking(url: url)
         }
+    }
+
+    /// Fires a Journey `custom_event` completion beacon once, verbatim.
+    ///
+    /// Only for `custom_event` completion deals (`creative.tracking.completions[key]`). For
+    /// `final_stage` completions there is no URL to fire — the engine records completion at
+    /// decision time (check `creative.isJourneyCompletion`).
+    ///
+    /// Warns (never crashes) when `apiVersion` is unset (the callback would hit the legacy
+    /// tracking handler and the completion would silently NOT record — billing-critical), and
+    /// when a non-empty `completions` list has no entry matching `key`.
+    public func fireCompletion(tracking: Tracking, key: String) {
+        if config.apiVersion == nil {
+            config.logger.warning(
+                "fireCompletion called with no SDKConfig.apiVersion set: the tracking callback will route to the legacy handler and the Journey completion will NOT be recorded. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
+            )
+        }
+        guard let url = tracking.getCompletionUrl(key: key) else {
+            if tracking.completions?.isEmpty == false {
+                config.logger.warning(
+                    "fireCompletion: no completion URL matched key '\(key, privacy: .public)'; nothing was fired."
+                )
+            }
+            return
+        }
+        fireTracking(url: url)
     }
 }

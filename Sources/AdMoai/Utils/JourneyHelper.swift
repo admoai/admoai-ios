@@ -24,4 +24,8 @@ extension Creative {
     /// (`final_stage` strategy). Completion is recorded server-side at decision time;
     /// there is no extra URL to fire in this mode.
     public var isJourneyCompletion: Bool { journey?.isCompletion == true }
+
+    /// `true` when the creative carries a completion beacon to fire (i.e. a `custom_event`
+    /// completion deal). Mutually exclusive with `isJourneyCompletion` (`final_stage`).
+    public var hasCompletionUrl: Bool { tracking.completions?.isEmpty == false }
 }
