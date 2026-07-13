@@ -64,7 +64,10 @@ struct OMVerificationTests {
     }
 
     @Test
-    func testVerificationScriptResourceMissingRequiredField() throws {
+    func testVerificationScriptResourceMissingParametersIsTolerated() throws {
+        // `verificationParameters` is optional per the engine (typed `any`, omitempty). A
+        // resource with a usable vendorKey + scriptUrl but no parameters must decode (with
+        // an empty string), NOT be discarded — dropping it would lose a valid OM script.
         let json = """
             {
                 "vendorKey": "iabtechlab.com-omid",
@@ -73,10 +76,10 @@ struct OMVerificationTests {
             """
 
         let data = json.data(using: .utf8)!
-
-        #expect(throws: DecodingError.self) {
-            _ = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
-        }
+        let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
+        #expect(resource.vendorKey == "iabtechlab.com-omid")
+        #expect(resource.scriptUrl == "https://verification.example.com/omid.js")
+        #expect(resource.verificationParameters == "")
     }
 
     // MARK: - Creative with VerificationScriptResources

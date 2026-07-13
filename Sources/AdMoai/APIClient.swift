@@ -207,6 +207,25 @@ public struct APIResponseBody<T: Decodable>: Decodable {
     public let warnings: [AdMoaiWarning]?
 }
 
+extension APIResponseBody {
+    private enum TolerantKeys: String, CodingKey { case success, data, errors, warnings }
+
+    /// Tolerant Reader envelope (PR B): never throws on a well-formed HTTP body. `success`
+    /// reads as `== true` (default false), `data` degrades to `nil` if it fails to decode,
+    /// and `errors`/`warnings` drop malformed entries.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.success = (try? c.decode(Bool.self, forKey: .success)) ?? false
+        self.data = try? c.decode(T.self, forKey: .data)
+        self.errors =
+            (try? c.decode([SafelyDecodable<AdMoaiError>].self, forKey: .errors))?
+            .compactMap(\.value)
+        self.warnings =
+            (try? c.decode([SafelyDecodable<AdMoaiWarning>].self, forKey: .warnings))?
+            .compactMap(\.value)
+    }
+}
+
 public struct AdMoaiError: Decodable, Equatable {
     public let code: Int
     public let message: String
