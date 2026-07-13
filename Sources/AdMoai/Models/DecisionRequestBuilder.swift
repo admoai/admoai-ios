@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 /// Errors thrown by the SDK before a network request is made.
 public enum SDKError: Error, CustomStringConvertible, Equatable {
@@ -22,18 +23,27 @@ public class DecisionRequestBuilder {
     private var collectAppData: Bool = true
     private var collectDeviceData: Bool = true
 
+    // Journey Takeover Ads request context.
+    private var sessionId: String?
+    private var journeyOpt: JourneyOpt?
+
     private let appConfig: AppConfig
     private let deviceConfig: DeviceConfig
     private let userConfig: UserConfig
+    private let logger: Logger?
 
     internal init(
         appConfig: AppConfig,
         deviceConfig: DeviceConfig,
-        userConfig: UserConfig
+        userConfig: UserConfig,
+        sessionId: String? = nil,
+        logger: Logger? = nil
     ) {
         self.appConfig = appConfig
         self.deviceConfig = deviceConfig
         self.userConfig = userConfig
+        self.sessionId = sessionId
+        self.logger = logger
 
         self.app = App(
             name: appConfig.name,
@@ -354,6 +364,34 @@ public class DecisionRequestBuilder {
         return self
     }
 
+    // MARK: - Journey Takeover Ads
+    /// Sets the Journey `sessionId` for this request, overriding the sticky default seeded
+    /// from the `AdMoai` instance. The value is forwarded verbatim (trimmed, blank omitted)
+    /// at encode time. Emits a PII-safe warning if the value would be rejected by the engine.
+    public func setSessionId(_ sessionId: String?) -> DecisionRequestBuilder {
+        if let reason = DecisionRequest.journeySessionIdRejectionReason(sessionId) {
+            logger?.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
+        }
+        self.sessionId = sessionId
+        return self
+    }
+
+    public func clearSessionId() -> DecisionRequestBuilder {
+        self.sessionId = nil
+        return self
+    }
+
+    /// Sets the Journey opt state (`in`/`out`) for this request.
+    public func setJourneyOpt(_ journeyOpt: JourneyOpt?) -> DecisionRequestBuilder {
+        self.journeyOpt = journeyOpt
+        return self
+    }
+
+    public func clearJourneyOpt() -> DecisionRequestBuilder {
+        self.journeyOpt = nil
+        return self
+    }
+
     public func disableAppCollection() -> DecisionRequestBuilder {
         collectAppData = false
         app = nil
@@ -387,6 +425,10 @@ public class DecisionRequestBuilder {
         _ = clearUser()
         _ = disableDeviceCollection()
         _ = disableAppCollection()
+        // `journeyOpt` is a per-request control: a stale `optOut` carried into a reused
+        // builder would change eligibility, so it is cleared here. The sticky `sessionId`
+        // (seeded from the AdMoai instance) is intentionally preserved.
+        _ = clearJourneyOpt()
         return self
     }
 
@@ -397,7 +439,9 @@ public class DecisionRequestBuilder {
             targeting: targeting,
             user: user,
             device: collectDeviceData ? device : nil,
-            app: collectAppData ? app : nil
+            app: collectAppData ? app : nil,
+            sessionId: sessionId,
+            journeyOpt: journeyOpt
         )
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - AdMoai SDK
 public struct AdMoai {
@@ -9,14 +10,21 @@ public struct AdMoai {
     public private(set) var userConfig: UserConfig
     private let session: URLSession
 
+    /// Journey Takeover Ads: sticky, publisher-owned session identifier inherited by every
+    /// request builder created via ``createRequestBuilder()``. Rotate it explicitly with
+    /// ``setSessionId(_:)``; the SDK never generates or mutates it on its own.
+    private var _sessionId: String?
+
     public init(
         config: SDKConfig,
-        userConfig: UserConfig? = nil
+        userConfig: UserConfig? = nil,
+        sessionId: String? = nil
     ) {
         self.config = config
         self.appConfig = .systemDefault()
         self.deviceConfig = .systemDefault()
         self.userConfig = userConfig ?? .clear()
+        self._sessionId = AdMoai.normalizedSessionId(sessionId, logger: config.logger)
 
         self.client = AdMoaiClient(
             baseURL: config.baseUrl,
@@ -105,12 +113,40 @@ public struct AdMoai {
         self.userConfig = .clear()
     }
 
+    // MARK: - Journey Session
+    /// The current sticky Journey `sessionId`, normalized to wire form (trimmed; `nil` when blank).
+    public var sessionId: String? { _sessionId }
+
+    /// Rotates the sticky Journey `sessionId` inherited by future request builders.
+    /// The value is normalized to wire form (trimmed; blank → `nil`) so the stored value
+    /// matches what is sent. Rotation is entirely publisher-driven.
+    public mutating func setSessionId(_ sessionId: String?) {
+        self._sessionId = AdMoai.normalizedSessionId(sessionId, logger: config.logger)
+    }
+
+    public mutating func clearSessionId() {
+        self._sessionId = nil
+    }
+
+    /// Normalizes a raw `sessionId` to wire form (trim; blank → `nil`) and emits a PII-safe
+    /// warning when it would be rejected by the engine. Never logs the value itself.
+    private static func normalizedSessionId(_ raw: String?, logger: Logger) -> String? {
+        guard let raw = raw else { return nil }
+        if let reason = DecisionRequest.journeySessionIdRejectionReason(raw) {
+            logger.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     // MARK: - SDK Operations
     public func createRequestBuilder() -> DecisionRequestBuilder {
         return DecisionRequestBuilder(
             appConfig: appConfig,
             deviceConfig: deviceConfig,
-            userConfig: userConfig
+            userConfig: userConfig,
+            sessionId: _sessionId,
+            logger: config.logger
         )
     }
 
