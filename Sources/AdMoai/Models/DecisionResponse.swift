@@ -7,6 +7,20 @@ public struct Decision: Decodable {
     public let creatives: [Creative]?
 }
 
+extension Decision {
+    /// `true` when this decision carries at least one creative to render.
+    public var hasCreative: Bool { creatives?.isEmpty == false }
+
+    /// `true` for a no-ad response.
+    ///
+    /// Treats `creatives: []` (single-brand takeover protection) and `creatives: null` /
+    /// absent (ordinary no-fill) **uniformly** — the difference is incidental (the reason
+    /// lives only in server logs). The SDK deliberately exposes no "protected no-ad" signal
+    /// and performs no local ad substitution: a no-ad response yields nothing to render and
+    /// nothing to track.
+    public var isNoAd: Bool { !hasCreative }
+}
+
 public struct Creative: Decodable {
     public let contents: [Content]
     public let metadata: Metadata?
