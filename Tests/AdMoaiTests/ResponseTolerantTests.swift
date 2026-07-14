@@ -48,6 +48,24 @@ struct ResponseTolerantTests {
         #expect(body.data?.first?.hasCreative == true)
     }
 
+    // Scenario: the top-level decision array drops a malformed/non-object entry, preserves the rest
+    @Test
+    func testTopLevelDecisionArrayDropsMalformed() throws {
+        let body = try decode(APIResponseBody<DecisionResponse>.self, """
+        {
+            "success": true,
+            "data": [
+                {"placement": "home", "creatives": []},
+                42,
+                {"placement": "menu", "creatives": null}
+            ]
+        }
+        """)
+        #expect(body.data?.count == 2)  // the bare 42 is dropped; both valid decisions survive
+        #expect(body.data?.first?.placement == "home")
+        #expect(body.data?.last?.placement == "menu")
+    }
+
     // Scenario: an alien/empty body decodes to success=false, data=nil (never throws)
     @Test
     func testAlienBodyDegradesGracefully() throws {

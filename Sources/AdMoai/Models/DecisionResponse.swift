@@ -118,6 +118,9 @@ extension CreativeJourney: Decodable {
 
 public struct Content: Decodable {
     public let key: String
+    /// The content value. May wrap `NSNull()` when the server sends a null value or omits the
+    /// field (tolerant decoding), so read it with a conditional cast (`value.value as? String`)
+    /// rather than a force cast (`as!`), which would crash on a null/absent value.
     public let value: AnyCodable
     public let type: String
 }
