@@ -73,6 +73,15 @@ public struct DecisionRequest: Encodable {
         if trimmed.utf8.count > 256 { return "exceeds_256_bytes" }
         return nil
     }
+
+    /// Normalizes a `sessionId` to its wire form: trimmed, with a blank value collapsing to
+    /// `nil`. Used so a stored/forwarded `sessionId` matches exactly what is sent, avoiding a
+    /// field-vs-wire mismatch.
+    public static func normalizedSessionId(_ sessionId: String?) -> String? {
+        guard let sessionId = sessionId else { return nil }
+        let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 public struct Placement: Encodable {

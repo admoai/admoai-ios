@@ -167,6 +167,18 @@ struct JourneyRequestTests {
         #expect(request.sessionId == "override-2")
     }
 
+    // Scenario: builder.setSessionId stores the wire form (trimmed; blank -> nil) so
+    //           request.sessionId matches exactly what is sent
+    @Test
+    func testBuilderSetSessionIdNormalizesToWireForm() {
+        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let padded = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("  abc  ").build()
+        #expect(padded.sessionId == "abc")   // property matches the trimmed wire value
+
+        let blank = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("   ").build()
+        #expect(blank.sessionId == nil)       // blank collapses to nil, matching omission on the wire
+    }
+
     // Scenario: rotating the sticky sessionId affects only subsequently-created builders
     @Test
     func testRotationViaSetSessionId() throws {

@@ -307,6 +307,9 @@ sdk.fireVideoEvent(tracking: trackingInfo, key: "start")
 
 // Custom events
 sdk.fireCustom(tracking: trackingInfo, key: "companionOpened")
+
+// Journey completion (custom_event completion deals only — see Journey Takeover Ads)
+sdk.fireCompletion(tracking: trackingInfo, key: "purchase")
 ```
 
 ### Tracking Keys

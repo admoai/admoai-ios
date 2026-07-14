@@ -174,14 +174,15 @@ struct JourneyResponseTests {
         #expect(creative.isJourneyAd == false)
     }
 
-    // Scenario: a malformed content entry is dropped, the creative still decodes
+    // Scenario: object content entries are preserved (degraded); non-object entries dropped
+    //   A retyped `type` must NOT discard a content whose key+value are still usable.
     @Test
-    func testMalformedContentEntryDropped() throws {
+    func testTolerantContentDecoding() throws {
         let json = """
         {
             "contents": [
                 {"key": "title", "value": "Good", "type": "string"},
-                {"key": "broken"},
+                {"key": "subtitle", "value": "Keep me", "type": 123},
                 42
             ],
             "advertiser": {"id": "adv1"},
@@ -191,8 +192,11 @@ struct JourneyResponseTests {
         }
         """
         let creative = try decodeCreative(json)
-        #expect(creative.contents.count == 1)          // only the valid content survives
-        #expect(creative.contents.first?.key == "title")
+        // The non-object (42) is dropped; both object entries survive.
+        #expect(creative.contents.count == 2)
+        let subtitle = creative.contents.getContent(key: "subtitle")
+        #expect(subtitle?.value.value as? String == "Keep me")  // value preserved despite bad type
+        #expect(subtitle?.type == "")                            // retyped type degrades to ""
         #expect(creative.journey?.dealId == "d1")
     }
 
