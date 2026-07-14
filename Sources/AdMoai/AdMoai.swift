@@ -131,12 +131,10 @@ public struct AdMoai {
     /// Normalizes a raw `sessionId` to wire form (trim; blank → `nil`) and emits a PII-safe
     /// warning when it would be rejected by the engine. Never logs the value itself.
     private static func normalizedSessionId(_ raw: String?, logger: Logger) -> String? {
-        guard let raw = raw else { return nil }
         if let reason = DecisionRequest.journeySessionIdRejectionReason(raw) {
             logger.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
         }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        return DecisionRequest.normalizedSessionId(raw)
     }
 
     // MARK: - SDK Operations
@@ -146,6 +144,7 @@ public struct AdMoai {
             deviceConfig: deviceConfig,
             userConfig: userConfig,
             sessionId: _sessionId,
+            apiVersion: config.apiVersion,
             logger: config.logger
         )
     }

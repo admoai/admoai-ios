@@ -162,10 +162,18 @@ public struct Metadata: Decodable {
     public let language: String?
     public let format: String?
     public let style: String?
+    /// Render-level attribution key the engine mints per served creative (`impId,omitempty`);
+    /// present for Journey serves, `nil` for normal ads. Read-only passthrough of the engine
+    /// contract — the decrypted tracking token remains authoritative server-side.
+    public let impId: String?
     // Video-specific metadata (2025-11-01+)
     public let duration: Int?
     public let aspectRatio: String?
     public let isSkippable: Bool?
+    /// Seconds before a skippable video may be skipped (`skipOffsetSeconds,omitempty`).
+    public let skipOffsetSeconds: Int?
+    /// End-card presentation mode for video creatives (`endCardMode,omitempty`).
+    public let endCardMode: String?
 }
 
 public struct Advertiser: Decodable {
@@ -324,10 +332,26 @@ extension Decision {
     }
 }
 
+extension Content {
+    private enum TolerantKeys: String, CodingKey { case key, value, type }
+
+    /// Scalar-level tolerance: a retyped `key`/`type` degrades to `""` and a missing/malformed
+    /// `value` degrades to a null `AnyCodable`, rather than dropping the whole entry at the
+    /// array level. This preserves a usable content field (e.g. its `value`) when a future
+    /// engine version only retypes `type`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.key = (try? c.decode(String.self, forKey: .key)) ?? ""
+        self.type = (try? c.decode(String.self, forKey: .type)) ?? ""
+        self.value = (try? c.decode(AnyCodable.self, forKey: .value)) ?? AnyCodable(NSNull())
+    }
+}
+
 extension Metadata {
     private enum TolerantKeys: String, CodingKey {
         case adId, creativeId, advertiserId, templateId, placementId, priority
-        case language, format, style, duration, aspectRatio, isSkippable
+        case language, format, style, impId, duration, aspectRatio, isSkippable
+        case skipOffsetSeconds, endCardMode
     }
 
     public init(from decoder: Decoder) throws {
@@ -342,12 +366,17 @@ extension Metadata {
         self.language = try? c.decode(String.self, forKey: .language)
         self.format = try? c.decode(String.self, forKey: .format)
         self.style = try? c.decode(String.self, forKey: .style)
+        self.impId = try? c.decode(String.self, forKey: .impId)
         // Accept an integer or a JSON number that decodes as Double.
         self.duration =
             (try? c.decode(Int.self, forKey: .duration))
             ?? (try? c.decode(Double.self, forKey: .duration)).map { Int($0) }
         self.aspectRatio = try? c.decode(String.self, forKey: .aspectRatio)
         self.isSkippable = try? c.decode(Bool.self, forKey: .isSkippable)
+        self.skipOffsetSeconds =
+            (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
+            ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
+        self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
     }
 }
 

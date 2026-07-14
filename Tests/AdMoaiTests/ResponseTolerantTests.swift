@@ -79,6 +79,28 @@ struct ResponseTolerantTests {
         #expect(meta.priority == .unknown)  // unknown enum -> .unknown
     }
 
+    // Scenario: engine metadata fields impId / skipOffsetSeconds / endCardMode are exposed
+    @Test
+    func testMetadataExposesImpIdAndVideoFields() throws {
+        let meta = try decode(Metadata.self, """
+        {
+            "adId": "a", "creativeId": "c", "templateId": "t", "placementId": "p", "priority": "standard",
+            "impId": "imp_abc123",
+            "duration": 15, "aspectRatio": "16:9", "isSkippable": true,
+            "skipOffsetSeconds": 5, "endCardMode": "auto"
+        }
+        """)
+        #expect(meta.impId == "imp_abc123")
+        #expect(meta.skipOffsetSeconds == 5)
+        #expect(meta.endCardMode == "auto")
+
+        // Absent on a normal ad -> nil (backward compatible, tolerant)
+        let normal = try decode(Metadata.self, #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard"}"#)
+        #expect(normal.impId == nil)
+        #expect(normal.skipOffsetSeconds == nil)
+        #expect(normal.endCardMode == nil)
+    }
+
     // Scenario: duration accepts an integer or a JSON number (Double)
     @Test
     func testMetadataDurationAcceptsIntOrDouble() throws {
