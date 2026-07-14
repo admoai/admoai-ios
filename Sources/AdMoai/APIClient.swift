@@ -216,7 +216,21 @@ extension APIResponseBody {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: TolerantKeys.self)
         self.success = (try? c.decode(Bool.self, forKey: .success)) ?? false
-        self.data = try? c.decode(T.self, forKey: .data)
+        // The decision list is the one array the generic `data` decode can't make
+        // element-tolerant on its own — a single non-object entry would fail the whole
+        // `[Decision]` decode. Special-case it so malformed/non-object decisions are dropped
+        // and the good ones preserved, matching the Tolerant Reader policy for every other array.
+        if T.self == DecisionResponse.self {
+            if let decisions =
+                (try? c.decode([SafelyDecodable<Decision>].self, forKey: .data))?.compactMap(\.value)
+            {
+                self.data = decisions as? T
+            } else {
+                self.data = nil
+            }
+        } else {
+            self.data = try? c.decode(T.self, forKey: .data)
+        }
         self.errors =
             (try? c.decode([SafelyDecodable<AdMoaiError>].self, forKey: .errors))?
             .compactMap(\.value)

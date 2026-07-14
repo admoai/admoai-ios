@@ -200,6 +200,25 @@ struct JourneyResponseTests {
         #expect(creative.journey?.dealId == "d1")
     }
 
+    // Scenario: a content entry missing `value` entirely is preserved (value degrades to null),
+    //           not dropped — and reads back as nil for any typed cast
+    @Test
+    func testContentMissingValuePreserved() throws {
+        let json = """
+        {
+            "contents": [{"key": "novalue"}],
+            "advertiser": {"id": "adv1"},
+            "tracking": {},
+            "metadata": {"adId": "a", "creativeId": "c", "templateId": "t", "placementId": "p", "priority": "standard"}
+        }
+        """
+        let creative = try decodeCreative(json)
+        #expect(creative.contents.count == 1)
+        let content = creative.contents.getContent(key: "novalue")
+        #expect(content?.type == "")
+        #expect(content?.value.value as? String == nil)  // null value -> nil for any typed cast
+    }
+
     // Scenario: a full DecisionResponse array with a Journey creative decodes end-to-end
     @Test
     func testFullDecisionResponseWithJourney() throws {
