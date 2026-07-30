@@ -14,6 +14,9 @@ The AdMoai iOS SDK is a lightweight wrapper around the Decision Engine API, enab
 
 - **Native Ads** – Multiple template types (wide, image+text, text-only, carousel)
 - **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
+- **Journey Takeover Ads** – Single-advertiser experiences spanning a session. Read
+  [Journey Takeover Ads](#journey-takeover-ads) before integrating: it is the one feature that
+  requires the same `sessionId` on **every** call
 - **Rich Targeting** – Geo, location, and custom key-value targeting
 - **Format Filter** – Request native-only, video-only, or any format
 - **User Consent** – GDPR compliance with consent management
@@ -127,8 +130,10 @@ sdk.fireVideoEvent(tracking: creative.tracking, key: "complete")        // 98%
 sdk.fireVideoEvent(tracking: creative.tracking, key: "skip")            // on skip
 
 // Custom events
-sdk.fireCustom(tracking: creative.tracking, key: "companionOpened")
+sdk.fireCustomEvent(tracking: creative.tracking, key: "companionOpened")
 ```
+
+The SDK never fires anything on its own — every beacon above fires only when you call it.
 
 ### 6. Clean Up on Logout
 
@@ -202,84 +207,279 @@ let vastXmlModified = creative.getVastXmlBase64(mediaType: "video/mp4", mediaDel
 
 ## Journey Takeover Ads
 
-Journey Takeover Ads are a single-brand, multi-stage ad experience that follows a user
-across trip stages (e.g. pre-ride → in-ride → post-ride), sold as one commercial deal.
+A **Journey Takeover Ad** is a single-advertiser experience that follows one user across several
+screens of a session (e.g. pre-ride → in-ride → post-ride), sold as one commercial deal. Instead
+of an independent decision per placement, one advertiser holds the journey: the engine walks the
+user through an ordered set of **stages**, keeps progress server-side, and suppresses competing
+ads on the placements it owns until the journey ends.
 
-**All Journey logic is owned by the decision-engine.** The SDK only: forwards publisher
-Journey context, parses read-only Journey metadata, fires the server's opaque tracking URLs
-verbatim, and handles no-ad safely. It never runs a Journey state machine, infers
-progression/completion, or reconstructs URLs.
+> **Read this section before integrating.** Journey Ads is the first Admoai feature where a
+> *sequence* of calls behaves differently from a set of unrelated ones, so it is the first that
+> puts an obligation on **every** call: carry the same `sessionId` for the whole of a user's
+> session. The SDK cannot do that for you. Get it wrong and journeys silently never progress.
 
-**Minimum engine version:** set `SDKConfig.apiVersion = "2025-11-01"`. Without it, the engine
-ignores Journey entirely and — importantly — Journey completion tracking will not record.
+**Minimum engine version:** set `SDKConfig.apiVersion = "2025-11-01"`. Without it the engine
+**silently** ignores Journey fields and serves ordinary ads — no error, no warning from the
+server — and Journey completion tracking will not record.
 
-### Sending Journey context
+### What the SDK does, and never does
+
+| The SDK does | The SDK never does |
+|---|---|
+| Forwards your `sessionId` and `journeyOpt` on the request | Generate, rotate, or persist a `sessionId` |
+| Exposes read-only Journey metadata off the served creative | Run a journey state machine or infer the current stage |
+| Fires the exact tracking URLs the engine returned, verbatim, when you call it | Fire anything automatically, or rebuild/parse a tracking URL |
+| Reports a no-ad faithfully | Substitute another ad when a journey withholds one |
+
+Everything else is **server-owned**: eligibility, which stage serves next, the
+`journeyInstanceId`, takeover protection, frequency capping, runtime-state TTL, completion, and
+billing. If you find yourself writing journey logic in your app, something has gone wrong.
+
+### The one rule: the same session id on every call
 
 ```swift
 let config = SDKConfig(baseUrl: "https://api.admoai.com", apiVersion: "2025-11-01")
 
-// A sticky, publisher-owned session id inherited by every request builder.
+// One sticky, publisher-owned session id, inherited by every request builder.
 var sdk = AdMoai(config: config, sessionId: "trip-9f3c-2025")
+```
 
-// Rotate it yourself when your rules say a new session began (the SDK never auto-changes it):
-sdk.setSessionId("trip-a17d-2025")
+Two ways to get this wrong, both of which fail quietly:
 
+| Mistake | What happens |
+|---|---|
+| A **different** `sessionId` per screen | Every call looks like a new session, so the journey restarts at stage 1 forever and never progresses. |
+| **No** `sessionId` at all | Journeys never activate. Ordinary ads keep serving — a safe default, but the feature is simply off. |
+
+### The `sessionId` contract
+
+- **You own it.** The SDK never generates, rotates, or persists it. It is whatever your app uses
+  to mean "one continuous session".
+- **It is sticky.** The value on `AdMoai` is inherited by every builder from
+  `createRequestBuilder()`, and rebuilding never mints a new one.
+- **It can be overridden per request**, and cleared per request, without disturbing the sticky
+  value:
+  ```swift
+  let request = sdk.createRequestBuilder()
+      .addPlacement(key: "home")
+      .setSessionId("just-this-request")   // overrides for this request only
+      // .clearSessionId()                 // or omits it for this request only
+      .build()
+  ```
+- **Rotate it when a new business session begins** — app launch after a real break, login,
+  logout, or when the activity the journey describes has ended (the trip finished, the order was
+  delivered). Rotating is explicit:
+  ```swift
+  sdk.setSessionId("trip-a17d-2025")
+  ```
+- **Do not rotate it per screen, per request, or on every app foreground.** That is the first
+  failure mode above.
+- **Limits:** trimmed before sending; blank becomes absent; must be ≤ **256 UTF-8 bytes**. An
+  over-long or blank value silently disables Journey while the request still succeeds as a
+  normal ad. The SDK logs a PII-safe reason token only — never the value.
+- **It is PII and it is not a user id.** Do not put an email, phone number, or account id in it.
+  Use an opaque, rotating value.
+
+### `journeyOpt` — three states, and the trap
+
+```swift
 let request = sdk.createRequestBuilder()
     .addPlacement(key: "home")
-    .setJourneyOpt(.optIn)          // .optIn / .optOut, or omit
-    // .setSessionId("per-request") // optional per-request override of the sticky default
+    .setJourneyOpt(.optIn)     // or .optOut, or omit entirely
     .build()
 ```
 
-- `sessionId` is trimmed and sent verbatim; blank values are omitted. It must be ≤ 256 UTF-8
-  **bytes** — longer or blank values silently disable Journey (the request still succeeds as a
-  normal ad). It is treated as PII and never logged.
-- `journeyOpt` sends only `"in"` / `"out"`. Opt-out ends the active journey instance; a later
-  opt-in may start a new one (the engine decides — the SDK just forwards the value).
+| State | Wire value | Meaning |
+|---|---|---|
+| `.optIn` | `"in"` | Journeys may serve. |
+| `.optOut` | `"out"` | Journeys are suppressed, and an active journey is **ended**. |
+| omitted | *(absent)* | **Permissive** — journeys may serve, and an active journey continues. |
+
+> **The single most likely misreading:** omitting `journeyOpt` is **not** the same as
+> `.optOut`. Omitting it is permissive and behaves much like opting in. If you mean "no
+> journeys for this user", you must send `.optOut` explicitly. Sending a `sessionId` with
+> `journeyOpt` omitted is enough to start a journey.
+
+**Opt-out ends rather than pauses.** It closes the active instance; it does not suspend it.
+Opting back in later starts a **new** journey with a new `journeyInstanceId` — the previous one
+never resumes. A journey that has **completed** is likewise terminal.
 
 ### Reading Journey metadata (read-only)
 
 ```swift
 if creative.isJourneyAd {
-    let dealId      = creative.journeyDealId
-    let instanceId  = creative.journeyInstanceId
-    let stageKey    = creative.journeyStageKey
-    let optStatus   = creative.journeyOptStatus   // .optIn / .optOut / nil (unknown)
-    let pricing     = creative.journeyPricingModel
+    let dealId          = creative.journeyDealId
+    let instanceId      = creative.journeyInstanceId       // constant for one journey
+    let definitionKey   = creative.journeyDefinitionKey
+    let stageId         = creative.journeyStageId
+    let stageKey        = creative.journeyStageKey
+    let stageNodeId     = creative.journeyStageNodeId
+    let sessionId       = creative.journeySessionId        // echoed back by the engine
+    let optStatus       = creative.journeyOptStatus        // .optIn / .optOut / nil (unknown)
+    let pricing         = creative.journeyPricingModel     // e.g. "cpt"
+    let fallbackBilling = creative.journeyFallbackBillingMode
+    let isCompletion    = creative.isJourneyCompletion
+    let hasBeacon       = creative.hasCompletionUrl
 }
 ```
 
-Unknown/absent/mistyped Journey fields degrade gracefully (never throw). Normal ads have
-`creative.journey == nil`.
+On an ordinary ad every one of these is `nil` / `false` — never a crash, never a default object.
+Unknown, missing, or wrong-typed fields from a future engine version decode to `nil` rather than
+throwing.
 
-### Completion tracking
+> **Do not branch your UI on stage keys or node ids.** They are engine-owned identifiers that
+> can change when someone edits the campaign, and your app will not be redeployed when they do.
+> Render from `contents` and `template`, exactly as you do for a normal ad.
 
-Completion has two mutually-exclusive modes, decided by the engine:
+### Completion — two mutually exclusive modes
 
-- **`custom_event`** — `creative.tracking.completions` carries one beacon. Fire it once when
-  the mapped action happens:
-  ```swift
-  sdk.fireCompletion(tracking: creative.tracking, key: "purchase")
-  ```
-- **`final_stage`** — `creative.isJourneyCompletion == true` and there is **no** URL to fire;
-  completion is recorded server-side at decision time. Fire only the normal impression.
+The engine chooses one per deal. You handle both, and they are **additive** to the normal
+impression, never a replacement.
 
-Fire the completion URL **once** — do not also fire a matching custom event, or completion may
-double-count.
+**`custom_event`** — the creative carries a completion beacon. **Completion, and therefore CPT
+revenue, is recorded only when you fire it.** If you never fire it, the journey never bills.
 
-### No-ad & single-brand takeover
+```swift
+if creative.hasCompletionUrl {
+    // Fire ONCE, when the action the deal is paying for actually happens.
+    sdk.fireCompletion(tracking: creative.tracking, key: "journey_complete")
+}
+```
 
-A protected surface returns no ad rather than a competing brand. Treat every no-ad case
-uniformly and never substitute your own ad:
+**`final_stage`** — the engine marks completion itself, at decision time. There is **nothing to
+fire**.
+
+```swift
+if creative.isJourneyCompletion {
+    // Already recorded server-side. Fire only the normal impression.
+}
+```
+
+`isJourneyCompletion` and `hasCompletionUrl` are mutually exclusive; fire the completion beacon
+**once** and do not also fire a matching custom event, or completion double-counts.
+
+### No-ad is correct behaviour, not a failure
+
+A placement a journey owns may return **no ad** rather than a competing brand. That is takeover
+protection working.
 
 ```swift
 if decision.isNoAd {
-    // Render nothing / your own non-ad UI. Fire no tracking.
+    // Collapse the slot. Render nothing, or your own non-ad UI. Fire no tracking.
 }
 ```
 
-`decision.isNoAd` is `true` for both takeover-protected empties and ordinary no-fill (the
-distinction is intentional server-side detail the SDK does not expose).
+- **Do not** substitute another ad or fall back to a different network on that surface.
+- **Do not** retry in a loop; the answer will not change within the session.
+- `decision.isNoAd` is `true` for takeover-protected empties *and* ordinary no-fill. The
+  distinction is deliberate server-side detail the SDK does not expose, and treating them
+  differently is not something your app can or should do.
+
+### Worked example 1 — one session across three screens
+
+```swift
+final class AdSession {
+    // One id for the whole trip, rotated only when a new trip begins.
+    private var sdk = AdMoai(
+        config: SDKConfig(baseUrl: "https://api.admoai.com", apiVersion: "2025-11-01"),
+        sessionId: "trip-\(UUID().uuidString)"
+    )
+
+    func newTrip() {
+        sdk.setSessionId("trip-\(UUID().uuidString)")
+    }
+
+    func ad(for placement: String) async throws -> Creative? {
+        // No setSessionId here — the sticky value is inherited, which is the point.
+        let request = sdk.createRequestBuilder()
+            .addPlacement(key: placement)
+            .setJourneyOpt(.optIn)
+            .build()
+        let creative = try await sdk.requestAds(request).body.data?.first?.creatives?.first
+
+        if let creative = creative {
+            sdk.fireImpression(tracking: creative.tracking)
+            if creative.hasCompletionUrl, tripFinished {
+                sdk.fireCompletion(tracking: creative.tracking, key: "journey_complete")
+            }
+        }
+        return creative
+    }
+
+    private var tripFinished = false
+}
+
+// vehicleSelection → journey → rideSummary all share one sessionId, so the engine can
+// advance the journey one stage at a time.
+```
+
+### Worked example 2 — personalisation opt-out
+
+The user has turned off personalised advertising, but you still want to serve ordinary ads.
+
+```swift
+let opt: JourneyOpt = userAllowsPersonalisation ? .optIn : .optOut
+
+let request = sdk.createRequestBuilder()
+    .addPlacement(key: "home")
+    .setJourneyOpt(opt)   // NOT "omit it" — omitting is permissive
+    .build()
+```
+
+Under `.optOut` the engine serves normal, non-journey ads and closes any active journey. If the
+user turns personalisation back on, the next `.optIn` starts a **new** journey.
+
+### Video: the VAST double-count rule
+
+For `vast_tag` and `vast_xml` delivery, the impression, quartile, and click beacons live **inside
+the VAST document** and belong to your player. The SDK surfaces the VAST payload and
+deliberately exposes **no** video-event beacons for these modes.
+
+```swift
+if creative.isVastTagDelivery() || creative.isVastXmlDelivery() {
+    // Hand creative.getVastTagUrl() / getVastXmlBase64() to your player.
+    // Do NOT also call fireVideoEvent — the player's own beacons already cover it.
+}
+if creative.isJsonDelivery() {
+    // JSON delivery is the opposite: the engine owns the beacons, so you must fire them.
+    sdk.fireVideoEvent(tracking: creative.tracking, key: "start")
+}
+```
+
+### Common mistakes
+
+| Mistake | Consequence | Do this instead |
+|---|---|---|
+| A new `sessionId` per screen or per request | The journey restarts at stage 1 forever and never progresses | One id for the whole session, rotated only on a real new session |
+| No `sessionId` | Journeys never activate; the feature is silently off | Set it once on `AdMoai` |
+| Omitting `journeyOpt` to mean "opt out" | Permissive — journeys still serve, and an active one continues | Send `.optOut` explicitly |
+| Expecting opt-out to pause | The instance is **closed**; a later opt-in starts a new one | Treat opt-out as terminal |
+| Forgetting `apiVersion` | Journey fields are ignored silently, and completions do not record | `apiVersion = "2025-11-01"` |
+| Not firing the `custom_event` completion beacon | The journey never completes and CPT never bills | Fire it once when the action happens |
+| Firing a completion for a `final_stage` deal | Nothing to fire; risks double counting | Check `isJourneyCompletion` and fire only the impression |
+| Substituting your own ad on a journey no-ad | Breaks the single-brand takeover you were paid for | Collapse the slot |
+| Branching UI on `journeyStageKey` | Breaks silently when someone edits the campaign | Render from `contents` / `template` |
+| Rebuilding or appending to a tracking URL | Invalidates the encrypted token; attribution is lost | Fire the string verbatim |
+| Firing SDK video events for VAST delivery | Every event counts twice | Let the player's VAST beacons do it |
+
+### Two self-checks that catch most integration bugs
+
+**1. The instance id must stay constant across one session.**
+
+```swift
+if let instance = creative.journeyInstanceId {
+    print("journey instance: \(instance)")   // must be IDENTICAL on every screen of a session
+}
+```
+If it changes between screens, your `sessionId` is changing when it should not.
+
+**2. The stage key must advance and never repeat.**
+
+```swift
+print("stage: \(creative.journeyStageKey ?? "none")")
+```
+Across a session this should move forward (`pre_ride` → `in_ride` → `post_ride`). If it is stuck
+on the first stage, the journey is restarting every call — again a `sessionId` problem.
 
 ---
 
@@ -291,30 +491,47 @@ For a complete example implementation, check out the [demo app](Examples/Demo/RE
 
 ## Event Tracking
 
-The SDK fires tracking beacons via HTTP requests automatically.
+**The SDK never fires a beacon automatically.** Every tracking call below happens only when your
+app makes it — the SDK has no view lifecycle hooks, no visibility detection, and no player
+integration. Firing at the right moment is the publisher's responsibility.
+
+All tracking methods are **fire-and-forget**: they return `Void`, dispatch on the SDK's own
+session, and never throw into the caller. Failures are logged, not surfaced — so there is no
+return value to branch on and nothing to `await`.
+
+The URLs are opaque (`…/v1/tracking?e=<encrypted token>`) and are fired **verbatim**. Never
+parse, rebuild, or append to them: the attribution identity lives inside the token.
 
 ### Available Methods
 
 ```swift
-// Impressions (fired when ad is displayed)
+// Impressions (fire when the ad is actually displayed)
 sdk.fireImpression(tracking: trackingInfo, key: "default")
 
-// Clicks (fired on user tap)
+// Clicks (fire on user tap)
 sdk.fireClick(tracking: trackingInfo, key: "default")
 
-// Video events (JSON delivery only)
+// Video events (JSON delivery only — for VAST the player owns the beacons)
 sdk.fireVideoEvent(tracking: trackingInfo, key: "start")
 
 // Custom events
-sdk.fireCustom(tracking: trackingInfo, key: "companionOpened")
+sdk.fireCustomEvent(tracking: trackingInfo, key: "companionOpened")
 
 // Journey completion (custom_event completion deals only — see Journey Takeover Ads)
-sdk.fireCompletion(tracking: trackingInfo, key: "purchase")
+sdk.fireCompletion(tracking: trackingInfo, key: "journey_complete")
+
+// Escape hatch: fire a server-provided URL directly, when you already hold the string
+sdk.fireTracking(url: someServerProvidedUrl)
 ```
+
+> `fireCustom(tracking:key:)` is the former name of `fireCustomEvent(tracking:key:)`. It still
+> works but is deprecated; all three Admoai SDKs now use `fireCustomEvent`.
 
 ### Tracking Keys
 
-Each tracking type supports multiple keys. Use `"default"` for standard events or specify custom keys defined in your campaign configuration.
+Each tracking type supports multiple keys. Use `"default"` for standard events, or the custom
+keys defined in your campaign configuration. A key that does not exist fires nothing — it is a
+safe no-op, not an error.
 
 ---
 
@@ -406,11 +623,17 @@ APIResponse<DecisionResponse>
 │   │           └── Creative
 │   │               ├── contents: [Content]         // Key-value pairs
 │   │               ├── advertiser: Advertiser
-│   │               ├── template: Template          // {key, style}
-│   │               ├── tracking: Tracking          // Tracking URLs
-│   │               ├── metadata: Metadata
-│   │               ├── delivery: String            // "json", "vast_tag", "vast_xml"
+│   │               ├── template: Template?         // {key, style}
+│   │               ├── tracking: Tracking
+│   │               │   ├── impressions: [TrackingItem]?
+│   │               │   ├── clicks: [TrackingItem]?
+│   │               │   ├── custom: [TrackingItem]?
+│   │               │   ├── videoEvents: [TrackingItem]?   // JSON delivery only
+│   │               │   └── completions: [TrackingItem]?   // Journey custom_event deals only
+│   │               ├── metadata: Metadata?
+│   │               ├── delivery: String?           // "json", "vast_tag", "vast_xml"
 │   │               ├── vast: VastData?             // {tagUrl} or {xmlBase64}
+│   │               ├── journey: CreativeJourney?   // Journey serves only — see Journey Takeover Ads
 │   │               └── verificationScriptResources: [VerificationScriptResource]?  // OM verification data
 │   ├── errors: [AdMoaiError]?
 │   └── warnings: [AdMoaiWarning]?

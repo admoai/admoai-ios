@@ -88,6 +88,6 @@ final class ContentViewModel: ObservableObject {
     }
 
     func handleCustomEvent(tracking: Tracking, key: String) {
-        sdk.fireCustom(tracking: tracking, key: key)
+        sdk.fireCustomEvent(tracking: tracking, key: key)
     }
 }

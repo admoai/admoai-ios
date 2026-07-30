@@ -202,10 +202,24 @@ public struct AdMoai {
         }
     }
 
-    public func fireCustom(tracking: Tracking, key: String) {
+    /// Fires a custom-event tracking beacon by key (fire-and-forget).
+    ///
+    /// Canonical name across all three SDKs (Android `fireCustomEvent`, Flutter
+    /// `fireCustomEvent`). ``fireCustom(tracking:key:)`` remains as a deprecated forwarding
+    /// alias so existing integrations keep compiling.
+    public func fireCustomEvent(tracking: Tracking, key: String) {
         if let url = tracking.getCustomUrl(key: key) {
             fireTracking(url: url)
         }
+    }
+
+    /// Deprecated alias for ``fireCustomEvent(tracking:key:)``.
+    ///
+    /// Renamed for cross-SDK parity; kept as a forwarding alias (not removed) because a
+    /// rename alone would stop existing integrations from compiling on upgrade.
+    @available(*, deprecated, renamed: "fireCustomEvent(tracking:key:)")
+    public func fireCustom(tracking: Tracking, key: String) {
+        fireCustomEvent(tracking: tracking, key: key)
     }
 
     public func fireVideoEvent(tracking: Tracking, key: String) {

@@ -511,7 +511,7 @@ struct LiveIntegrationTrackingTests {
         sdk.fireTracking(url: "not a valid url !!!@@@")
     }
 
-    /// `fireImpression`, `fireClick`, `fireCustom`, `fireVideoEvent` must all
+    /// `fireImpression`, `fireClick`, `fireCustomEvent`, `fireVideoEvent` must all
     /// accept a `Tracking` value and not crash.
     @Test
     func testAllFireMethodsAcceptTracking() {
@@ -527,7 +527,7 @@ struct LiveIntegrationTrackingTests {
         sdk.fireImpression(tracking: tracking, key: "default")
         sdk.fireClick(tracking: tracking)
         sdk.fireClick(tracking: tracking, key: "default")
-        sdk.fireCustom(tracking: tracking, key: "companionOpened")
+        sdk.fireCustomEvent(tracking: tracking, key: "companionOpened")
         sdk.fireVideoEvent(tracking: tracking, key: "start")
     }
 
