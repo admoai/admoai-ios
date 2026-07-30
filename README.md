@@ -327,6 +327,12 @@ On an ordinary ad every one of these is `nil` / `false` — never a crash, never
 Unknown, missing, or wrong-typed fields from a future engine version decode to `nil` rather than
 throwing.
 
+`creative.metadata?.impId` carries the **render-level attribution key**, minted per served creative
+and present on every Journey serve (`nil` on normal ads). Use it to reconcile a specific render
+against reporting. It is not a substitute for the tracking token — the encrypted `e=` token stays
+authoritative server-side — and the SDK derives nothing from it. `metadata` also carries
+`skipOffsetSeconds` and `endCardMode` for video creatives.
+
 > **Do not branch your UI on stage keys or node ids.** They are engine-owned identifiers that
 > can change when someone edits the campaign, and your app will not be redeployed when they do.
 > Render from `contents` and `template`, exactly as you do for a normal ad.
@@ -574,8 +580,14 @@ sdk.fireVideoEvent(tracking: creative.tracking, key: "skip")  // if user skips
 ```swift
 // Skippable ad detection
 let isSkippable = creative.isSkippable()
-let skipOffset = creative.getSkipOffset()  // e.g., "00:00:05" or "5"
+let skipOffset = creative.getSkipOffset()  // String?, e.g. "5" or "00:00:05"
 ```
+
+Both read the engine-owned `creative.metadata` first (`metadata?.isSkippable`,
+`metadata?.skipOffsetSeconds`), then fall back to the creative's content fields — accepting either
+`is_skippable`/`skip_offset` or the camelCase spellings, because the template field names are
+author-controlled. For a typed value read `creative.metadata?.skipOffsetSeconds` (`Int?`) directly;
+`getSkipOffset()` returns a `String?` for backwards compatibility.
 
 ---
 
@@ -606,6 +618,11 @@ let request = sdk.createRequestBuilder()
     
     .build()
 ```
+
+`clearAll()` resets a builder for reuse: it drops placements, targeting and user, stops automatic
+app and device collection, and clears `journeyOpt`. It deliberately **keeps** the sticky
+`sessionId` — that is session-scoped state, not per-request state, so a journey survives a builder
+reset. Call `clearSessionId()` to drop it explicitly.
 
 ---
 
