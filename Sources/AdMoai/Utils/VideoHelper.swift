@@ -112,11 +112,67 @@ extension Creative {
     }
     
     // Template field helpers (guaranteed fields only)
+    /// Whether the video may be skipped.
+    ///
+    /// Prefers ``Metadata/isSkippable`` — the engine-owned field — then falls back to the
+    /// creative's content fields.
+    ///
+    /// This previously read `contents.getContent(key: "isSkippable")?.value as? Bool`, which could
+    /// never return `true` for two independent reasons:
+    ///
+    /// 1. The platform creates template fields in snake_case. A live serve returns
+    ///    `is_skippable`, and camelCase was the only key matched.
+    /// 2. `Content.value` is an ``AnyCodable``, so casting it to `Bool` always fails — the cast
+    ///    has to go through the wrapped value, exactly as `Content`'s own documentation says.
+    ///
+    /// Point 1 is the same class of defect as #2483, where the journey click resolver matched a
+    /// hand-maintained snake_case list while the platform wrote camelCase: the same seam, the
+    /// opposite direction. The Flutter and Android SDKs carried point 1 and are fixed alongside
+    /// this.
     public func isSkippable() -> Bool {
-        return contents.getContent(key: "isSkippable")?.value as? Bool ?? false
+        if let fromMetadata = metadata?.isSkippable {
+            return fromMetadata
+        }
+        let content =
+            contents.getContent(key: "isSkippable") ?? contents.getContent(key: "is_skippable")
+        guard let value = content?.value else { return false }
+        return skippabilityFlag(value)
     }
-    
+
+    /// Seconds before a skippable video may be skipped, as a string.
+    ///
+    /// Prefers ``Metadata/skipOffsetSeconds``, then falls back to the creative's content fields,
+    /// matching both `skipOffset` and `skip_offset` for the reason above.
+    ///
+    /// Returns a `String?` to stay source-compatible; read `creative.metadata?.skipOffsetSeconds`
+    /// for a typed `Int?`.
     public func getSkipOffset() -> String? {
-        return contents.getContent(key: "skipOffset")?.value.description
+        if let seconds = metadata?.skipOffsetSeconds {
+            return String(seconds)
+        }
+        let content =
+            contents.getContent(key: "skipOffset") ?? contents.getContent(key: "skip_offset")
+        return content?.value.description
+    }
+}
+
+/// Interprets a content value as a boolean flag.
+///
+/// The template field backing skippability is typed `integer`, so the value can arrive as a bool,
+/// a number, or a string depending on the template and the producer. Anything unrecognized is
+/// `false` — never a crash.
+private func skippabilityFlag(_ value: AnyCodable) -> Bool {
+    switch value.value {
+    case let flag as Bool:
+        return flag
+    case let number as Int:
+        return number != 0
+    case let number as Double:
+        return number != 0
+    case let text as String:
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "true" || normalized == "1"
+    default:
+        return false
     }
 }
