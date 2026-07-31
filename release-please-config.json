@@ -15,21 +15,62 @@
       "include-component-in-tag": false,
       "include-v-in-tag": true,
       "pull-request-title-pattern": "chore: release ${version}",
-      "pull-request-header": "## 🚀 Release ${version}",
+      "pull-request-header": "## \ud83d\ude80 Release ${version}",
       "extra-files": [
-        { "type": "generic", "path": "Sources/AdMoai/Version.swift" }
+        "Sources/AdMoai/Version.swift",
+        "README.md"
       ],
       "changelog-sections": [
-        { "type": "feat", "section": "Added", "hidden": false },
-        { "type": "fix", "section": "Fixed", "hidden": false },
-        { "type": "perf", "section": "Performance", "hidden": false },
-        { "type": "refactor", "section": "Changed", "hidden": false },
-        { "type": "chore", "section": "Changed", "hidden": false },
-        { "type": "docs", "section": "Documentation", "hidden": false },
-        { "type": "style", "section": "Changed", "hidden": true },
-        { "type": "test", "section": "Tests", "hidden": true },
-        { "type": "build", "section": "Build System", "hidden": true },
-        { "type": "ci", "section": "CI/CD", "hidden": true }
+        {
+          "type": "feat",
+          "section": "Added",
+          "hidden": false
+        },
+        {
+          "type": "fix",
+          "section": "Fixed",
+          "hidden": false
+        },
+        {
+          "type": "perf",
+          "section": "Performance",
+          "hidden": false
+        },
+        {
+          "type": "refactor",
+          "section": "Changed",
+          "hidden": false
+        },
+        {
+          "type": "chore",
+          "section": "Changed",
+          "hidden": false
+        },
+        {
+          "type": "docs",
+          "section": "Documentation",
+          "hidden": false
+        },
+        {
+          "type": "style",
+          "section": "Changed",
+          "hidden": true
+        },
+        {
+          "type": "test",
+          "section": "Tests",
+          "hidden": true
+        },
+        {
+          "type": "build",
+          "section": "Build System",
+          "hidden": true
+        },
+        {
+          "type": "ci",
+          "section": "CI/CD",
+          "hidden": true
+        }
       ]
     }
   }

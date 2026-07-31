@@ -42,11 +42,13 @@ In Xcode, go to File > Add Package Dependencies, enter `https://github.com/admoa
 
 Add the following dependency to your `Package.swift`:
 
+<!-- x-release-please-start-version -->
 ```swift
 dependencies: [
-    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.5.0")
+    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.4.0")
 ]
 ```
+<!-- x-release-please-end-version -->
 
 Then run `swift package resolve` to download and integrate the package.
 
