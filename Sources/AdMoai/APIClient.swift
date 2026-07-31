@@ -30,7 +30,9 @@ internal class AdMoaiClient {
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
-        urlRequest.timeoutInterval = 30
+        // Deliberately does NOT pin a timeout here. A hardcoded 30s used to override whatever the
+        // publisher configured on their URLSessionConfiguration, so `timeoutIntervalForRequest`
+        // was silently ignored for every decision request. The session's value now applies.
 
         request.headers?.forEach { key, value in
             urlRequest.setValue(value, forHTTPHeaderField: key)
@@ -53,28 +55,22 @@ internal class AdMoaiClient {
             // fire-and-forget and does not inspect response headers (documented limitation).
             warnIfDeprecated(httpResponse)
 
+            // One status contract for both build configurations.
+            //
+            // DEBUG used to treat 200...499 as success and attempt to decode, so a 400 or 422
+            // surfaced as a decoded response while a release build raised a typed error for the
+            // same response. A publisher integrating against a misconfigured placement saw the
+            // request "work" in Xcode and fail in production — the worst possible split, because
+            // the environment where you debug is the one that hides the error.
+            //
+            // The raw body is still logged in DEBUG below, so debug builds keep the diagnostic
+            // detail without changing what the SDK returns.
             #if DEBUG
-                switch httpResponse.statusCode {
-                case 200...499:
-                    do {
-                        let rawBody = String(data: data, encoding: .utf8)
-                        return APIResponse(
-                            response: httpResponse,
-                            body: try JSONDecoder().decode(APIResponseBody<T>.self, from: data),
-                            rawBody: rawBody
-                        )
-                    } catch {
-                        self.logger.error("Decoding error: \(error.localizedDescription)")
-                        throw APIError.decodingError(error)
-                    }
-                case 500...599:
-                    self.logger.error("Server error: \(httpResponse.statusCode)")
-                    throw APIError.serverError(httpResponse.statusCode)
-                default:
-                    self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-                    throw APIError.unexpectedStatusCode(httpResponse.statusCode)
+                if httpResponse.statusCode >= 400, let raw = String(data: data, encoding: .utf8) {
+                    self.logger.debug(
+                        "HTTP \(httpResponse.statusCode) body: \(raw, privacy: .public)")
                 }
-            #else
+            #endif
                 switch httpResponse.statusCode {
                 case 200:
                     do {
@@ -122,7 +118,6 @@ internal class AdMoaiClient {
                     self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
                     throw APIError.unexpectedStatusCode(httpResponse.statusCode)
                 }
-            #endif
         } catch let error as APIError {
             self.logger.error("\(error.description)")
             throw error
@@ -162,6 +157,10 @@ internal class AdMoaiClient {
         var headers: [String: String] = [
             "Content-Type": "application/json",
             "Accept": "application/json",
+            // Set per-request rather than relying on the session's httpAdditionalHeaders. A
+            // publisher supplying their own URLSessionConfiguration silently dropped the SDK
+            // User-Agent, which is what identifies SDK traffic in engine logs and analytics.
+            "User-Agent": "AdMoaiSDK/\(SDK_VERSION)",
         ]
         
         // Add Accept-Language header if configured
@@ -288,6 +287,10 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
         }
     }
 
+    /// Four of the nine cases were missing, so `.clientError(.badRequest)` compared unequal to
+    /// itself — the `default: return false` swallowed them. `APIError` is public and declares
+    /// `Equatable`, so a publisher writing `error == .clientError(.notFound)` silently never
+    /// matched. The remaining `default` now only covers genuinely different cases.
     public static func == (lhs: APIError, rhs: APIError) -> Bool {
         switch (lhs, rhs) {
         case (.invalidURL, .invalidURL):
@@ -300,6 +303,14 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             return lhsError.localizedDescription == rhsError.localizedDescription
         case (.serverError(let lhsCode), .serverError(let rhsCode)):
             return lhsCode == rhsCode
+        case (.validationError(let lhsErrors), .validationError(let rhsErrors)):
+            return lhsErrors == rhsErrors
+        case (.clientError(let lhsStatus), .clientError(let rhsStatus)):
+            return lhsStatus == rhsStatus
+        case (.unexpectedStatusCode(let lhsCode), .unexpectedStatusCode(let rhsCode)):
+            return lhsCode == rhsCode
+        case (.encodingError(let lhsMessage), .encodingError(let rhsMessage)):
+            return lhsMessage == rhsMessage
         default:
             return false
         }
