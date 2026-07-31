@@ -152,7 +152,24 @@ extension Creative {
         }
         let content =
             contents.getContent(key: "skipOffset") ?? contents.getContent(key: "skip_offset")
-        return content?.value.description
+        return content.flatMap { scalarText($0.value) }
+    }
+}
+
+/// Renders a content value as a skip-offset string, or `nil` when it cannot be one.
+///
+/// `AnyCodable.description` returned the literal `"null"` for a JSON null and stringified arrays
+/// and dictionaries, so `getSkipOffset()` could hand back `"null"` or `"[1, 2]"` — values a
+/// publisher would parse as a duration. Only scalars are meaningful here; anything else is `nil`,
+/// matching Android (`JsonPrimitive.contentOrNull`) and Flutter.
+private func scalarText(_ value: AnyCodable) -> String? {
+    switch value.value {
+    case is NSNull: return nil
+    case let text as String: return text
+    case let number as Int: return String(number)
+    case let number as Double: return String(number)
+    case let flag as Bool: return String(flag)
+    default: return nil
     }
 }
 

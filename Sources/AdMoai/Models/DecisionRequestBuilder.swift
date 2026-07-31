@@ -6,10 +6,16 @@ public enum SDKError: Error, CustomStringConvertible, Equatable {
     /// `minConfidence` was outside the valid range `[0.0, 1.0]`.
     case invalidMinConfidence(Double)
 
+    /// A decision request was submitted with no placements. The engine rejects this with a 422,
+    /// so the SDK fails locally instead of spending a network round-trip to learn it.
+    case noPlacements
+
     public var description: String {
         switch self {
         case .invalidMinConfidence(let value):
             return "minConfidence must be in [0.0, 1.0], got \(value)"
+        case .noPlacements:
+            return "At least one placement is required"
         }
     }
 }
@@ -101,6 +107,7 @@ public class DecisionRequestBuilder {
 
     // Targeting methods
     public func setGeoTargeting(_ geoNameIds: [Int]?) -> DecisionRequestBuilder {
+        let geoNameIds = Self.dedupedGeo(geoNameIds)
         if targeting == nil {
             targeting = Targeting(geo: geoNameIds)
         } else {
@@ -118,6 +125,18 @@ public class DecisionRequestBuilder {
         var currentGeo = targeting?.geo ?? []
         currentGeo.append(geoNameId)
         return setGeoTargeting(currentGeo)
+    }
+
+    /// Removes duplicate geoname ids, keeping first-seen order.
+    ///
+    /// Location, destination and custom targeting were all already deduplicated here; geo was the
+    /// one that was not, so the same list produced a different request body on Android (which
+    /// dedupes) than on iOS. Geo is evaluated as ANY, so duplicates never changed the decision —
+    /// but an SDK should not send a payload that differs by platform for identical input.
+    private static func dedupedGeo(_ ids: [Int]?) -> [Int]? {
+        guard let ids = ids else { return nil }
+        var seen = Set<Int>()
+        return ids.filter { seen.insert($0).inserted }
     }
 
     public func clearGeoTargeting() -> DecisionRequestBuilder {

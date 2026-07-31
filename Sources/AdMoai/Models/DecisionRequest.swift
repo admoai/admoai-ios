@@ -122,11 +122,28 @@ public enum JourneyOpt: String, Codable {
     case optIn = "in"
     case optOut = "out"
 
-    /// Tolerant parse from a raw wire string for non-`Decoder` contexts: unknown or `nil`
-    /// input maps to `nil` rather than throwing.
+    /// Tolerant parse from a raw wire string: unknown or `nil` input maps to `nil` rather than
+    /// throwing. Surrounding whitespace is trimmed and case is normalized, matching Android's
+    /// `JourneyOpt.fromWire`. The engine marshals a typed enum and only ever emits lowercase, so
+    /// this is defensive — but a read path that accepts `"In"` on one platform and `nil` on
+    /// another is a parity seam regardless of whether today's producer can trigger it.
     public static func fromWire(_ raw: String?) -> JourneyOpt? {
         guard let raw = raw else { return nil }
-        return JourneyOpt(rawValue: raw)
+        return JourneyOpt(
+            rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+
+    /// Decodes tolerantly via ``fromWire(_:)`` so response parsing shares one normalization path
+    /// with the non-`Decoder` callers. The request side stays strict: only `optIn`/`optOut` exist,
+    /// so only the two engine literals can ever be encoded.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let parsed = JourneyOpt.fromWire(raw) else {
+            throw DecodingError.dataCorruptedError(
+                in: try decoder.singleValueContainer(),
+                debugDescription: "unrecognized JourneyOpt \"\(raw)\"")
+        }
+        self = parsed
     }
 }
 

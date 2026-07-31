@@ -186,13 +186,27 @@ public struct AdMoai {
         )
     }
 
+    /// - Throws: ``SDKError/noPlacements`` when the request carries no placements — the engine
+    ///   rejects that with a 422, so failing here avoids a pointless round-trip and gives the
+    ///   caller a typed error, matching Android's `AdMoaiConfigurationException`.
+    ///
+    ///   The guard lives here rather than in `DecisionRequestBuilder.build()` (where Android has
+    ///   it) purely because making `build()` `throws` would force `try` on 80 existing call sites
+    ///   for no behavioural gain. What a publisher observes is identical on all three SDKs: a
+    ///   typed error, raised before any network activity.
     public func requestAds(_ request: DecisionRequest) async throws -> APIResponse<DecisionResponse>
     {
-        try await client.requestDecision(request)
+        try Self.validate(request)
+        return try await client.requestDecision(request)
     }
 
     public func getHttpRequest(_ request: DecisionRequest) throws -> HTTPRequest {
-        try client.getDecisionRequest(request)
+        try Self.validate(request)
+        return try client.getDecisionRequest(request)
+    }
+
+    private static func validate(_ request: DecisionRequest) throws {
+        guard !request.placements.isEmpty else { throw SDKError.noPlacements }
     }
 
     // MARK: - Tracking
@@ -275,11 +289,10 @@ public struct AdMoai {
     /// tracking handler and the completion would silently NOT record — billing-critical), and
     /// when a non-empty `completions` list has no entry matching `key`.
     public func fireCompletion(tracking: Tracking, key: String) {
-        if config.apiVersion == nil {
-            config.logger.warning(
-                "fireCompletion called with no SDKConfig.apiVersion set: the tracking callback will route to the legacy handler and the Journey completion will NOT be recorded. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
-            )
-        }
+        // Resolve the URL first. The apiVersion warning is billing-critical but only meaningful
+        // when something is actually about to be fired: warning on a final_stage creative (which
+        // legitimately carries no completions) trained publishers to ignore it, and Android and
+        // Flutter both warn only on the firing path.
         guard let url = tracking.getCompletionUrl(key: key) else {
             if tracking.completions?.isEmpty == false {
                 config.logger.warning(
@@ -287,6 +300,11 @@ public struct AdMoai {
                 )
             }
             return
+        }
+        if config.apiVersion == nil {
+            config.logger.warning(
+                "fireCompletion called with no SDKConfig.apiVersion set: the tracking callback will route to the legacy handler and the Journey completion will NOT be recorded. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
+            )
         }
         fireTracking(url: url)
     }
