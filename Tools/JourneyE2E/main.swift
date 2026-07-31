@@ -134,6 +134,12 @@ await frequencyCapGroup()
 await completionGroup()
 await targetingGroup()
 
+// Shared cross-SDK manifest: normal ads, placement options, video delivery, the error
+// contract and API-version regression. Defined once in scenarios.json and executed
+// identically by all three SDKs — see ManifestRunner.swift.
+await manifestGroup()
+await wireShapeGroup()
+
 // Last: the most setup-heavy groups. §F spends real wall-clock waiting out a 5-second
 // runtime-state TTL.
 await ttlGroup()
