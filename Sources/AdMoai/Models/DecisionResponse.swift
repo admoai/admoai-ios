@@ -420,15 +420,27 @@ extension VerificationScriptResource {
 
     /// `vendorKey` and `scriptUrl` are **structurally required** — without them an OM resource
     /// is unusable (nothing to identify/load), so they stay strict and a malformed one is
-    /// dropped at the array level (`Creative` uses `SafelyDecodable`). `verificationParameters`
-    /// is optional per the engine (typed `any`, always a String today), so it is tolerant and
-    /// defaults to `""` — a missing/object-shaped value must not discard an otherwise-usable
-    /// script (measurement integrity).
+    /// dropped at the array level (`Creative` uses `SafelyDecodable`).
+    ///
+    /// `verificationParameters` is typed `any` by the engine. A plain string decodes verbatim; an
+    /// object or array is re-encoded to compact JSON text rather than discarded. It previously
+    /// collapsed any non-string to `""`, which silently dropped the vendor payload — the part IAS
+    /// or DoubleVerify actually needs to attribute a measurement — while leaving a resource that
+    /// still looked usable. Android already preserved it; this brings iOS in line.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: TolerantKeys.self)
         self.vendorKey = try c.decode(String.self, forKey: .vendorKey)
         self.scriptUrl = try c.decode(String.self, forKey: .scriptUrl)
-        self.verificationParameters =
-            (try? c.decode(String.self, forKey: .verificationParameters)) ?? ""
+        if let text = try? c.decode(String.self, forKey: .verificationParameters) {
+            self.verificationParameters = text
+        } else if let structured = try? c.decode(AnyCodable.self, forKey: .verificationParameters),
+            !(structured.value is NSNull),
+            let data = try? JSONEncoder().encode(structured),
+            let json = String(data: data, encoding: .utf8)
+        {
+            self.verificationParameters = json
+        } else {
+            self.verificationParameters = ""
+        }
     }
 }
