@@ -72,7 +72,9 @@ struct VideoSkippabilityTests {
     @Test
     func testSnakeCaseIntegerZeroIsNotSkippable() throws {
         let creative = try decodeCreative(
-            contents: """{"key": "is_skippable", "value": 0, "type": "integer"}""")
+            contents: """
+                {"key": "is_skippable", "value": 0, "type": "integer"}
+                """)
 
         #expect(creative.isSkippable() == false)
     }
@@ -81,7 +83,9 @@ struct VideoSkippabilityTests {
     @Test
     func testSnakeCaseStringTrueIsSkippable() throws {
         let creative = try decodeCreative(
-            contents: """{"key": "is_skippable", "value": "true", "type": "integer"}""")
+            contents: """
+                {"key": "is_skippable", "value": "true", "type": "integer"}
+                """)
 
         #expect(creative.isSkippable())
     }
@@ -92,7 +96,9 @@ struct VideoSkippabilityTests {
         // The defect this pins: `value as? Bool` on an AnyCodable always failed, so even a
         // correctly-keyed boolean reported not-skippable.
         let creative = try decodeCreative(
-            contents: """{"key": "is_skippable", "value": true, "type": "integer"}""")
+            contents: """
+                {"key": "is_skippable", "value": true, "type": "integer"}
+                """)
 
         #expect(creative.isSkippable())
     }
@@ -132,7 +138,9 @@ struct VideoSkippabilityTests {
     @Test
     func testMetadataIsSkippableWins() throws {
         let creative = try decodeCreative(
-            contents: """{"key": "is_skippable", "value": 0, "type": "integer"}""",
+            contents: """
+                {"key": "is_skippable", "value": 0, "type": "integer"}
+                """,
             metadata: metadataJSON("\"isSkippable\": true"))
 
         #expect(creative.isSkippable())
@@ -142,7 +150,9 @@ struct VideoSkippabilityTests {
     @Test
     func testMetadataSkipOffsetSecondsWins() throws {
         let creative = try decodeCreative(
-            contents: """{"key": "skip_offset", "value": "99", "type": "text"}""",
+            contents: """
+                {"key": "skip_offset", "value": "99", "type": "text"}
+                """,
             metadata: metadataJSON("\"skipOffsetSeconds\": 5"))
 
         #expect(creative.getSkipOffset() == "5")
