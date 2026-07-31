@@ -367,15 +367,18 @@ struct DecisionRequestTests {
 
     @Test
     func testDestinationTargetingMinConfidenceSerializationKey() throws {
-        // The JSON key must be snake_case min_confidence (not camelCase)
+        // The JSON key must be the engine's canonical camelCase `minConfidence`, matching every
+        // other field on the request contract. This guard used to assert the opposite: the engine
+        // keeps `min_confidence` only as a back-compat alias so already-fielded SDKs keep parsing,
+        // and camelCase wins when both are present.
         let request = try sdk.createRequestBuilder()
             .addDestinationTargeting(latitude: 27.92, longitude: -160.32, minConfidence: 0.5)
             .build()
 
         let encoded = try JSONEncoder().encode(request)
         let json = String(data: encoded, encoding: .utf8)!
-        #expect(json.contains("\"min_confidence\""))
-        #expect(!json.contains("\"minConfidence\""))
+        #expect(json.contains("\"minConfidence\""))
+        #expect(!json.contains("\"min_confidence\""))
     }
 
     // MARK: - Priority Enum

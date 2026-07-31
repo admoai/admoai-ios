@@ -164,9 +164,12 @@ public struct Targeting: Encodable {
         }
 
         if let destinations = destination {
+            // `minConfidence` is the engine's canonical key, matching every other field on the
+            // request contract. `min_confidence` survives only as a back-compat alias kept so
+            // already-fielded SDKs keep parsing, and camelCase wins when both are present.
             try container.encode(
                 destinations.map { coord in
-                    ["latitude": coord.latitude, "longitude": coord.longitude, "min_confidence": coord.minConfidence]
+                    ["latitude": coord.latitude, "longitude": coord.longitude, "minConfidence": coord.minConfidence]
                 }, forKey: .destination)
         }
 
