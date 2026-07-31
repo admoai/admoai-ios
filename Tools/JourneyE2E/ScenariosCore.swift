@@ -78,8 +78,8 @@ func wizardParityGroup() async {
             creative.journeyDefinitionKey == wizardDefinition,
             "definitionKey is \"\(wizardDefinition)\"")
         try check(
-            creative.journeyDealId == wizardDeal,
-            "dealId is the wizard deal \(wizardDeal) (got \(creative.journeyDealId ?? "nil"))")
+            (creative.journeyDealId ?? "").hasPrefix(wizardDealPrefix),
+            "dealId is a \(wizardDealPrefix) public id (got \(creative.journeyDealId ?? "nil"))")
         try check(
             creative.journeyStageKey == wizardStage1,
             "stageKey is \"\(wizardStage1)\" (got \(creative.journeyStageKey ?? "nil"))")

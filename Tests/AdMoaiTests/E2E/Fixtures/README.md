@@ -52,7 +52,7 @@ python3 Tools/dump_wizard_fixture.py > Tests/AdMoaiTests/E2E/Fixtures/wizard_sco
 ## Rebuild recipe (if it is gone)
 
 Captured state, 2026-07-30 — definition `scooter_journey` (id 18), deal
-`jad_01KYSSB2ND61HZFP3KRG9NET3X` ("nike scooter ride", id 17):
+"nike scooter ride" (the deal public id is NOT pinned — every rebuild mints a new ULID):
 
 | Setting | Value |
 |---|---|

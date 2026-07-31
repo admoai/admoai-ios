@@ -97,7 +97,12 @@ let videoVastXmlPlacement = "sdk_e2e_video_vast_xml"
 // Authored in the Ad Manager UI, NOT seeded, so `make db-reset` destroys it and §K then
 // SKIPs. Snapshot and rebuild recipe: Tests/AdMoaiTests/E2E/Fixtures/README.md.
 let wizardDefinition = "scooter_journey"
-let wizardDeal = "jad_01KYSSB2ND61HZFP3KRG9NET3X"
+/// Public-id prefix for a Journey deal. §K deliberately asserts the SHAPE of the deal id, not a
+/// literal value: the fixture is authored in the UI and destroyed by `make db-reset`, so every
+/// rebuild mints a fresh ULID. Pinning one made the scenario fail on the first legitimate rebuild
+/// while the fixture itself was correct — the identity that actually matters is
+/// `wizardDefinition`, which the publisher controls and which is asserted alongside this.
+let wizardDealPrefix = "jad_"
 let wizardStage1 = "pre_ride"
 let wizardStage2 = "post_ride"
 let wizardStage3 = "summary_ride"
