@@ -152,6 +152,40 @@ struct JourneyRequestTests {
         #expect(r2.sessionId == "sticky-1")
     }
 
+    // Scenario: the publisher holds the SDK somewhere that copies it — a `let` property, a
+    //           closure capture, a value passed into a view model — and later rotates the session.
+    @Test
+    func testSessionIsSharedAcrossCopies() throws {
+        // Contract: one journey means one sessionId across every placement request in the trip.
+        // AdMoai is a struct, so a plain stored `var` gave the session value semantics: each copy
+        // carried its own, and a copy taken BEFORE a rotation kept the stale one — silently
+        // splitting one journey into two on the engine. The session now lives in a reference box.
+        let sdk = AdMoai(config: journeyConfig, sessionId: "trip-1")
+        let copyTakenBeforeRotation = sdk
+
+        sdk.setSessionId("trip-2")
+
+        #expect(sdk.sessionId == "trip-2")
+        #expect(copyTakenBeforeRotation.sessionId == "trip-2")
+        #expect(
+            copyTakenBeforeRotation.createRequestBuilder()
+                .addPlacement(key: "home").build().sessionId == "trip-2")
+    }
+
+    // Scenario: the SDK is held as a `let`, the idiomatic way to store a dependency.
+    @Test
+    func testSessionCanBeRotatedOnALetBoundInstance() {
+        // setSessionId is no longer `mutating`, so this compiles at all. Publishers previously had
+        // to declare the SDK `var` purely to rotate a session, which is the kind of friction that
+        // pushes people into holding a copy instead — the exact footgun above.
+        let sdk = AdMoai(config: journeyConfig, sessionId: "trip-1")
+        sdk.setSessionId("trip-2")
+        #expect(sdk.sessionId == "trip-2")
+
+        sdk.clearSessionId()
+        #expect(sdk.sessionId == nil)
+    }
+
     // Scenario: init(sessionId:) normalizes to wire form (trim; blank → nil)
     @Test
     func testInitSessionIdNormalized() {

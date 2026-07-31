@@ -1,6 +1,28 @@
 import Foundation
 import OSLog
 
+/// Shared, mutable holder for the sticky Journey `sessionId`.
+///
+/// Exists so `AdMoai`'s value semantics do not fork the session across copies — see
+/// ``AdMoai/sessionId``. `final class` + a lock rather than an actor because the accessors are
+/// synchronous and called from `createRequestBuilder()`, which publishers invoke from any thread.
+internal final class SessionBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String?
+
+    var sessionId: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set(_ newValue: String?) {
+        lock.lock()
+        defer { lock.unlock() }
+        value = newValue
+    }
+}
+
 // MARK: - AdMoai SDK
 public struct AdMoai {
     private let client: AdMoaiClient
@@ -13,7 +35,16 @@ public struct AdMoai {
     /// Journey Takeover Ads: sticky, publisher-owned session identifier inherited by every
     /// request builder created via ``createRequestBuilder()``. Rotate it explicitly with
     /// ``setSessionId(_:)``; the SDK never generates or mutates it on its own.
-    private var _sessionId: String?
+    ///
+    /// Held in a reference box rather than stored inline. `AdMoai` is a struct, so storing the
+    /// session as a plain `var` gave it value semantics: every copy — a `let` binding, a captured
+    /// value in a closure, an instance passed to a view model — carried its own session, and a
+    /// copy taken before a rotation kept the stale one. Journey progression depends on a single
+    /// stable `sessionId` across every placement request in a trip, so a forked copy silently
+    /// splits one journey into two on the engine. The box makes all copies share one session,
+    /// which is what a publisher already assumes and what Flutter (a class) and Android (a
+    /// singleton) both do.
+    private let _session = SessionBox()
 
     public init(
         config: SDKConfig,
@@ -24,7 +55,7 @@ public struct AdMoai {
         self.appConfig = .systemDefault()
         self.deviceConfig = .systemDefault()
         self.userConfig = userConfig ?? .clear()
-        self._sessionId = AdMoai.normalizedSessionId(sessionId, logger: config.logger)
+        self._session.set(AdMoai.normalizedSessionId(sessionId, logger: config.logger))
 
         self.client = AdMoaiClient(
             baseURL: config.baseUrl,
@@ -115,17 +146,23 @@ public struct AdMoai {
 
     // MARK: - Journey Session
     /// The current sticky Journey `sessionId`, normalized to wire form (trimmed; `nil` when blank).
-    public var sessionId: String? { _sessionId }
+    ///
+    /// Shared across copies of this `AdMoai` value — see ``SessionBox``.
+    public var sessionId: String? { _session.sessionId }
 
     /// Rotates the sticky Journey `sessionId` inherited by future request builders.
     /// The value is normalized to wire form (trimmed; blank → `nil`) so the stored value
     /// matches what is sent. Rotation is entirely publisher-driven.
-    public mutating func setSessionId(_ sessionId: String?) {
-        self._sessionId = AdMoai.normalizedSessionId(sessionId, logger: config.logger)
+    ///
+    /// No longer `mutating`: the session lives in a reference box, so rotating it does not mutate
+    /// the struct. That also means it can be called on a `let`-bound `AdMoai`, which removes the
+    /// `var`-vs-`let` friction publishers hit when holding the SDK as a stored property.
+    public func setSessionId(_ sessionId: String?) {
+        _session.set(AdMoai.normalizedSessionId(sessionId, logger: config.logger))
     }
 
-    public mutating func clearSessionId() {
-        self._sessionId = nil
+    public func clearSessionId() {
+        _session.set(nil)
     }
 
     /// Normalizes a raw `sessionId` to wire form (trim; blank → `nil`) and emits a PII-safe
@@ -143,7 +180,7 @@ public struct AdMoai {
             appConfig: appConfig,
             deviceConfig: deviceConfig,
             userConfig: userConfig,
-            sessionId: _sessionId,
+            sessionId: _session.sessionId,
             apiVersion: config.apiVersion,
             logger: config.logger
         )
