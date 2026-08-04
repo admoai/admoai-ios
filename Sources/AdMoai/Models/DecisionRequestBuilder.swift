@@ -31,18 +31,22 @@ public class DecisionRequestBuilder {
     private let deviceConfig: DeviceConfig
     private let userConfig: UserConfig
     private let logger: Logger?
+    private let apiVersion: String?
 
     internal init(
         appConfig: AppConfig,
         deviceConfig: DeviceConfig,
         userConfig: UserConfig,
         sessionId: String? = nil,
+        apiVersion: String? = nil,
         logger: Logger? = nil
     ) {
         self.appConfig = appConfig
         self.deviceConfig = deviceConfig
         self.userConfig = userConfig
-        self.sessionId = sessionId
+        // Seeded sticky value is already normalized by AdMoai; normalize defensively anyway.
+        self.sessionId = DecisionRequest.normalizedSessionId(sessionId)
+        self.apiVersion = apiVersion
         self.logger = logger
 
         self.app = App(
@@ -372,7 +376,8 @@ public class DecisionRequestBuilder {
         if let reason = DecisionRequest.journeySessionIdRejectionReason(sessionId) {
             logger?.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
         }
-        self.sessionId = sessionId
+        // Store the wire form so `request.sessionId` matches exactly what is sent.
+        self.sessionId = DecisionRequest.normalizedSessionId(sessionId)
         return self
     }
 
@@ -434,6 +439,14 @@ public class DecisionRequestBuilder {
 
     // Build method
     public func build() -> DecisionRequest {
+        // Misconfiguration guard: Journey context requires the Journey engine version.
+        // Without apiVersion the engine ignores Journey (or, pre-deployment, rejects the
+        // additive fields), so surface it rather than failing silently.
+        if (sessionId != nil || journeyOpt != nil) && apiVersion == nil {
+            logger?.warning(
+                "Journey context (sessionId/journeyOpt) was set but SDKConfig.apiVersion is nil; the engine will not process Journey. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
+            )
+        }
         return DecisionRequest(
             placements: placements,
             targeting: targeting,

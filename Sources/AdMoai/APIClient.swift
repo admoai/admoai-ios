@@ -207,6 +207,39 @@ public struct APIResponseBody<T: Decodable>: Decodable {
     public let warnings: [AdMoaiWarning]?
 }
 
+extension APIResponseBody {
+    private enum TolerantKeys: String, CodingKey { case success, data, errors, warnings }
+
+    /// Tolerant Reader envelope (PR B): never throws on a well-formed HTTP body. `success`
+    /// reads as `== true` (default false), `data` degrades to `nil` if it fails to decode,
+    /// and `errors`/`warnings` drop malformed entries.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.success = (try? c.decode(Bool.self, forKey: .success)) ?? false
+        // The decision list is the one array the generic `data` decode can't make
+        // element-tolerant on its own — a single non-object entry would fail the whole
+        // `[Decision]` decode. Special-case it so malformed/non-object decisions are dropped
+        // and the good ones preserved, matching the Tolerant Reader policy for every other array.
+        if T.self == DecisionResponse.self {
+            if let decisions =
+                (try? c.decode([SafelyDecodable<Decision>].self, forKey: .data))?.compactMap(\.value)
+            {
+                self.data = decisions as? T
+            } else {
+                self.data = nil
+            }
+        } else {
+            self.data = try? c.decode(T.self, forKey: .data)
+        }
+        self.errors =
+            (try? c.decode([SafelyDecodable<AdMoaiError>].self, forKey: .errors))?
+            .compactMap(\.value)
+        self.warnings =
+            (try? c.decode([SafelyDecodable<AdMoaiWarning>].self, forKey: .warnings))?
+            .compactMap(\.value)
+    }
+}
+
 public struct AdMoaiError: Decodable, Equatable {
     public let code: Int
     public let message: String

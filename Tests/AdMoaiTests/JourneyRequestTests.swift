@@ -15,6 +15,10 @@ import Testing
 // request is rejected with HTTP 400.
 
 private let baseURL = "https://api.mock.admoai.com"
+// Journey usage realistically sets apiVersion; using it here also avoids the (correct)
+// "Journey context set without apiVersion" build() warning noise in serialization tests.
+// apiVersion affects only the request header, not the encoded body these tests assert.
+private let journeyConfig = SDKConfig(baseUrl: baseURL, apiVersion: "2025-11-01")
 
 private func encodedJSON(_ request: DecisionRequest) throws -> String {
     let data = try JSONEncoder().encode(request)
@@ -29,7 +33,7 @@ struct JourneyRequestTests {
     //   Then the body carries top-level "sessionId" and "journeyOpt":"in"
     @Test
     func testSessionIdAndJourneyOptSerialization() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setSessionId("trip-abc-123")
@@ -47,7 +51,7 @@ struct JourneyRequestTests {
     // Scenario: journeyOpt emits only the wire literals "in"/"out"
     @Test
     func testJourneyOptWireLiterals() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
 
         let optIn = try encodedJSON(
             sdk.createRequestBuilder().addPlacement(key: "home").setJourneyOpt(.optIn).build())
@@ -64,7 +68,7 @@ struct JourneyRequestTests {
     // Scenario: a blank sessionId is omitted from the wire (engine would silently disable Journey)
     @Test
     func testBlankSessionIdOmitted() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setSessionId("   ")
@@ -77,7 +81,7 @@ struct JourneyRequestTests {
     // Scenario: a sessionId is trimmed on the wire
     @Test
     func testSessionIdTrimmedOnWire() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setSessionId("  trip-xyz  ")
@@ -91,7 +95,7 @@ struct JourneyRequestTests {
     //           the request still succeeds as a normal ad)
     @Test
     func testOverLengthSessionIdSentAsIs() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
         let longId = String(repeating: "a", count: 300)  // 300 bytes > 256
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
@@ -139,7 +143,7 @@ struct JourneyRequestTests {
     // Scenario: the sticky sessionId is inherited by every builder and sent on each request
     @Test
     func testStickySessionIdInherited() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "sticky-1")
+        let sdk = AdMoai(config: journeyConfig, sessionId: "sticky-1")
         #expect(sdk.sessionId == "sticky-1")
 
         let r1 = sdk.createRequestBuilder().addPlacement(key: "a").build()
@@ -151,15 +155,15 @@ struct JourneyRequestTests {
     // Scenario: init(sessionId:) normalizes to wire form (trim; blank → nil)
     @Test
     func testInitSessionIdNormalized() {
-        #expect(AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "  s  ").sessionId == "s")
-        #expect(AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "   ").sessionId == nil)
-        #expect(AdMoai(config: SDKConfig(baseUrl: baseURL)).sessionId == nil)
+        #expect(AdMoai(config: journeyConfig, sessionId: "  s  ").sessionId == "s")
+        #expect(AdMoai(config: journeyConfig, sessionId: "   ").sessionId == nil)
+        #expect(AdMoai(config: journeyConfig).sessionId == nil)
     }
 
     // Scenario: a per-request setSessionId overrides the sticky default
     @Test
     func testPerRequestOverride() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "sticky-1")
+        let sdk = AdMoai(config: journeyConfig, sessionId: "sticky-1")
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setSessionId("override-2")
@@ -167,10 +171,22 @@ struct JourneyRequestTests {
         #expect(request.sessionId == "override-2")
     }
 
+    // Scenario: builder.setSessionId stores the wire form (trimmed; blank -> nil) so
+    //           request.sessionId matches exactly what is sent
+    @Test
+    func testBuilderSetSessionIdNormalizesToWireForm() {
+        let sdk = AdMoai(config: journeyConfig)
+        let padded = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("  abc  ").build()
+        #expect(padded.sessionId == "abc")   // property matches the trimmed wire value
+
+        let blank = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("   ").build()
+        #expect(blank.sessionId == nil)       // blank collapses to nil, matching omission on the wire
+    }
+
     // Scenario: rotating the sticky sessionId affects only subsequently-created builders
     @Test
     func testRotationViaSetSessionId() throws {
-        var sdk = AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "session-old")
+        var sdk = AdMoai(config: journeyConfig, sessionId: "session-old")
         let before = sdk.createRequestBuilder().addPlacement(key: "a").build()
         sdk.setSessionId("session-new")
         let after = sdk.createRequestBuilder().addPlacement(key: "b").build()
@@ -189,7 +205,7 @@ struct JourneyRequestTests {
     // Scenario: clearAll clears journeyOpt but preserves the sticky sessionId
     @Test
     func testClearAllClearsJourneyOptPreservesSessionId() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL), sessionId: "sticky-keep")
+        let sdk = AdMoai(config: journeyConfig, sessionId: "sticky-keep")
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setJourneyOpt(.optOut)
@@ -209,7 +225,7 @@ struct JourneyRequestTests {
     //   Then the body carries neither "sessionId" nor "journeyOpt"
     @Test
     func testNoJourneyFieldsBackwardCompatible() throws {
-        let sdk = AdMoai(config: SDKConfig(baseUrl: baseURL))
+        let sdk = AdMoai(config: journeyConfig)
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setUserId("user-1")

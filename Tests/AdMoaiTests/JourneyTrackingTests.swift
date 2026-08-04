@@ -19,150 +19,154 @@ private func decodeTracking(_ json: String) throws -> Tracking {
     try JSONDecoder().decode(Tracking.self, from: json.data(using: .utf8)!)
 }
 
-@Suite(.serialized)
-struct JourneyTrackingTests {
+// Nested under `MockNetworkTests` so it can never run concurrently with another
+// MockURLProtocol-driven suite — see MockNetworkTests for why that matters.
+extension MockNetworkTests {
+    @Suite
+    struct JourneyTrackingTests {
 
-    // MARK: - Parsing
+        // MARK: - Parsing
 
-    // Scenario: completions parse and resolve by key
-    @Test
-    func testCompletionsParseAndResolve() throws {
-        let tracking = try decodeTracking("""
-        {
-            "impressions": [{"key": "default", "url": "https://t/imp"}],
-            "completions": [{"key": "purchase", "url": "https://t/complete?e=TOKEN"}]
+        // Scenario: completions parse and resolve by key
+        @Test
+        func testCompletionsParseAndResolve() throws {
+            let tracking = try decodeTracking("""
+            {
+                "impressions": [{"key": "default", "url": "https://t/imp"}],
+                "completions": [{"key": "purchase", "url": "https://t/complete?e=TOKEN"}]
+            }
+            """)
+            #expect(tracking.getCompletionUrl(key: "purchase") == "https://t/complete?e=TOKEN")
+            #expect(tracking.hasTrackingFor(type: .completion, key: "purchase"))
+            #expect(tracking.getTrackingUrl(type: .completion, key: "purchase") == "https://t/complete?e=TOKEN")
+            #expect(tracking.getCompletionUrl(key: "missing") == nil)
         }
-        """)
-        #expect(tracking.getCompletionUrl(key: "purchase") == "https://t/complete?e=TOKEN")
-        #expect(tracking.hasTrackingFor(type: .completion, key: "purchase"))
-        #expect(tracking.getTrackingUrl(type: .completion, key: "purchase") == "https://t/complete?e=TOKEN")
-        #expect(tracking.getCompletionUrl(key: "missing") == nil)
-    }
 
-    // Scenario: backward-compat — absent completions is nil, other categories still work
-    @Test
-    func testCompletionsAbsentBackwardCompat() throws {
-        let tracking = try decodeTracking("""
-        { "impressions": [{"key": "default", "url": "https://t/imp"}] }
-        """)
-        #expect(tracking.completions == nil)
-        #expect(tracking.getImpressionUrl(key: "default") == "https://t/imp")
-    }
-
-    // Scenario: a malformed completion entry is dropped, the rest survive (Tolerant Reader)
-    @Test
-    func testMalformedCompletionEntryDropped() throws {
-        let tracking = try decodeTracking("""
-        {
-            "completions": [
-                {"key": "purchase", "url": "https://t/ok"},
-                {"key": "broken"},
-                42
-            ]
+        // Scenario: backward-compat — absent completions is nil, other categories still work
+        @Test
+        func testCompletionsAbsentBackwardCompat() throws {
+            let tracking = try decodeTracking("""
+            { "impressions": [{"key": "default", "url": "https://t/imp"}] }
+            """)
+            #expect(tracking.completions == nil)
+            #expect(tracking.getImpressionUrl(key: "default") == "https://t/imp")
         }
-        """)
-        #expect(tracking.completions?.count == 1)
-        #expect(tracking.getCompletionUrl(key: "purchase") == "https://t/ok")
-    }
 
-    // MARK: - Header routing (the critical fix)
+        // Scenario: a malformed completion entry is dropped, the rest survive (Tolerant Reader)
+        @Test
+        func testMalformedCompletionEntryDropped() throws {
+            let tracking = try decodeTracking("""
+            {
+                "completions": [
+                    {"key": "purchase", "url": "https://t/ok"},
+                    {"key": "broken"},
+                    42
+                ]
+            }
+            """)
+            #expect(tracking.completions?.count == 1)
+            #expect(tracking.getCompletionUrl(key: "purchase") == "https://t/ok")
+        }
 
-    // Scenario: a fired tracking GET carries X-Tracking-Version and NOT X-Decision-Version
-    @Test
-    func testTrackingSendsXTrackingVersionNotDecisionVersion() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        sdk.fireTracking(url: "https://api.mock.admoai.com/v1/tracking?e=OPAQUE_TOKEN")
+        // MARK: - Header routing (the critical fix)
 
-        #expect(await MockURLProtocol.waitForRequests(1))
-        let req = try #require(MockURLProtocol.lastRequest)
-        #expect(req.value(forHTTPHeaderField: "X-Tracking-Version") == "2025-11-01")
-        #expect(req.value(forHTTPHeaderField: "X-Decision-Version") == nil)
-    }
+        // Scenario: a fired tracking GET carries X-Tracking-Version and NOT X-Decision-Version
+        @Test
+        func testTrackingSendsXTrackingVersionNotDecisionVersion() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            sdk.fireTracking(url: "https://api.mock.admoai.com/v1/tracking?e=OPAQUE_TOKEN")
 
-    // Scenario: the opaque tracking URL is fired verbatim (never reconstructed)
-    @Test
-    func testTrackingUrlFiredVerbatim() async throws {
-        MockURLProtocol.reset()
-        let url = "https://api.mock.admoai.com/v1/tracking?e=ABC.DEF-123_xyz"
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        sdk.fireTracking(url: url)
+            #expect(await MockURLProtocol.waitForRequests(1))
+            let req = try #require(MockURLProtocol.lastRequest)
+            #expect(req.value(forHTTPHeaderField: "X-Tracking-Version") == "2025-11-01")
+            #expect(req.value(forHTTPHeaderField: "X-Decision-Version") == nil)
+        }
 
-        #expect(await MockURLProtocol.waitForRequests(1))
-        #expect(MockURLProtocol.lastRequest?.url?.absoluteString == url)
-    }
+        // Scenario: the opaque tracking URL is fired verbatim (never reconstructed)
+        @Test
+        func testTrackingUrlFiredVerbatim() async throws {
+            MockURLProtocol.reset()
+            let url = "https://api.mock.admoai.com/v1/tracking?e=ABC.DEF-123_xyz"
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            sdk.fireTracking(url: url)
 
-    // Scenario: a scheme-less / relative tracking URL is skipped (logged), not fired, no crash
-    @Test
-    func testRelativeTrackingUrlIsSkippedNotCrashed() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        sdk.fireTracking(url: "/v1/tracking?e=abc")   // relative — URL(string:) accepts it
-        sdk.fireTracking(url: "not a url at all")
-        sdk.fireTracking(url: "ftp://example.com/x")  // non-http scheme
+            #expect(await MockURLProtocol.waitForRequests(1))
+            #expect(MockURLProtocol.lastRequest?.url?.absoluteString == url)
+        }
 
-        // Give any (erroneous) task a chance to land, then assert nothing was fired.
-        _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
-        #expect(MockURLProtocol.capturedRequests.isEmpty)
-    }
+        // Scenario: a scheme-less / relative tracking URL is skipped (logged), not fired, no crash
+        @Test
+        func testRelativeTrackingUrlIsSkippedNotCrashed() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            sdk.fireTracking(url: "/v1/tracking?e=abc")   // relative — URL(string:) accepts it
+            sdk.fireTracking(url: "not a url at all")
+            sdk.fireTracking(url: "ftp://example.com/x")  // non-http scheme
 
-    // MARK: - Completion modes
+            // Give any (erroneous) task a chance to land, then assert nothing was fired.
+            _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
+            #expect(MockURLProtocol.capturedRequests.isEmpty)
+        }
 
-    // Scenario: custom_event completion fires exactly one URL, verbatim
-    @Test
-    func testCustomEventCompletionFiresOnce() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        let tracking = try decodeTracking("""
-        { "completions": [{"key": "purchase", "url": "https://api.mock.admoai.com/v1/tracking?e=DONE"}] }
-        """)
-        sdk.fireCompletion(tracking: tracking, key: "purchase")
+        // MARK: - Completion modes
 
-        #expect(await MockURLProtocol.waitForRequests(1))
-        #expect(MockURLProtocol.capturedRequests.count == 1)
-        #expect(MockURLProtocol.lastRequest?.url?.absoluteString == "https://api.mock.admoai.com/v1/tracking?e=DONE")
-    }
+        // Scenario: custom_event completion fires exactly one URL, verbatim
+        @Test
+        func testCustomEventCompletionFiresOnce() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let tracking = try decodeTracking("""
+            { "completions": [{"key": "purchase", "url": "https://api.mock.admoai.com/v1/tracking?e=DONE"}] }
+            """)
+            sdk.fireCompletion(tracking: tracking, key: "purchase")
 
-    // Scenario: final_stage completion (no completions list) fires nothing extra
-    @Test
-    func testFinalStageFiresNothing() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        let tracking = try decodeTracking("""
-        { "impressions": [{"key": "default", "url": "https://t/imp"}] }
-        """)
-        sdk.fireCompletion(tracking: tracking, key: "anything")
+            #expect(await MockURLProtocol.waitForRequests(1))
+            #expect(MockURLProtocol.capturedRequests.count == 1)
+            #expect(MockURLProtocol.lastRequest?.url?.absoluteString == "https://api.mock.admoai.com/v1/tracking?e=DONE")
+        }
 
-        _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
-        #expect(MockURLProtocol.capturedRequests.isEmpty)
-    }
+        // Scenario: final_stage completion (no completions list) fires nothing extra
+        @Test
+        func testFinalStageFiresNothing() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let tracking = try decodeTracking("""
+            { "impressions": [{"key": "default", "url": "https://t/imp"}] }
+            """)
+            sdk.fireCompletion(tracking: tracking, key: "anything")
 
-    // Scenario: a completion key miss with a non-empty completions list fires nothing (warns)
-    @Test
-    func testCompletionKeyMissFiresNothing() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-        let tracking = try decodeTracking("""
-        { "completions": [{"key": "purchase", "url": "https://t/ok"}] }
-        """)
-        sdk.fireCompletion(tracking: tracking, key: "wrong_key")
+            _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
+            #expect(MockURLProtocol.capturedRequests.isEmpty)
+        }
 
-        _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
-        #expect(MockURLProtocol.capturedRequests.isEmpty)
-    }
+        // Scenario: a completion key miss with a non-empty completions list fires nothing (warns)
+        @Test
+        func testCompletionKeyMissFiresNothing() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let tracking = try decodeTracking("""
+            { "completions": [{"key": "purchase", "url": "https://t/ok"}] }
+            """)
+            sdk.fireCompletion(tracking: tracking, key: "wrong_key")
 
-    // Scenario: without apiVersion, completion still fires but carries NO X-Tracking-Version
-    //           (this is exactly the silent-billing-loss failure mode the SDK warns about)
-    @Test
-    func testCompletionWithoutApiVersionHasNoTrackingVersionHeader() async throws {
-        MockURLProtocol.reset()
-        let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: nil))
-        let tracking = try decodeTracking("""
-        { "completions": [{"key": "purchase", "url": "https://api.mock.admoai.com/v1/tracking?e=DONE"}] }
-        """)
-        sdk.fireCompletion(tracking: tracking, key: "purchase")
+            _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
+            #expect(MockURLProtocol.capturedRequests.isEmpty)
+        }
 
-        #expect(await MockURLProtocol.waitForRequests(1))
-        #expect(MockURLProtocol.lastRequest?.value(forHTTPHeaderField: "X-Tracking-Version") == nil)
+        // Scenario: without apiVersion, completion still fires but carries NO X-Tracking-Version
+        //           (this is exactly the silent-billing-loss failure mode the SDK warns about)
+        @Test
+        func testCompletionWithoutApiVersionHasNoTrackingVersionHeader() async throws {
+            MockURLProtocol.reset()
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: nil))
+            let tracking = try decodeTracking("""
+            { "completions": [{"key": "purchase", "url": "https://api.mock.admoai.com/v1/tracking?e=DONE"}] }
+            """)
+            sdk.fireCompletion(tracking: tracking, key: "purchase")
+
+            #expect(await MockURLProtocol.waitForRequests(1))
+            #expect(MockURLProtocol.lastRequest?.value(forHTTPHeaderField: "X-Tracking-Version") == nil)
+        }
     }
 }

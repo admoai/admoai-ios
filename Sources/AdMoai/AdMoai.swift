@@ -131,12 +131,10 @@ public struct AdMoai {
     /// Normalizes a raw `sessionId` to wire form (trim; blank → `nil`) and emits a PII-safe
     /// warning when it would be rejected by the engine. Never logs the value itself.
     private static func normalizedSessionId(_ raw: String?, logger: Logger) -> String? {
-        guard let raw = raw else { return nil }
         if let reason = DecisionRequest.journeySessionIdRejectionReason(raw) {
             logger.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
         }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        return DecisionRequest.normalizedSessionId(raw)
     }
 
     // MARK: - SDK Operations
@@ -146,6 +144,7 @@ public struct AdMoai {
             deviceConfig: deviceConfig,
             userConfig: userConfig,
             sessionId: _sessionId,
+            apiVersion: config.apiVersion,
             logger: config.logger
         )
     }
@@ -203,10 +202,24 @@ public struct AdMoai {
         }
     }
 
-    public func fireCustom(tracking: Tracking, key: String) {
+    /// Fires a custom-event tracking beacon by key (fire-and-forget).
+    ///
+    /// Canonical name across all three SDKs (Android `fireCustomEvent`, Flutter
+    /// `fireCustomEvent`). ``fireCustom(tracking:key:)`` remains as a deprecated forwarding
+    /// alias so existing integrations keep compiling.
+    public func fireCustomEvent(tracking: Tracking, key: String) {
         if let url = tracking.getCustomUrl(key: key) {
             fireTracking(url: url)
         }
+    }
+
+    /// Deprecated alias for ``fireCustomEvent(tracking:key:)``.
+    ///
+    /// Renamed for cross-SDK parity; kept as a forwarding alias (not removed) because a
+    /// rename alone would stop existing integrations from compiling on upgrade.
+    @available(*, deprecated, renamed: "fireCustomEvent(tracking:key:)")
+    public func fireCustom(tracking: Tracking, key: String) {
+        fireCustomEvent(tracking: tracking, key: key)
     }
 
     public func fireVideoEvent(tracking: Tracking, key: String) {
