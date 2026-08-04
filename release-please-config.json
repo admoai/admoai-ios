@@ -7,7 +7,7 @@
       "release-type": "simple",
       "package-name": "AdMoai",
       "changelog-path": "CHANGELOG.md",
-      "changelog-host": "https://github.com/admoai/admoai-ios",
+      "changelog-host": "https://github.com",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "draft": false,
