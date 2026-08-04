@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/admoai/admoai-ios/compare/v1.4.0...v1.5.0) (2026-08-04)
+
+
+### Added
+
+* add Journey Takeover Ads support (v1.5.0) ([#28](https://github.com/admoai/admoai-ios/issues/28)) ([aca0583](https://github.com/admoai/admoai-ios/commit/aca0583f286bf6cc19f1b30fde8ae9700114a6fc))
+
+
+### Fixed
+
+* **release:** stop duplicating the repo path in generated CHANGELOG links ([#33](https://github.com/admoai/admoai-ios/issues/33)) ([b7a2eed](https://github.com/admoai/admoai-ios/commit/b7a2eedf2159d79460ae7360e6b63fa46a8b400b))
+* **sdk:** wave 3 — P2 cross-SDK parity sweep ([#31](https://github.com/admoai/admoai-ios/issues/31)) ([e4c42d4](https://github.com/admoai/admoai-ios/commit/e4c42d4e240900205d98c49de4c264c2646803a6))
+
+
+### Documentation
+
+* consolidate duplicate v1.4.0 CHANGELOG entries ([#23](https://github.com/admoai/admoai-ios/issues/23)) ([21495ad](https://github.com/admoai/admoai-ios/commit/21495ad1fe2c752dcc8ef8f644a06f0ab5f02aa2))
+
 ## [1.4.0](https://github.com/admoai/admoai-ios/compare/v1.3.0...v1.4.0) (2026-05-27)
 
 ### Added
