@@ -6,19 +6,72 @@ public struct DecisionRequest: Encodable {
     public let user: User?
     public let device: Device?
     public let app: App?
+    /// Journey Takeover Ads: opaque, publisher-owned session identifier forwarded verbatim
+    /// to the engine (top-level). Trimmed and omitted when blank at encode time.
+    public let sessionId: String?
+    /// Journey Takeover Ads: publisher opt-in/opt-out for the current session.
+    public let journeyOpt: JourneyOpt?
 
     init(
         placements: [Placement],
         targeting: Targeting? = nil,
         user: User? = nil,
         device: Device? = nil,
-        app: App? = nil
+        app: App? = nil,
+        sessionId: String? = nil,
+        journeyOpt: JourneyOpt? = nil
     ) {
         self.placements = placements
         self.targeting = targeting
         self.user = user
         self.device = device
         self.app = app
+        self.sessionId = sessionId
+        self.journeyOpt = journeyOpt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case placements, targeting, user, device, app, sessionId, journeyOpt
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(placements, forKey: .placements)
+        try container.encodeIfPresent(targeting, forKey: .targeting)
+        try container.encodeIfPresent(user, forKey: .user)
+        try container.encodeIfPresent(device, forKey: .device)
+        try container.encodeIfPresent(app, forKey: .app)
+
+        // Journey `sessionId`: engine trims and silently disables Journey when blank.
+        // Mirror that here — send the trimmed value, omit entirely when blank.
+        // Over-length values are sent as-is (the engine silently disables Journey,
+        // the request still succeeds as a normal ad).
+        if let sessionId = sessionId {
+            let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                try container.encode(trimmed, forKey: .sessionId)
+            }
+        }
+        // `journeyOpt` is strict on the engine ("in"/"out" or HTTP 400); the typed enum
+        // guarantees only valid literals are ever emitted, and only when set.
+        if let journeyOpt = journeyOpt {
+            try container.encode(journeyOpt.rawValue, forKey: .journeyOpt)
+        }
+    }
+
+    /// Returns a PII-safe reason token when `sessionId` would be rejected by the engine's
+    /// Journey gate — `"blank_after_trim"` (empty after trimming) or `"exceeds_256_bytes"`
+    /// (over the 256 UTF-8 **byte** limit) — otherwise `nil`.
+    ///
+    /// The returned token intentionally matches the sibling Flutter SDK for cross-SDK
+    /// diagnostic parity and deliberately differs from the engine's internal constant name.
+    /// It never contains the `sessionId` value itself (which is PII).
+    public static func journeySessionIdRejectionReason(_ sessionId: String?) -> String? {
+        guard let sessionId = sessionId else { return nil }
+        let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "blank_after_trim" }
+        if trimmed.utf8.count > 256 { return "exceeds_256_bytes" }
+        return nil
     }
 }
 
@@ -47,6 +100,25 @@ public struct Placement: Encodable {
 public enum Format: String, Encodable {
     case native = "native"
     case video = "video"
+}
+
+/// Journey Takeover Ads opt state.
+///
+/// The wire literals are `"in"` / `"out"` (`in`/`out` are Swift keywords, hence the
+/// `optIn`/`optOut` case names). Conforms to `Codable` so a response `optStatus` can be
+/// read with `try? container.decode(JourneyOpt.self, forKey:)` — an unknown raw value
+/// decodes to `nil` (open-set / Tolerant Reader), while the request side stays strict
+/// (only `optIn`/`optOut` can ever be encoded).
+public enum JourneyOpt: String, Codable {
+    case optIn = "in"
+    case optOut = "out"
+
+    /// Tolerant parse from a raw wire string for non-`Decoder` contexts: unknown or `nil`
+    /// input maps to `nil` rather than throwing.
+    public static func fromWire(_ raw: String?) -> JourneyOpt? {
+        guard let raw = raw else { return nil }
+        return JourneyOpt(rawValue: raw)
+    }
 }
 
 public struct Targeting: Encodable {

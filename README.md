@@ -41,7 +41,7 @@ Add the following dependency to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.1.0")
+    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.5.0")
 ]
 ```
 
@@ -199,6 +199,89 @@ let vastXmlBase64 = creative.getVastXmlBase64()
 let vastXmlModified = creative.getVastXmlBase64(mediaType: "video/mp4", mediaDelivery: "streaming")
 ```
 
+
+## Journey Takeover Ads
+
+Journey Takeover Ads are a single-brand, multi-stage ad experience that follows a user
+across trip stages (e.g. pre-ride → in-ride → post-ride), sold as one commercial deal.
+
+**All Journey logic is owned by the decision-engine.** The SDK only: forwards publisher
+Journey context, parses read-only Journey metadata, fires the server's opaque tracking URLs
+verbatim, and handles no-ad safely. It never runs a Journey state machine, infers
+progression/completion, or reconstructs URLs.
+
+**Minimum engine version:** set `SDKConfig.apiVersion = "2025-11-01"`. Without it, the engine
+ignores Journey entirely and — importantly — Journey completion tracking will not record.
+
+### Sending Journey context
+
+```swift
+let config = SDKConfig(baseUrl: "https://api.admoai.com", apiVersion: "2025-11-01")
+
+// A sticky, publisher-owned session id inherited by every request builder.
+var sdk = AdMoai(config: config, sessionId: "trip-9f3c-2025")
+
+// Rotate it yourself when your rules say a new session began (the SDK never auto-changes it):
+sdk.setSessionId("trip-a17d-2025")
+
+let request = sdk.createRequestBuilder()
+    .addPlacement(key: "home")
+    .setJourneyOpt(.optIn)          // .optIn / .optOut, or omit
+    // .setSessionId("per-request") // optional per-request override of the sticky default
+    .build()
+```
+
+- `sessionId` is trimmed and sent verbatim; blank values are omitted. It must be ≤ 256 UTF-8
+  **bytes** — longer or blank values silently disable Journey (the request still succeeds as a
+  normal ad). It is treated as PII and never logged.
+- `journeyOpt` sends only `"in"` / `"out"`. Opt-out ends the active journey instance; a later
+  opt-in may start a new one (the engine decides — the SDK just forwards the value).
+
+### Reading Journey metadata (read-only)
+
+```swift
+if creative.isJourneyAd {
+    let dealId      = creative.journeyDealId
+    let instanceId  = creative.journeyInstanceId
+    let stageKey    = creative.journeyStageKey
+    let optStatus   = creative.journeyOptStatus   // .optIn / .optOut / nil (unknown)
+    let pricing     = creative.journeyPricingModel
+}
+```
+
+Unknown/absent/mistyped Journey fields degrade gracefully (never throw). Normal ads have
+`creative.journey == nil`.
+
+### Completion tracking
+
+Completion has two mutually-exclusive modes, decided by the engine:
+
+- **`custom_event`** — `creative.tracking.completions` carries one beacon. Fire it once when
+  the mapped action happens:
+  ```swift
+  sdk.fireCompletion(tracking: creative.tracking, key: "purchase")
+  ```
+- **`final_stage`** — `creative.isJourneyCompletion == true` and there is **no** URL to fire;
+  completion is recorded server-side at decision time. Fire only the normal impression.
+
+Fire the completion URL **once** — do not also fire a matching custom event, or completion may
+double-count.
+
+### No-ad & single-brand takeover
+
+A protected surface returns no ad rather than a competing brand. Treat every no-ad case
+uniformly and never substitute your own ad:
+
+```swift
+if decision.isNoAd {
+    // Render nothing / your own non-ad UI. Fire no tracking.
+}
+```
+
+`decision.isNoAd` is `true` for both takeover-protected empties and ordinary no-fill (the
+distinction is intentional server-side detail the SDK does not expose).
+
+---
 
 ## Sample App
 

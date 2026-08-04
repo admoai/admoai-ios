@@ -16,6 +16,9 @@
       "include-v-in-tag": true,
       "pull-request-title-pattern": "chore: release ${version}",
       "pull-request-header": "## 🚀 Release ${version}",
+      "extra-files": [
+        { "type": "generic", "path": "Sources/AdMoai/Version.swift" }
+      ],
       "changelog-sections": [
         { "type": "feat", "section": "Added", "hidden": false },
         { "type": "fix", "section": "Fixed", "hidden": false },

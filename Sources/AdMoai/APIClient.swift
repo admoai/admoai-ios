@@ -48,6 +48,11 @@ internal class AdMoaiClient {
                 throw APIError.invalidResponse
             }
 
+            // Deprecation-aware logging — runs for both build configurations (before the
+            // DEBUG/release status switch). Scoped to decision responses: tracking is
+            // fire-and-forget and does not inspect response headers (documented limitation).
+            warnIfDeprecated(httpResponse)
+
             #if DEBUG
                 switch httpResponse.statusCode {
                 case 200...499:
@@ -125,6 +130,30 @@ internal class AdMoaiClient {
             self.logger.error("Network error: \(error.localizedDescription)")
             throw APIError.networkError(error)
         }
+    }
+
+    /// Logs a one-line warning when the engine flags the negotiated API version as deprecated
+    /// via `X-API-Deprecated: true`, surfacing the optional `Sunset` / `X-API-Sunset` date.
+    private func warnIfDeprecated(_ response: HTTPURLResponse) {
+        guard
+            let message = AdMoaiClient.deprecationMessage(
+                isDeprecated: response.value(forHTTPHeaderField: "X-API-Deprecated"),
+                sunset: response.value(forHTTPHeaderField: "Sunset")
+                    ?? response.value(forHTTPHeaderField: "X-API-Sunset")
+            )
+        else { return }
+        self.logger.warning("\(message, privacy: .public)")
+    }
+
+    /// Pure, testable deprecation-message builder. Returns `nil` unless `isDeprecated` is
+    /// exactly `"true"` (case-insensitive); otherwise a user-facing warning, including the
+    /// sunset date when present.
+    internal static func deprecationMessage(isDeprecated: String?, sunset: String?) -> String? {
+        guard (isDeprecated ?? "").lowercased() == "true" else { return nil }
+        if let sunset = sunset, !sunset.isEmpty {
+            return "Admoai API version is deprecated (sunset: \(sunset)). Consider updating SDKConfig.apiVersion."
+        }
+        return "Admoai API version is deprecated. Consider updating SDKConfig.apiVersion."
     }
 
     public func createDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
