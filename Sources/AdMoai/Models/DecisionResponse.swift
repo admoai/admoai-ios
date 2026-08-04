@@ -118,6 +118,9 @@ extension CreativeJourney: Decodable {
 
 public struct Content: Decodable {
     public let key: String
+    /// The content value. May wrap `NSNull()` when the server sends a null value or omits the
+    /// field (tolerant decoding), so read it with a conditional cast (`value.value as? String`)
+    /// rather than a force cast (`as!`), which would crash on a null/absent value.
     public let value: AnyCodable
     public let type: String
 }
@@ -162,10 +165,18 @@ public struct Metadata: Decodable {
     public let language: String?
     public let format: String?
     public let style: String?
+    /// Render-level attribution key the engine mints per served creative (`impId,omitempty`);
+    /// present for Journey serves, `nil` for normal ads. Read-only passthrough of the engine
+    /// contract — the decrypted tracking token remains authoritative server-side.
+    public let impId: String?
     // Video-specific metadata (2025-11-01+)
     public let duration: Int?
     public let aspectRatio: String?
     public let isSkippable: Bool?
+    /// Seconds before a skippable video may be skipped (`skipOffsetSeconds,omitempty`).
+    public let skipOffsetSeconds: Int?
+    /// End-card presentation mode for video creatives (`endCardMode,omitempty`).
+    public let endCardMode: String?
 }
 
 public struct Advertiser: Decodable {
@@ -296,4 +307,140 @@ public struct VerificationScriptResource: Decodable {
     public let vendorKey: String
     public let scriptUrl: String
     public let verificationParameters: String
+}
+
+// ---------------------------------------------------------------------------
+// MARK: - Tolerant Reader (whole-response) — PR B
+//
+// Extends the Tolerant Reader posture from the Journey types (PR A) to the rest of the
+// response tree so a future-version or partially-malformed response never throws. Rules:
+//   • scalar/object fields use `try? c.decode(T.self, forKey:)` (handles absent, null, AND
+//     wrong-type) with safe defaults — currently non-optional fields default to ""/empty
+//     rather than widening to Optional, preserving source compatibility (non-breaking).
+//   • list fields drop malformed/non-object entries via `SafelyDecodable` instead of failing
+//     the whole array.
+//   • custom `init(from:)` decoders live in extensions to preserve the synthesized
+//     memberwise inits used elsewhere.
+// ---------------------------------------------------------------------------
+
+extension Decision {
+    private enum TolerantKeys: String, CodingKey { case placement, creatives }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.placement = (try? c.decode(String.self, forKey: .placement)) ?? ""
+        self.creatives =
+            (try? c.decode([SafelyDecodable<Creative>].self, forKey: .creatives))?
+            .compactMap(\.value)
+    }
+}
+
+extension Content {
+    private enum TolerantKeys: String, CodingKey { case key, value, type }
+
+    /// Scalar-level tolerance: a retyped `key`/`type` degrades to `""` and a missing/malformed
+    /// `value` degrades to a null `AnyCodable`, rather than dropping the whole entry at the
+    /// array level. This preserves a usable content field (e.g. its `value`) when a future
+    /// engine version only retypes `type`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.key = (try? c.decode(String.self, forKey: .key)) ?? ""
+        self.type = (try? c.decode(String.self, forKey: .type)) ?? ""
+        self.value = (try? c.decode(AnyCodable.self, forKey: .value)) ?? AnyCodable(NSNull())
+    }
+}
+
+extension Metadata {
+    private enum TolerantKeys: String, CodingKey {
+        case adId, creativeId, advertiserId, templateId, placementId, priority
+        case language, format, style, impId, duration, aspectRatio, isSkippable
+        case skipOffsetSeconds, endCardMode
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        // Currently non-optional id fields default to "" (non-breaking; never throw).
+        self.adId = (try? c.decode(String.self, forKey: .adId)) ?? ""
+        self.creativeId = (try? c.decode(String.self, forKey: .creativeId)) ?? ""
+        self.advertiserId = try? c.decode(String.self, forKey: .advertiserId)
+        self.templateId = (try? c.decode(String.self, forKey: .templateId)) ?? ""
+        self.placementId = (try? c.decode(String.self, forKey: .placementId)) ?? ""
+        self.priority = (try? c.decode(Priority.self, forKey: .priority)) ?? .unknown
+        self.language = try? c.decode(String.self, forKey: .language)
+        self.format = try? c.decode(String.self, forKey: .format)
+        self.style = try? c.decode(String.self, forKey: .style)
+        self.impId = try? c.decode(String.self, forKey: .impId)
+        // Accept an integer or a JSON number that decodes as Double.
+        self.duration =
+            (try? c.decode(Int.self, forKey: .duration))
+            ?? (try? c.decode(Double.self, forKey: .duration)).map { Int($0) }
+        self.aspectRatio = try? c.decode(String.self, forKey: .aspectRatio)
+        self.isSkippable = try? c.decode(Bool.self, forKey: .isSkippable)
+        self.skipOffsetSeconds =
+            (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
+            ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
+        self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
+    }
+}
+
+extension Advertiser {
+    private enum TolerantKeys: String, CodingKey { case id, name, legalName, logoUrl }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.id = try? c.decode(String.self, forKey: .id)
+        self.name = try? c.decode(String.self, forKey: .name)
+        self.legalName = try? c.decode(String.self, forKey: .legalName)
+        self.logoUrl = try? c.decode(String.self, forKey: .logoUrl)
+    }
+}
+
+extension Template {
+    private enum TolerantKeys: String, CodingKey { case key, style }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.key = (try? c.decode(String.self, forKey: .key)) ?? ""
+        self.style = try? c.decode(String.self, forKey: .style)
+    }
+}
+
+extension VastData {
+    private enum TolerantKeys: String, CodingKey { case tagUrl, xmlBase64 }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.tagUrl = try? c.decode(String.self, forKey: .tagUrl)
+        self.xmlBase64 = try? c.decode(String.self, forKey: .xmlBase64)
+    }
+}
+
+extension VerificationScriptResource {
+    private enum TolerantKeys: String, CodingKey { case vendorKey, scriptUrl, verificationParameters }
+
+    /// `vendorKey` and `scriptUrl` are **structurally required** — without them an OM resource
+    /// is unusable (nothing to identify/load), so they stay strict and a malformed one is
+    /// dropped at the array level (`Creative` uses `SafelyDecodable`).
+    ///
+    /// `verificationParameters` is typed `any` by the engine. A plain string decodes verbatim; an
+    /// object or array is re-encoded to compact JSON text rather than discarded. It previously
+    /// collapsed any non-string to `""`, which silently dropped the vendor payload — the part IAS
+    /// or DoubleVerify actually needs to attribute a measurement — while leaving a resource that
+    /// still looked usable. Android already preserved it; this brings iOS in line.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.vendorKey = try c.decode(String.self, forKey: .vendorKey)
+        self.scriptUrl = try c.decode(String.self, forKey: .scriptUrl)
+        if let text = try? c.decode(String.self, forKey: .verificationParameters) {
+            self.verificationParameters = text
+        } else if let structured = try? c.decode(AnyCodable.self, forKey: .verificationParameters),
+            !(structured.value is NSNull),
+            let data = try? JSONEncoder().encode(structured),
+            let json = String(data: data, encoding: .utf8)
+        {
+            self.verificationParameters = json
+        } else {
+            self.verificationParameters = ""
+        }
+    }
 }

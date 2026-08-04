@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written.",
+  "scenarios": [
+    {
+      "id": "L1",
+      "title": "a normal native ad serves with complete, well-formed metadata",
+      "request": { "placements": [{ "key": "home" }] },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "requireMetadata": true,
+          "journey": false,
+          "formatEquals": "native",
+          "priorityIn": ["standard", "sponsorship", "house"]
+        }
+      }
+    },
+    {
+      "id": "L5",
+      "title": "a placement with no eligible ad returns a clean no-ad, not an error",
+      "request": { "placements": [{ "key": "postroll" }] },
+      "expect": { "outcome": "noAd", "decisions": 1 }
+    },
+    {
+      "id": "L6",
+      "title": "the advertiser block is complete (name, legalName, logoUrl)",
+      "request": { "placements": [{ "key": "home" }] },
+      "expect": { "outcome": "served", "creative": { "requireAdvertiser": true } }
+    },
+    {
+      "id": "L7",
+      "title": "the template block carries a non-empty key",
+      "request": { "placements": [{ "key": "home" }] },
+      "expect": { "outcome": "served", "creative": { "requireTemplate": true } }
+    },
+    {
+      "id": "L8",
+      "title": "a served native ad exposes an impression URL, a click URL and non-empty contents",
+      "request": { "placements": [{ "key": "home" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "impressions": "required",
+          "clicksAtLeast": 1,
+          "requireContents": true
+        }
+      }
+    },
+    {
+      "id": "M1",
+      "title": "count=2 returns at most two creatives, and they are distinct",
+      "request": { "placements": [{ "key": "promotions", "count": 2 }] },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creativesAtMost": 2,
+        "creativesDistinct": true
+      }
+    },
+    {
+      "id": "M2",
+      "title": "three placements in one request each get their own correctly-keyed decision",
+      "request": {
+        "placements": [{ "key": "home" }, { "key": "promotions" }, { "key": "search" }]
+      },
+      "expect": { "outcome": "served", "decisions": 3, "decisionsMatchRequest": true }
+    },
+    {
+      "id": "M3",
+      "title": "an advertiserId filter still serves that advertiser's ad",
+      "request": {
+        "placements": [
+          { "key": "promotions", "advertiserId": "advertiser_01JEPGMJXARVYSJA0CAM9FQ79Y" }
+        ]
+      },
+      "expect": { "outcome": "served", "creative": { "requireAdvertiser": true } }
+    },
+    {
+      "id": "M5",
+      "title": "format=native on a mixed placement returns a native ad",
+      "request": { "placements": [{ "key": "promotions", "format": "native" }] },
+      "expect": { "outcome": "served", "creative": { "formatEquals": "native" } }
+    },
+    {
+      "id": "M6",
+      "title": "format=video on the same mixed placement returns a video ad instead",
+      "request": { "placements": [{ "key": "promotions", "format": "video" }] },
+      "expect": { "outcome": "served", "creative": { "formatEquals": "video" } }
+    },
+    {
+      "id": "M7",
+      "title": "omitting format still serves — the engine chooses",
+      "request": { "placements": [{ "key": "promotions" }] },
+      "expect": { "outcome": "served" }
+    },
+    {
+      "id": "M8",
+      "title": "a journey-owned placement and a normal placement resolve independently in ONE request",
+      "request": {
+        "placements": [{ "key": "promotions" }, { "key": "home" }],
+        "session": "auto",
+        "journeyOpt": "in"
+      },
+      "expect": { "outcome": "served", "decisions": 2 }
+    },
+    {
+      "id": "P1",
+      "title": "a non-skippable JSON video exposes json delivery and five video events (no skip)",
+      "request": { "placements": [{ "key": "json_none" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "deliveryEquals": "json",
+          "formatEquals": "video",
+          "videoEventCount": 5,
+          "videoEventKeys": ["start", "first_quartile", "midpoint", "third_quartile", "complete"]
+        }
+      }
+    },
+    {
+      "id": "P2",
+      "title": "a vast_tag ad exposes its tag URL and surfaces NO engine-side beacons (no double count)",
+      "request": { "placements": [{ "key": "vasttag_none" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "deliveryEquals": "vast_tag",
+          "requireVastTagUrl": true,
+          "videoEventCount": 0,
+          "impressions": "forbidden"
+        }
+      }
+    },
+    {
+      "id": "P3",
+      "title": "a vast_xml ad exposes base64 that decodes to a VAST document, and no beacons",
+      "request": { "placements": [{ "key": "vastxml_none" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "deliveryEquals": "vast_xml",
+          "requireVastXmlDecodes": true,
+          "videoEventCount": 0,
+          "impressions": "forbidden"
+        }
+      }
+    },
+    {
+      "id": "P6",
+      "title": "a skippable video resolves skippability from ENGINE METADATA, plus a sixth skip event",
+      "request": { "placements": [{ "key": "json_none_skippable" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "metadataIsSkippable": true,
+          "skipOffsetSecondsEquals": 5,
+          "helperIsSkippable": true,
+          "helperSkipOffsetEquals": "5",
+          "videoEventCount": 6
+        }
+      }
+    },
+    {
+      "id": "P8",
+      "title": "an end-card video reports its configured endCardMode",
+      "request": { "placements": [{ "key": "json_native_endcard" }] },
+      "expect": {
+        "outcome": "served",
+        "creative": { "endCardModeEquals": "native_endcard" }
+      }
+    },
+    {
+      "id": "V1",
+      "title": "an unknown placement key raises a typed validation error, not a silent no-fill",
+      "request": { "placements": [{ "key": "definitely_not_a_real_placement" }] },
+      "expect": {
+        "outcome": "error",
+        "error": { "kind": "validation", "status": 422, "code": 10017 }
+      }
+    },
+    {
+      "id": "V3",
+      "title": "an unknown custom-targeting key is rejected by the engine",
+      "request": {
+        "placements": [{ "key": "home" }],
+        "custom": [{ "key": "not_a_configured_preset", "value": "x" }]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": { "kind": "validation", "status": 422, "code": 10028 }
+      }
+    },
+    {
+      "id": "V4",
+      "title": "the SDK deduplicates a repeated custom key, so the engine never sees the duplicate that would fail the whole request",
+      "comment": "Sent raw over HTTP this same payload returns 422 code 10031, and the engine aborts validation for the ENTIRE request — every placement, not just the offending target. All three SDKs dedupe by key (last write wins), so a publisher cannot reach that state through the public API. This scenario is the live proof of that guard: it must SERVE, and both placements must come back.",
+      "request": {
+        "placements": [{ "key": "home" }, { "key": "promotions" }],
+        "custom": [
+          { "key": "category", "value": "sports" },
+          { "key": "category", "value": "news" }
+        ]
+      },
+      "expect": { "outcome": "served", "decisions": 2, "decisionsMatchRequest": true }
+    },
+    {
+      "id": "V5",
+      "title": "a single valid custom target does not break serving",
+      "request": {
+        "placements": [{ "key": "home" }],
+        "custom": [{ "key": "category", "value": "sports" }]
+      },
+      "expect": { "outcome": "served" }
+    },
+    {
+      "id": "V6",
+      "title": "a count above the documented maximum is rejected",
+      "request": { "placements": [{ "key": "home", "count": 99 }] },
+      "expect": {
+        "outcome": "error",
+        "error": { "kind": "validation", "status": 422, "code": 10016 }
+      }
+    },
+    {
+      "id": "V9",
+      "title": "a request with no placements fails locally, before any network call",
+      "request": { "placements": [] },
+      "expect": { "outcome": "error", "error": { "kind": "local" } }
+    },
+    {
+      "id": "Z1",
+      "title": "API version 2025-01-01 still serves a native ad and never a journey block",
+      "request": { "placements": [{ "key": "home" }], "apiVersion": "2025-01-01" },
+      "expect": {
+        "outcome": "served",
+        "creative": { "journey": false, "requireMetadata": true }
+      }
+    },
+    {
+      "id": "Z2",
+      "title": "omitting the version header still serves (engine falls back to the oldest active version)",
+      "request": { "placements": [{ "key": "home" }], "apiVersion": "none" },
+      "expect": { "outcome": "served", "creative": { "journey": false } }
+    }
+  ]
+}

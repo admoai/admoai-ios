@@ -80,9 +80,9 @@ private let allPlacementKeys = placementsWithoutVersion + ["vastxml_native_endca
 
 struct LiveIntegrationSerializationTests {
 
-    /// `min_confidence` must be snake_case in the JSON body (not `minConfidence`).
+    /// `minConfidence` must be camelCase in the JSON body — the engine's canonical key.
     @Test
-    func testMinConfidenceKeyIsSnakeCase() throws {
+    func testMinConfidenceKeyIsCanonicalCamelCase() throws {
         let request = try sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .addDestinationTargeting(latitude: 72.51, longitude: 120.64, minConfidence: 0.5)
@@ -91,8 +91,10 @@ struct LiveIntegrationSerializationTests {
         let encoded = try JSONEncoder().encode(request)
         let json = String(data: encoded, encoding: .utf8)!
 
-        #expect(json.contains("\"min_confidence\""), "Expected snake_case key in JSON body")
-        #expect(!json.contains("\"minConfidence\""), "camelCase key must not appear in JSON body")
+        #expect(json.contains("\"minConfidence\""), "Expected the canonical camelCase key")
+        #expect(
+            !json.contains("\"min_confidence\""),
+            "The legacy snake_case alias must not be emitted by a new SDK version")
     }
 
     /// When no `format` is set on a placement, the key must be absent from JSON
@@ -511,7 +513,7 @@ struct LiveIntegrationTrackingTests {
         sdk.fireTracking(url: "not a valid url !!!@@@")
     }
 
-    /// `fireImpression`, `fireClick`, `fireCustom`, `fireVideoEvent` must all
+    /// `fireImpression`, `fireClick`, `fireCustomEvent`, `fireVideoEvent` must all
     /// accept a `Tracking` value and not crash.
     @Test
     func testAllFireMethodsAcceptTracking() {
@@ -527,7 +529,7 @@ struct LiveIntegrationTrackingTests {
         sdk.fireImpression(tracking: tracking, key: "default")
         sdk.fireClick(tracking: tracking)
         sdk.fireClick(tracking: tracking, key: "default")
-        sdk.fireCustom(tracking: tracking, key: "companionOpened")
+        sdk.fireCustomEvent(tracking: tracking, key: "companionOpened")
         sdk.fireVideoEvent(tracking: tracking, key: "start")
     }
 

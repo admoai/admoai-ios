@@ -73,6 +73,15 @@ public struct DecisionRequest: Encodable {
         if trimmed.utf8.count > 256 { return "exceeds_256_bytes" }
         return nil
     }
+
+    /// Normalizes a `sessionId` to its wire form: trimmed, with a blank value collapsing to
+    /// `nil`. Used so a stored/forwarded `sessionId` matches exactly what is sent, avoiding a
+    /// field-vs-wire mismatch.
+    public static func normalizedSessionId(_ sessionId: String?) -> String? {
+        guard let sessionId = sessionId else { return nil }
+        let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 public struct Placement: Encodable {
@@ -113,11 +122,28 @@ public enum JourneyOpt: String, Codable {
     case optIn = "in"
     case optOut = "out"
 
-    /// Tolerant parse from a raw wire string for non-`Decoder` contexts: unknown or `nil`
-    /// input maps to `nil` rather than throwing.
+    /// Tolerant parse from a raw wire string: unknown or `nil` input maps to `nil` rather than
+    /// throwing. Surrounding whitespace is trimmed and case is normalized, matching Android's
+    /// `JourneyOpt.fromWire`. The engine marshals a typed enum and only ever emits lowercase, so
+    /// this is defensive — but a read path that accepts `"In"` on one platform and `nil` on
+    /// another is a parity seam regardless of whether today's producer can trigger it.
     public static func fromWire(_ raw: String?) -> JourneyOpt? {
         guard let raw = raw else { return nil }
-        return JourneyOpt(rawValue: raw)
+        return JourneyOpt(
+            rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+
+    /// Decodes tolerantly via ``fromWire(_:)`` so response parsing shares one normalization path
+    /// with the non-`Decoder` callers. The request side stays strict: only `optIn`/`optOut` exist,
+    /// so only the two engine literals can ever be encoded.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let parsed = JourneyOpt.fromWire(raw) else {
+            throw DecodingError.dataCorruptedError(
+                in: try decoder.singleValueContainer(),
+                debugDescription: "unrecognized JourneyOpt \"\(raw)\"")
+        }
+        self = parsed
     }
 }
 
@@ -155,9 +181,12 @@ public struct Targeting: Encodable {
         }
 
         if let destinations = destination {
+            // `minConfidence` is the engine's canonical key, matching every other field on the
+            // request contract. `min_confidence` survives only as a back-compat alias kept so
+            // already-fielded SDKs keep parsing, and camelCase wins when both are present.
             try container.encode(
                 destinations.map { coord in
-                    ["latitude": coord.latitude, "longitude": coord.longitude, "min_confidence": coord.minConfidence]
+                    ["latitude": coord.latitude, "longitude": coord.longitude, "minConfidence": coord.minConfidence]
                 }, forKey: .destination)
         }
 

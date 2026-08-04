@@ -64,7 +64,10 @@ struct OMVerificationTests {
     }
 
     @Test
-    func testVerificationScriptResourceMissingRequiredField() throws {
+    func testVerificationScriptResourceMissingParametersIsTolerated() throws {
+        // `verificationParameters` is optional per the engine (typed `any`, omitempty). A
+        // resource with a usable vendorKey + scriptUrl but no parameters must decode (with
+        // an empty string), NOT be discarded — dropping it would lose a valid OM script.
         let json = """
             {
                 "vendorKey": "iabtechlab.com-omid",
@@ -73,10 +76,65 @@ struct OMVerificationTests {
             """
 
         let data = json.data(using: .utf8)!
+        let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
+        #expect(resource.vendorKey == "iabtechlab.com-omid")
+        #expect(resource.scriptUrl == "https://verification.example.com/omid.js")
+        #expect(resource.verificationParameters == "")
+    }
 
-        #expect(throws: DecodingError.self) {
-            _ = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
-        }
+    @Test
+    func testVerificationParametersObjectIsPreservedAsJSON() throws {
+        // The engine types `verificationParameters` as `any`. A structured payload used to
+        // collapse to "" — the resource survived but the vendor payload silently vanished, which
+        // is the part IAS or DoubleVerify needs to attribute a measurement. Now re-encoded to
+        // compact JSON text, matching Android, so nothing is lost.
+        let json = """
+            {
+                "vendorKey": "doubleverify.com-omid",
+                "scriptUrl": "https://verification.example.com/omid.js",
+                "verificationParameters": {"ctx": 12345, "tag": "abc"}
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
+        #expect(resource.vendorKey == "doubleverify.com-omid")
+        #expect(!resource.verificationParameters.isEmpty)
+        #expect(resource.verificationParameters.contains("12345"))
+        #expect(resource.verificationParameters.contains("abc"))
+    }
+
+    @Test
+    func testVerificationParametersArrayIsPreservedAsJSON() throws {
+        let json = """
+            {
+                "vendorKey": "ias.com-omid",
+                "scriptUrl": "https://verification.example.com/omid.js",
+                "verificationParameters": ["a", "b"]
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
+        #expect(resource.verificationParameters.contains("a"))
+        #expect(resource.verificationParameters.contains("b"))
+    }
+
+    @Test
+    func testVerificationParametersNullStaysEmpty() throws {
+        // An explicit null carries no payload, so "" remains correct — do not stringify it to
+        // the literal "null", which a publisher would forward to the vendor as if it were data.
+        let json = """
+            {
+                "vendorKey": "ias.com-omid",
+                "scriptUrl": "https://verification.example.com/omid.js",
+                "verificationParameters": null
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
+        #expect(resource.verificationParameters == "")
     }
 
     // MARK: - Creative with VerificationScriptResources

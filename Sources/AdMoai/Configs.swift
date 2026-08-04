@@ -32,10 +32,20 @@ public struct SDKConfig {
     }
 
     /// Provides the default session configuration with SDK-specific customizations.
+    ///
+    /// The 10s request timeout matches the Android and Flutter SDKs, which both default to 10s
+    /// across request/connect/read. This was 30s (with a 60s resource timeout), so the same slow
+    /// endpoint or cold engine succeeded on iOS and timed out on the other two — a multi-stage
+    /// journey then looked flaky on two platforms only. An ad request that takes longer than 10s
+    /// has no value anyway: the surface it was requested for is long gone.
+    ///
+    /// The User-Agent here is a convenience for callers who reuse this configuration; the SDK no
+    /// longer depends on it, and sets the header per-request so a custom `URLSessionConfiguration`
+    /// cannot silently strip it.
     public static func defaultSessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 60
+        configuration.timeoutIntervalForRequest = 10
+        configuration.timeoutIntervalForResource = 30
         configuration.httpAdditionalHeaders = [
             "User-Agent": "AdMoaiSDK/\(SDK_VERSION)"
         ]

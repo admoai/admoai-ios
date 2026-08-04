@@ -6,10 +6,16 @@ public enum SDKError: Error, CustomStringConvertible, Equatable {
     /// `minConfidence` was outside the valid range `[0.0, 1.0]`.
     case invalidMinConfidence(Double)
 
+    /// A decision request was submitted with no placements. The engine rejects this with a 422,
+    /// so the SDK fails locally instead of spending a network round-trip to learn it.
+    case noPlacements
+
     public var description: String {
         switch self {
         case .invalidMinConfidence(let value):
             return "minConfidence must be in [0.0, 1.0], got \(value)"
+        case .noPlacements:
+            return "At least one placement is required"
         }
     }
 }
@@ -31,18 +37,22 @@ public class DecisionRequestBuilder {
     private let deviceConfig: DeviceConfig
     private let userConfig: UserConfig
     private let logger: Logger?
+    private let apiVersion: String?
 
     internal init(
         appConfig: AppConfig,
         deviceConfig: DeviceConfig,
         userConfig: UserConfig,
         sessionId: String? = nil,
+        apiVersion: String? = nil,
         logger: Logger? = nil
     ) {
         self.appConfig = appConfig
         self.deviceConfig = deviceConfig
         self.userConfig = userConfig
-        self.sessionId = sessionId
+        // Seeded sticky value is already normalized by AdMoai; normalize defensively anyway.
+        self.sessionId = DecisionRequest.normalizedSessionId(sessionId)
+        self.apiVersion = apiVersion
         self.logger = logger
 
         self.app = App(
@@ -97,6 +107,7 @@ public class DecisionRequestBuilder {
 
     // Targeting methods
     public func setGeoTargeting(_ geoNameIds: [Int]?) -> DecisionRequestBuilder {
+        let geoNameIds = Self.dedupedGeo(geoNameIds)
         if targeting == nil {
             targeting = Targeting(geo: geoNameIds)
         } else {
@@ -114,6 +125,18 @@ public class DecisionRequestBuilder {
         var currentGeo = targeting?.geo ?? []
         currentGeo.append(geoNameId)
         return setGeoTargeting(currentGeo)
+    }
+
+    /// Removes duplicate geoname ids, keeping first-seen order.
+    ///
+    /// Location, destination and custom targeting were all already deduplicated here; geo was the
+    /// one that was not, so the same list produced a different request body on Android (which
+    /// dedupes) than on iOS. Geo is evaluated as ANY, so duplicates never changed the decision —
+    /// but an SDK should not send a payload that differs by platform for identical input.
+    private static func dedupedGeo(_ ids: [Int]?) -> [Int]? {
+        guard let ids = ids else { return nil }
+        var seen = Set<Int>()
+        return ids.filter { seen.insert($0).inserted }
     }
 
     public func clearGeoTargeting() -> DecisionRequestBuilder {
@@ -372,7 +395,8 @@ public class DecisionRequestBuilder {
         if let reason = DecisionRequest.journeySessionIdRejectionReason(sessionId) {
             logger?.warning("Journey sessionId will be ignored by the engine: \(reason, privacy: .public)")
         }
-        self.sessionId = sessionId
+        // Store the wire form so `request.sessionId` matches exactly what is sent.
+        self.sessionId = DecisionRequest.normalizedSessionId(sessionId)
         return self
     }
 
@@ -434,6 +458,14 @@ public class DecisionRequestBuilder {
 
     // Build method
     public func build() -> DecisionRequest {
+        // Misconfiguration guard: Journey context requires the Journey engine version.
+        // Without apiVersion the engine ignores Journey (or, pre-deployment, rejects the
+        // additive fields), so surface it rather than failing silently.
+        if (sessionId != nil || journeyOpt != nil) && apiVersion == nil {
+            logger?.warning(
+                "Journey context (sessionId/journeyOpt) was set but SDKConfig.apiVersion is nil; the engine will not process Journey. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
+            )
+        }
         return DecisionRequest(
             placements: placements,
             targeting: targeting,

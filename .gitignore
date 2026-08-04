@@ -8,3 +8,7 @@ DerivedData/
 .netrc
 .swiftpm/
 Package.resolved
+
+# Journey E2E runner output. The report worth keeping is copied to
+# Tests/AdMoaiTests/E2E/report.json so a later round can diff it.
+/build

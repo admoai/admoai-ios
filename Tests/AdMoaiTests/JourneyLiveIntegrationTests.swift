@@ -15,6 +15,19 @@
 ///
 /// This doubles as the deployment-readiness probe: once `2025-11-01` is live, the Journey
 /// acceptance checks assert success automatically.
+///
+/// ## What this suite is NOT
+/// It is **not** the Journey gate, and its passing does **not** mean the Journey contract holds.
+/// Every deployment-pending path below exits early, and an assertion that never executes is
+/// indistinguishable from one that passes. Two protections against that reading:
+///
+/// - every early exit prints a `DEPLOYMENT-PENDING:` line naming exactly what went unverified,
+///   so a green run is never silently mistaken for a verified one, and
+/// - setting `ADMOAI_JOURNEY_REQUIRE_DEPLOYED=1` turns every such exit into a hard failure, so
+///   once the engine ships this suite can be made assertable without editing it.
+///
+/// The real Journey verification is the 37-scenario runner in `Tools/JourneyE2E`, which drives a
+/// locally-seeded engine. That is where the contract is proven.
 
 import Foundation
 import Testing
@@ -23,6 +36,28 @@ import Testing
 
 private let liveBaseURL = "https://api.mock.admoai.com"
 private let journeyApiVersion = "2025-11-01"
+
+/// When set, a deployment-pending outcome is a failure rather than a recorded gap. Flip this on
+/// once `2025-11-01` is deployed to the mock host.
+private var requireDeployed: Bool {
+    ProcessInfo.processInfo.environment["ADMOAI_JOURNEY_REQUIRE_DEPLOYED"] == "1"
+}
+
+/// Records a surface this run could not verify.
+///
+/// Prints unconditionally so the gap is visible in the output of a passing run, and fails the
+/// test when the caller has declared the engine should be deployed. Without this, the suite
+/// reports green while asserting nothing — the exact failure mode that let 610 lines of Flutter
+/// "live integration" coverage run for weeks without making a single network call.
+private func recordUnverified(_ what: String, _ sourceLocation: SourceLocation = #_sourceLocation)
+{
+    print("DEPLOYMENT-PENDING: not verified this run — \(what)")
+    if requireDeployed {
+        Issue.record(
+            "ADMOAI_JOURNEY_REQUIRE_DEPLOYED=1 but this could not be verified: \(what)",
+            sourceLocation: sourceLocation)
+    }
+}
 
 /// No Journey fields — always valid against any engine version.
 private func makeNormalSDK() -> AdMoai {
@@ -59,7 +94,12 @@ struct JourneyLiveIntegrationTests {
                 .first?.creatives?.first?.tracking.getImpressionUrl(key: "default"),
             let url = URL(string: impressionURL)
         else {
-            return  // No creative served this run (mock inventory dependent) — nothing to fire.
+            // No creative served this run (mock inventory dependent) — so there was nothing to
+            // fire, and the tracking half of this scenario went unproven.
+            recordUnverified(
+                "no creative served on \"home\", so normal-ad tracking under "
+                    + "X-Tracking-Version was not exercised")
+            return
         }
 
         var trackingRequest = URLRequest(url: url)
@@ -96,11 +136,26 @@ struct JourneyLiveIntegrationTests {
             .setJourneyOpt(opt)
             .build()
 
-        let response = try await sdk.requestAds(request)
+        let response: APIResponse<DecisionResponse>
+        do {
+            response = try await sdk.requestAds(request)
+        } catch let error as APIError {
+            // In RELEASE builds a 400 throws `.clientError(.badRequest)` (DEBUG returns it as
+            // a body). Either way, a pre-Journey engine rejecting the fields is deployment-
+            // pending, not a test failure — but it IS an unverified surface.
+            if case .clientError(.badRequest) = error {
+                recordUnverified(
+                    "the engine rejected journeyOpt=\(opt.rawValue) with HTTP 400, so Journey "
+                        + "field acceptance is unverified (engine predates 2025-11-01)")
+                return
+            }
+            throw error
+        }
 
         if isJourneyNotDeployed(response) {
-            // Engine predates Journey — expected pre-deployment. Not a failure.
-            Comment(rawValue: "Journey engine not deployed yet (engine rejected sessionId/journeyOpt). Skipping acceptance assertions.")
+            recordUnverified(
+                "the engine reported an unknown field for journeyOpt=\(opt.rawValue), so "
+                    + "Journey field acceptance is unverified (engine predates 2025-11-01)")
             return
         }
 
