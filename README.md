@@ -227,7 +227,7 @@ ads on the placements it owns until the journey ends.
 ### Why your integration matters commercially
 
 A Journey Ad is **one advertiser buying one user's activity as a single deal**, usually priced
-**CPT** (cost per takeover) — the advertiser pays for the journey as a unit, not per impression. In
+**CPT** (cost per trip) — the advertiser pays once for the whole journey, not per impression. In
 exchange, competing ads are suppressed on the placements the journey owns.
 
 That moves real commercial weight into your app:
@@ -236,8 +236,8 @@ That moves real commercial weight into your app:
 |---|---|
 | Sends a different `sessionId` per screen | The journey restarts at stage 1 forever. The advertiser's multi-screen story never happens and the campaign under-delivers. |
 | Never fires the completion beacon (on `custom_event` deals) | The journey never completes, so **CPT revenue is never recorded**. |
-| Substitutes another ad on a journey no-ad | Breaks the single-brand exclusivity the advertiser paid for. |
-| Branches UI on journey metadata | Breaks silently when someone edits the campaign. |
+| Fills a journey-owned slot with a different advertiser's ad when the journey returns no ad | Breaks the single-brand exclusivity the advertiser paid for. |
+| Uses journey metadata (stage keys, node ids) to drive app logic or layout | Breaks silently the moment someone edits the campaign. |
 
 **None of this raises an error at request time.** Requests succeed, ads appear, and the problem
 only shows up later in reporting — which is why the checklist and self-checks at the end of this
@@ -392,8 +392,9 @@ authoritative server-side — and the SDK derives nothing from it. `metadata` al
 
 ### Completion — two mutually exclusive modes
 
-The engine chooses one per deal. You handle both, and they are **additive** to the normal
-impression, never a replacement.
+Which of the two applies is **configured per campaign in the Ad Manager** by Admoai ad-ops; the
+engine reads that configuration and applies it in the ad response. You do not choose, but you must
+handle both, and they are **additive** to the normal impression, never a replacement.
 
 **`custom_event`** — the creative carries a completion beacon. **Completion, and therefore CPT
 revenue, is recorded only when you fire it.** If you never fire it, the journey never bills.
@@ -606,6 +607,21 @@ requested placement, and an explicit **opt-out**, and you have the full list.
 Your app's response is identical in every case: collapse the slot and carry on. The distinction
 only matters when someone asks ad-ops why delivery stopped.
 
+### How your integration shows up in reporting
+
+Journey reporting is computed from the events your app fires and the session boundaries you chose,
+so these numbers are only as good as the integration. What a publisher and an advertiser will be
+looking at:
+
+| Metric | What it is | What your app affects |
+|---|---|---|
+| **Journeys started** | How many journeys began | Your session boundaries. A `sessionId` per screen inflates this; one per login collapses many activities into one. |
+| **Completions** | Journeys that reached the finish | Firing the completion beacon on `custom_event` deals. Ad-ops chooses which stages must be served for a journey to count as finished — any combination — and that is reconciled against billing. |
+| **Avg duration** | Average time between a journey's first and last event | Whether the journey actually progresses. A restarting journey reports many short ones instead of one real one. |
+| **Avg attention time** | Estimated time the ad was on screen: average duration × an attention percentage set on the **journey definition** | Same as duration. This is **estimated from configuration, not measured viewability** — it is not Open Measurement and never affects billing. |
+| **CTR** | Clicks ÷ impressions, counted per event | Firing impressions and clicks. |
+| **Journey CTR** | Journeys clicked at least once ÷ journeys started | Each journey counts **once** however many times it was clicked, and completion is irrelevant. It reads **higher** than CTR because a journey spans several placements — that is expected, not a bug. |
+
 ### Before you ship
 
 **Get these from your Admoai contact.** Guessing any of them produces an integration that looks
@@ -646,7 +662,7 @@ For product and ops readers.
 | **Stage** | One ordered step of a journey. May own several surfaces. |
 | **Stage node** | One placement + template within a stage. Serves at most once per instance. |
 | **Takeover protection** | Suppression of competing ads on placements a journey owns. |
-| **CPT** | Cost per takeover — the advertiser pays per journey, not per impression. |
+| **CPT** | Cost per trip — the advertiser pays once per journey, not per impression. |
 | **Completion** | The moment the journey is considered fulfilled; what CPT bills on. |
 | **Parting** | The times of day / days of week a campaign may serve. |
 | **Pacing** | Spreading delivery over the flight instead of spending at once. |
@@ -657,8 +673,10 @@ For product and ops readers.
 Yes. Everything works exactly as before — only Journey Ads are ineligible. Journeys never activate,
 ordinary ads keep serving. It is a valid, safe default.
 
-**Do we need `apiVersion` if we only want normal ads?**
-No. It is required only for Journey Ads (and the format filter).
+**Is `apiVersion` only about Journey Ads?**
+No. `2025-11-01` also gates video ads, the format filter, mid-flight campaign changes and Open
+Measurement support. Journey Ads are one of several reasons to set it — set it unless you have a
+specific reason not to.
 
 **Two users share a device. Same `sessionId`?**
 No. A session is one activity by one user. On account switch, rotate it.
