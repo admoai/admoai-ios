@@ -63,7 +63,7 @@ Then run `swift package resolve` to download and integrate the package.
 // Initialize SDK with base URL and optional configurations
 let config = SDKConfig(
     baseUrl: "https://api.admoai.com",
-    apiVersion: "2025-11-01",        // Optional: enables format filter (for Video Ads)
+    apiVersion: "2025-11-01",        // Recommended: gates Journey Ads, video, POI targeting and more
     defaultLanguage: "en"            // Optional: default language for requests
 )
 
@@ -154,7 +154,7 @@ sdk.clearAppConfig()
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `baseUrl` | String | Required | Decision Engine API endpoint |
-| `apiVersion` | String? | `nil` | API version (e.g., `"2025-11-01"` for format filter) |
+| `apiVersion` | String? | `nil` | Engine API version. `"2025-11-01"` gates Journey Ads, video ads, POI / destination targeting, mid-flight campaign changes, Open Measurement and the format filter |
 | `defaultLanguage` | String? | `nil` | Default language for requests |
 | `logger` | Logger | SDK default | Custom logger instance |
 | `sessionConfiguration` | URLSessionConfiguration | SDK default | Custom URL session configuration |
@@ -220,6 +220,14 @@ ads on the placements it owns until the journey ends.
 > puts an obligation on **every** call: carry the same `sessionId` for the whole of a user's
 > session. The SDK cannot do that for you. Get it wrong and journeys silently never progress.
 
+**Minimum engine version:** set `SDKConfig.apiVersion = "2025-11-01"`. Without it the engine
+**silently** ignores Journey fields and serves ordinary ads — no error, no warning from the
+server — and Journey completion tracking will not record.
+
+`2025-11-01` is not only about Journey Ads. It gates several capabilities, so unless you have a
+specific reason not to, set it: **Journey Ads**, **video ads**, **POI / destination targeting**,
+**mid-flight campaign changes**, **Open Measurement** support, and the **format filter**.
+
 <!-- MIRRORED SECTION START — this Journey Ads guide is duplicated in admoai-ios, admoai-android
      (sdk/README.md) and admoai-flutter. Prose must stay equivalent in all three; only the code
      samples differ. Change all three together. -->
@@ -240,12 +248,8 @@ That moves real commercial weight into your app:
 | Uses journey metadata (stage keys, node ids) to drive app logic or layout | Breaks silently the moment someone edits the campaign. |
 
 **None of this raises an error at request time.** Requests succeed, ads appear, and the problem
-only shows up later in reporting — which is why the checklist and self-checks at the end of this
+only shows up later in reporting — which is why the checklist and the checks at the end of this
 section matter more than usual.
-
-**Minimum engine version:** set `SDKConfig.apiVersion = "2025-11-01"`. Without it the engine
-**silently** ignores Journey fields and serves ordinary ads — no error, no warning from the
-server — and Journey completion tracking will not record.
 
 ### What the SDK does, and never does
 
@@ -528,18 +532,21 @@ if creative.isJsonDelivery() {
 
 | Mistake | Consequence | Do this instead |
 |---|---|---|
-| A new `sessionId` per screen or per request | The journey restarts at stage 1 forever and never progresses | One id for the whole session, rotated only on a real new session |
-| No `sessionId` | Journeys never activate; the feature is silently off | Set it once on `AdMoai` |
-| Omitting `journeyOpt` to mean "opt out" | Permissive — journeys still serve, and an active one continues | Send `.optOut` explicitly |
-| Expecting opt-out to pause | The instance is **closed**; a later opt-in starts a new one | Treat opt-out as terminal |
-| Forgetting `apiVersion` | Journey fields are ignored silently, and completions do not record | `apiVersion = "2025-11-01"` |
-| Not firing the `custom_event` completion beacon | The journey never completes and CPT never bills | Fire it once when the action happens |
-| Firing a completion for a `final_stage` deal | Nothing to fire; the call is a no-op | Check `isJourneyCompletion` and fire only the impression |
-| Hard-coding the completion key | The key is campaign-specific; a wrong key fires **nothing** and only logs a warning | Read it from `creative.tracking.completions` |
-| Treating a repeated `journeyStageKey` as a bug | One stage can own several surfaces, so it legitimately repeats | Check `journeyStageNodeId` for the no-repeat rule |
-| Sending `.optOut`, then omitting `journeyOpt` to re-enable | Stored opt-out persists; journeys stay off for that session | Send `.optIn` explicitly to re-consent |
-| Substituting your own ad on a journey no-ad | Breaks the single-brand takeover you were paid for | Collapse the slot |
-| Branching UI on `journeyStageKey` | Breaks silently when someone edits the campaign | Render from `contents` / `template` |
+| A new `sessionId` per screen or per request | The journey restarts at stage 1 forever and never progresses | One id per activity, rotated only when the activity ends |
+| Reusing a user id, account id or login as the `sessionId` | Every activity by that user collapses into a single journey | Mint an opaque id per activity |
+| No `sessionId` at all | Journeys never activate; the feature is silently off (ordinary ads still serve) | Set it once via `AdMoai(config:sessionId:)` |
+| Omitting `journeyOpt` to mean "no journeys" | Permissive — journeys still serve, and an active one continues | Send `.optOut` explicitly |
+| Expecting opt-out to pause a journey | The instance is **closed**; a later opt-in starts a brand-new one | Treat opt-out as terminal |
+| Sending `.optOut`, then omitting `journeyOpt` to re-enable | A stored opt-out persists, so journeys stay off for that session | Send `.optIn` explicitly to re-consent |
+| Missing or older `apiVersion` | Journey fields are ignored silently, and completions do not record | Set `2025-11-01` |
+| Not firing the `custom_event` completion beacon | The journey never completes and CPT never bills | Fire it once when the agreed action happens |
+| Hard-coding the completion key | The key is campaign-specific; a wrong key fires **nothing** and only logs a warning | Read it from `creative.tracking``.completions` |
+| Firing a completion on a `final_stage` deal | Nothing to fire; the call is a no-op | Check `isJourneyCompletion` and fire only the impression |
+| Firing the completion on render instead of on the action | Completions and CPT revenue are reported for journeys that never delivered the outcome | Fire on the real user action |
+| Filling a journey-owned slot with another ad when the journey returns no ad | Breaks the single-brand takeover the advertiser paid for | Collapse the slot |
+| Immediately re-requesting the same placement in a loop after a no-ad | Wasted calls; a placement the journey is holding will not free up mid-loop | Collapse, then request again at your next natural ad opportunity |
+| Treating a repeated `journeyStageKey` as a bug | One stage can own several surfaces, so it legitimately repeats | Use `journeyStageNodeId` for the no-repeat rule |
+| Using journey metadata to drive app logic or layout | Breaks silently the moment someone edits the campaign | Render from `contents` / `template` |
 | Rebuilding or appending to a tracking URL | Invalidates the encrypted token; attribution is lost | Fire the string verbatim |
 | Firing SDK video events for VAST delivery | Every event counts twice | Let the player's VAST beacons do it |
 
