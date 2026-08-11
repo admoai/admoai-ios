@@ -45,7 +45,7 @@ Add the following dependency to your `Package.swift`:
 <!-- x-release-please-start-version -->
 ```swift
 dependencies: [
-    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.5.0")
+    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.5.1")
 ]
 ```
 <!-- x-release-please-end-version -->
