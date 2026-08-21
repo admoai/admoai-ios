@@ -19,7 +19,7 @@ let standardMockJson = """
                 "type": "text"
             },
             {
-                "key": "destinationURL",
+                "key": "destinationUrl",
                 "value": "https://example.com/book-ride",
                 "type": "url"
             }

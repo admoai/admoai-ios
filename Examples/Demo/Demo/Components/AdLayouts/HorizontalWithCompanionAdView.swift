@@ -5,12 +5,12 @@ import UIKit
 private class CompanionViewController: UIViewController {
     let creative: Creative
     let onDismiss: () -> Void
-    let onAdClick: (Creative, String) -> Void
+    let onAdClick: (Creative, String, String) -> Void
 
     init(
         creative: Creative,
         onDismiss: @escaping () -> Void,
-        onAdClick: @escaping (Creative, String) -> Void
+        onAdClick: @escaping (Creative, String, String) -> Void
     ) {
         self.creative = creative
         self.onDismiss = onDismiss
@@ -74,7 +74,7 @@ private class CompanionViewController: UIViewController {
 private struct CompanionContentView: View {
     let creative: Creative
     let onDismiss: () -> Void
-    let onAdClick: (Creative, String) -> Void
+    let onAdClick: (Creative, String, String) -> Void
 
     private var buttonColor: Color {
         if let color = creative.contents.getContent(key: "buttonColor")?.value.description {
@@ -138,7 +138,7 @@ private struct CompanionContentView: View {
 
                     if let cta = creative.contents.getContent(key: "cta")?.value.description {
                         Button(action: {
-                            onAdClick(creative, "default")
+                            onAdClick(creative, "default", AdDestinationKey.companion)
                             onDismiss()
                         }) {
                             Text(cta)

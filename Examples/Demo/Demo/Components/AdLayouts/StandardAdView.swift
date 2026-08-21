@@ -17,10 +17,6 @@ struct StandardAdView: View {
         creative.contents.getContent(key: "body")?.value.description ?? ""
     }
 
-    private var destinationURL: String {
-        creative.contents.getContent(key: "destinationURL")?.value.description ?? ""
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Cover Image
@@ -111,7 +107,10 @@ struct StandardAdView: View {
             viewModel.handleAdImpression(creative: creative, key: "default")
         }
         .onTapGesture {
-            viewModel.handleAdClick(creative: creative, key: "default")
+            viewModel.handleAdClick(
+                creative: creative,
+                trackingKey: "default",
+                destinationKey: AdDestinationKey.standard)
         }
     }
 }

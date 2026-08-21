@@ -1,5 +1,6 @@
 import AdMoai
 import Foundation
+import OSLog
 import UIKit
 
 @MainActor
@@ -18,6 +19,8 @@ final class ContentViewModel: ObservableObject {
     @Published var collectDeviceData = true
 
     var sdk: AdMoai
+
+    private let logger = Logger(subsystem: "com.admoai.example", category: "AdClick")
 
     // MARK: - Initialization
 
@@ -79,11 +82,28 @@ final class ContentViewModel: ObservableObject {
         sdk.fireImpression(tracking: creative.tracking, key: key)
     }
 
-    func handleAdClick(creative: Creative, key: String) {
-        if let clickUrl = creative.tracking.getClickUrl(key: key),
-            let url = URL(string: clickUrl)
-        {
+    /// Handles a tap on an ad: record the click, then navigate — two separate steps.
+    ///
+    /// `fireClick` reports the click and gives you nothing to open. The destination comes from the
+    /// creative's own content field (`destinationKey`), never from `tracking.clicks[].url`: that
+    /// URL is a measurement endpoint, and opening it both double-counts the click and sends the
+    /// user to an opaque redirect instead of the advertiser's page.
+    func handleAdClick(creative: Creative, trackingKey: String, destinationKey: String) {
+        sdk.fireClick(tracking: creative.tracking, key: trackingKey)
+
+        /// No destination is a valid outcome — the `textOnly` template declares none. The
+        /// click is still recorded above; there is simply nowhere to go.
+        guard let destination = AdClickResolver.destination(in: creative, key: destinationKey)
+        else { return }
+
+        switch destination {
+        case .web(let url):
             UIApplication.shared.open(url)
+        case .deeplink(let url):
+            /// Your app owns its own links: route them through your router or `NavigationPath`
+            /// rather than handing them back to the system. The Demo has no internal routes, so
+            /// it reports where it would have navigated.
+            logger.info("Would route in-app deeplink: \(url.absoluteString, privacy: .public)")
         }
     }
 

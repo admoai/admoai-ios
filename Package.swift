@@ -28,6 +28,20 @@ let package = Package(
             // unhandled files.
             exclude: ["E2E"]
         ),
+        // The Demo's pure ad-click logic, built here only so `swift test` can cover it.
+        // Deliberately NOT a package product: consumers of the AdMoai library never build it.
+        // The sources live inside the Demo app (Xcode 16 synchronized folder, so the app target
+        // picks them up with no project edit); this target compiles the same files a second time.
+        // Keep this directory free of UIKit/SwiftUI so it stays buildable on every platform.
+        .target(
+            name: "SampleSupport",
+            dependencies: ["AdMoai"],
+            path: "Examples/Demo/Demo/ClickHandling"
+        ),
+        .testTarget(
+            name: "SampleSupportTests",
+            dependencies: ["SampleSupport"]
+        ),
         // Journey Ads live E2E runner. Deliberately an executable target and deliberately NOT
         // exposed as a package product: `swift test` therefore stays hermetic and offline by
         // construction (it cannot pick this up), while consumers depending on the AdMoai

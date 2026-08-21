@@ -12,6 +12,11 @@ let horizontalMockJson = """
                 "key": "squareImage",
                 "value": "https://picsum.photos/200",
                 "type": "image"
+            },
+            {
+                "key": "destinationUrl",
+                "value": "https://example.com/premium-ride",
+                "type": "url"
             }
         ],
         "advertiser": {
@@ -57,6 +62,11 @@ let horizontalImageOnlyMockJson = """
                 "key": "wideImage",
                 "value": "https://picsum.photos/800/200",
                 "type": "image"
+            },
+            {
+                "key": "destinationUrl",
+                "value": "https://example.com/offer",
+                "type": "url"
             }
         ],
         "advertiser": {

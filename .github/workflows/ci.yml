@@ -37,6 +37,7 @@ jobs:
         run: swift build
 
       # Deterministic gate: live (real-network) tests are disabled unless
-      # ADMOAI_LIVE_TESTS=1, so this run is hermetic and stable.
+      # ADMOAI_LIVE_TESTS=1, so this run is hermetic and stable. Covers the Demo's
+      # pure click-resolution logic via the SampleSupport target.
       - name: Test (deterministic — live tests excluded)
         run: swift test

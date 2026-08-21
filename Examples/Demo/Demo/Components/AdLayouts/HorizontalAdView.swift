@@ -68,7 +68,10 @@ struct HorizontalAdView: View {
             viewModel.handleAdImpression(creative: creative, key: "default")
         }
         .onTapGesture {
-            viewModel.handleAdClick(creative: creative, key: "default")
+            viewModel.handleAdClick(
+                creative: creative,
+                trackingKey: "default",
+                destinationKey: AdDestinationKey.standard)
         }
     }
 

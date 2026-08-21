@@ -6,7 +6,6 @@ struct CarouselSlide: Identifiable {
     let image: String
     let headline: String
     let cta: String
-    let url: String
 }
 
 struct CarouselAdView: View {
@@ -29,8 +28,7 @@ struct CarouselAdView: View {
                     ?? "",
                 headline: creative.contents.getContent(key: "headlineSlide\(index)")?.value
                     .description ?? "",
-                cta: creative.contents.getContent(key: "ctaSlide\(index)")?.value.description ?? "",
-                url: creative.contents.getContent(key: "URLSlide\(index)")?.value.description ?? ""
+                cta: creative.contents.getContent(key: "ctaSlide\(index)")?.value.description ?? ""
             )
         }
     }
@@ -82,7 +80,10 @@ struct CarouselAdView: View {
             }
         )
         .onTapGesture {
-            viewModel.handleAdClick(creative: creative, key: "slide\(slide.id)")
+            viewModel.handleAdClick(
+                creative: creative,
+                trackingKey: "slide\(slide.id)",
+                destinationKey: AdDestinationKey.carouselSlide(slide.id))
         }
         .onAppear {
             viewModel.handleAdImpression(creative: creative, key: "slide\(slide.id)")

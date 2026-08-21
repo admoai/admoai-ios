@@ -39,7 +39,7 @@ let horizontalWithCompanionMockJson = """
                 "type": "text"
             },
             {
-                "key": "clickThroughURL",
+                "key": "clickThroughUrl",
                 "value": "https://example.com/book-ride",
                 "type": "url"
             }

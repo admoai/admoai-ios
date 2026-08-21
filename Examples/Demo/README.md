@@ -16,6 +16,29 @@ The demo app includes examples of:
 - Data collection controls
 - Request/response inspection
 
+## Handling an ad click
+
+`ContentViewModel.handleAdClick(creative:trackingKey:destinationKey:)` is the tap handler every ad
+layout is wired to, and it does two separate things:
+
+1. `sdk.fireClick(tracking:key:)` — records the click, once.
+2. Resolves the creative's destination content field and opens it.
+
+The destination **never** comes from `tracking.clicks[].url`. That URL is a measurement endpoint;
+opening it double-counts the click and hands your router an opaque tracking token instead of the
+advertiser's page. The destination key differs per template (`destinationUrl`, `clickThroughUrl`,
+`urlSlide1…3`) and is matched verbatim — see the template tables below, and
+[Handling an ad click](../../README.md#handling-an-ad-click) for the full contract.
+
+The resolution and scheme-classification logic lives in `Demo/ClickHandling/AdClickResolver.swift`,
+kept free of UIKit so `swift test` covers it (`Tests/SampleSupportTests`). `Demo/App/ContentViewModel.swift`
+is the layer that fires the tracker and performs the navigation.
+
+`textOnly` is wired like the rest but is a no-op in practice: that template declares no
+destination field, and its creatives carry no clicks tracker either, so there is nothing to send
+and nowhere to go. Note the two are independent — a creative with a tracker but no destination
+still records the click, it just stays put.
+
 ## Mock Server
 
 For development and testing, the example app uses the mock decision engine server at `https://mock.api.admoai.com`. This server returns predictable responses based on the placement and template combinations.
@@ -105,7 +128,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>New Product Launch</code></td>
     </tr>
     <tr>
-        <td><code>destinationURL</code></td>
+        <td><code>destinationUrl</code></td>
         <td><code>url</code></td>
         <td>URL to navigate when clicked</td>
         <td><code>https://example.com/product</code></td>
@@ -139,7 +162,7 @@ For development and testing, the example app uses the mock decision engine serve
         </td>
     </tr>
     <tr>
-        <td><code>destinationURL</code></td>
+        <td><code>destinationUrl</code></td>
         <td><code>url</code></td>
         <td>URL to navigate when clicked</td>
         <td><code>https://example.com/offer</code></td>
@@ -221,7 +244,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>#FFFFFF</code></td>
     </tr>
     <tr>
-        <td><code>clickThroughURL</code></td>
+        <td><code>clickThroughUrl</code></td>
         <td><code>url</code></td>
         <td>URL to navigate</td>
         <td><code>https://example.com/home</code></td>
@@ -273,7 +296,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>Get 20% Off</code></td>
     </tr>
     <tr>
-        <td><code>URLSlide1</code></td>
+        <td><code>urlSlide1</code></td>
         <td><code>url</code></td>
         <td>First slide navigation URL</td>
         <td><code>https://example.com/promo1</code></td>
@@ -297,7 +320,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>Shop Now</code></td>
     </tr>
     <tr>
-        <td><code>URLSlide2</code></td>
+        <td><code>urlSlide2</code></td>
         <td><code>url</code></td>
         <td>Second slide navigation URL</td>
         <td><code>https://example.com/promo2</code></td>
@@ -321,7 +344,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>View Collection</code></td>
     </tr>
     <tr>
-        <td><code>URLSlide3</code></td>
+        <td><code>urlSlide3</code></td>
         <td><code>url</code></td>
         <td>Third slide navigation URL</td>
         <td><code>https://example.com/promo3</code></td>
@@ -367,7 +390,7 @@ For development and testing, the example app uses the mock decision engine serve
         <td><code>20 min ride to Downtown</code></td>
     </tr>
     <tr>
-        <td><code>destinationURL</code></td>
+        <td><code>destinationUrl</code></td>
         <td><code>url</code></td>
         <td>URL to navigate</td>
         <td><code>https://example.com/trip-details</code></td>

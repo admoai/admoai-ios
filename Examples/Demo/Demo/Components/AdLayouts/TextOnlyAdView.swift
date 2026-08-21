@@ -56,7 +56,12 @@ struct TextOnlyAdView: View {
             viewModel.handleAdImpression(creative: creative, key: "default")
         }
         .onTapGesture {
-            viewModel.handleAdClick(creative: creative, key: "default")
+            /// The `textOnly` template declares no destination field and no clicks tracker, so
+            /// this records nothing and navigates nowhere. Wired anyway: a tenant may add both.
+            viewModel.handleAdClick(
+                creative: creative,
+                trackingKey: "default",
+                destinationKey: AdDestinationKey.standard)
         }
     }
 }

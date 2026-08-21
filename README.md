@@ -137,6 +137,9 @@ sdk.fireCustomEvent(tracking: creative.tracking, key: "companionOpened")
 
 The SDK never fires anything on its own — every beacon above fires only when you call it.
 
+`fireClick` **records** the click. It does not navigate, and it returns nothing to open — sending
+the user somewhere is a separate step your app owns. See [Handling an ad click](#handling-an-ad-click).
+
 ### 6. Clean Up on Logout
 
 ```swift
@@ -760,6 +763,76 @@ sdk.fireTracking(url: someServerProvidedUrl)
 
 > `fireCustom(tracking:key:)` is the former name of `fireCustomEvent(tracking:key:)`. It still
 > works but is deprecated; all three Admoai SDKs now use `fireCustomEvent`.
+
+### Handling an ad click
+
+A tap on an ad is **two independent actions**, and your app performs both:
+
+```swift
+// The tracking key and the destination key travel together: they are both per-template, and
+// for a carousel both are per-slide ("slide2" pairs with "urlSlide2"). See the table below.
+func handleAdClick(creative: Creative, trackingKey: String, destinationKey: String) {
+    // 1. Record the click — once.
+    sdk.fireClick(tracking: creative.tracking, key: trackingKey)
+
+    // 2. Navigate, separately: the destination is a content field of the creative.
+    guard let raw = creative.contents.getContent(key: destinationKey)?.value.description,
+        let url = URL(string: raw), let scheme = url.scheme?.lowercased()
+    else { return }  // no destination is a normal case — the click is already recorded
+
+    if scheme == "http" || scheme == "https" {
+        UIApplication.shared.open(url)   // external web page
+    } else {
+        router.handle(url)               // your own scheme — keep it in-app
+    }
+}
+```
+
+**Never navigate to a tracking URL.** `tracking.clicks[].url` is a measurement endpoint. It
+happens to answer with a redirect, which makes "just open the click URL" look like it works —
+until it doesn't:
+
+| | Tracker URL (`tracking.clicks[].url`) | Destination (creative content field) |
+|---|---|---|
+| Purpose | Records that a click happened | Where the user should land |
+| Shape | `…/v1/tracking?e=<encrypted token>` | The advertiser's own URL |
+| Who calls it | `sdk.fireClick(...)`, once | Your app, once |
+
+Opening the tracker yourself **on top of** calling `fireClick` counts the click twice and inflates
+the campaign's numbers. And if you hand that URL to a deeplink router or an in-app browser, what
+your app receives is an opaque tracking token, not the advertiser's page.
+
+#### Destination keys, per template
+
+Content keys match **verbatim** — `getContent(key:)` does no case folding, so `destinationURL`
+finds nothing when the template declares `destinationUrl`.
+
+| Template | Destination key |
+|---|---|
+| `standard`, `imageWithText`, `wideImageOnly`, Journey | `destinationUrl` |
+| `wideWithCompanion` (companion CTA) | `clickThroughUrl` |
+| `carousel3Slides` | `urlSlide1`, `urlSlide2`, `urlSlide3` |
+| video templates (companion end card) | `companionDestinationUrl` |
+| `textOnly` | *none — the template declares no destination* |
+
+For a carousel, pair each slide's tracking key with **that same slide's** destination: tapping
+slide 2 fires `slide2` and opens `urlSlide2`.
+
+A template with no destination, or a creative that omits the field, is a normal case rather than
+an error: fire the click tracker as usual and stay where you are.
+
+`textOnly` goes one step further — it declares no destination **and** its creatives carry no
+clicks tracker, so `fireClick` has nothing to send either. A tap on it is a complete no-op. Keep
+the handler wired anyway: whether a tracker exists is per-creative, not per-template, and
+`fireClick` is safe to call when there is none.
+
+#### Same-app deeplinks
+
+Check the scheme before you open anything. `http`/`https` belongs to the system browser; your own
+scheme belongs to your router — passing it to `UIApplication.shared.open` sends your user out of
+the app and back in, losing the navigation state you already had.
+
+See `Examples/Demo/Demo/ClickHandling/AdClickResolver.swift` for a worked implementation.
 
 ### Tracking Keys
 
