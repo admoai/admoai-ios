@@ -226,23 +226,23 @@ struct ContentView: View {
 
                     Section {
                         LabeledContent("Name") {
-                            Text((viewModel.buildRequest().app?.name) ?? "-")
+                            Text((viewModel.currentRequest?.app?.name) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Version") {
-                            Text((viewModel.buildRequest().app?.version) ?? "-")
+                            Text((viewModel.currentRequest?.app?.version) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Build") {
-                            Text((viewModel.buildRequest().app?.buildNumber) ?? "-")
+                            Text((viewModel.currentRequest?.app?.buildNumber) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Identifier") {
-                            Text((viewModel.buildRequest().app?.identifier) ?? "-")
+                            Text((viewModel.currentRequest?.app?.identifier) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Language") {
-                            Text((viewModel.buildRequest().app?.language) ?? "-")
+                            Text((viewModel.currentRequest?.app?.language) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                     } header: {
@@ -253,32 +253,32 @@ struct ContentView: View {
 
                     Section {
                         LabeledContent("Device ID") {
-                            Text((viewModel.buildRequest().device?.id) ?? "-")
+                            Text((viewModel.currentRequest?.device?.id) ?? "-")
                                 .foregroundStyle(.secondary)
                                 .font(.system(.caption, design: .monospaced))
                         }
                         LabeledContent("Model") {
-                            Text((viewModel.buildRequest().device?.model) ?? "-")
+                            Text((viewModel.currentRequest?.device?.model) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Manufacturer") {
-                            Text((viewModel.buildRequest().device?.manufacturer) ?? "-")
+                            Text((viewModel.currentRequest?.device?.manufacturer) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("OS") {
-                            Text((viewModel.buildRequest().device?.os) ?? "-")
+                            Text((viewModel.currentRequest?.device?.os) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("OS Version") {
-                            Text((viewModel.buildRequest().device?.osVersion) ?? "-")
+                            Text((viewModel.currentRequest?.device?.osVersion) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Timezone") {
-                            Text((viewModel.buildRequest().device?.timezone) ?? "-")
+                            Text((viewModel.currentRequest?.device?.timezone) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                         LabeledContent("Language") {
-                            Text((viewModel.buildRequest().device?.language) ?? "-")
+                            Text((viewModel.currentRequest?.device?.language) ?? "-")
                                 .foregroundStyle(.secondary)
                         }
                     } header: {
