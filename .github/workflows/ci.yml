@@ -1,8 +1,8 @@
 # Runs on every PR and on pushes to main: builds the AdMoai package and runs the
 # deterministic (offline) test suite (Swift Testing, needs Xcode 16+).
 # Live/real-network tests are gated behind ADMOAI_LIVE_TESTS=1 and excluded here
-# so the gate stays deterministic. A Demo sample-app build step is deferred until
-# the sample compiles again.
+# so the gate stays deterministic. The Demo sample app is built too: it is the
+# reference integrators copy from, so it must not be allowed to rot.
 name: CI
 
 on:
@@ -40,3 +40,13 @@ jobs:
       # ADMOAI_LIVE_TESTS=1, so this run is hermetic and stable.
       - name: Test (deterministic — live tests excluded)
         run: swift test
+
+      # The sample app is the integration reference; a sample that no longer compiles
+      # teaches nothing. Simulator build only — no signing, no device.
+      - name: Build Demo sample app
+        run: |
+          xcodebuild build \
+            -project Examples/Demo/Demo.xcodeproj \
+            -scheme Demo \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO

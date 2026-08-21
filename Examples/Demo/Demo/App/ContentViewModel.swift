@@ -35,8 +35,8 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Public Methods
 
     /// Builds a decision request with current configuration
-    func buildRequest() -> DecisionRequest {
-        let builder = sdk.createRequestBuilder()
+    func buildRequest() throws -> DecisionRequest {
+        let builder = try sdk.createRequestBuilder()
             .addPlacement(placement)
             .setGeoTargeting(targeting.geo)
             .setLocationTargeting(targeting.location)
@@ -59,9 +59,14 @@ final class ContentViewModel: ObservableObject {
         return builder.build()
     }
 
+    /// The request as currently configured, or `nil` when the configuration is invalid.
+    ///
+    /// SwiftUI bodies cannot throw, so read-only views use this instead of `buildRequest()`.
+    var currentRequest: DecisionRequest? { try? buildRequest() }
+
     /// Returns the HTTP request that would be sent to the server
     func getHTTPRequest() throws -> HTTPRequest {
-        let request = buildRequest()
+        let request = try buildRequest()
         return try sdk.getHttpRequest(request)
     }
 
@@ -71,7 +76,7 @@ final class ContentViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let request = buildRequest()
+        let request = try buildRequest()
         response = try await sdk.requestAds(request)
     }
 
