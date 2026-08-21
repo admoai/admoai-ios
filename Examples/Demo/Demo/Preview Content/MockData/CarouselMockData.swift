@@ -19,7 +19,7 @@ let carouselMockJson = """
           "value": "View Details"
         },
         {
-          "key": "URLSlide1",
+          "key": "urlSlide1",
           "type": "url",
           "value": "https://example.com/offers"
         },
@@ -39,7 +39,7 @@ let carouselMockJson = """
           "value": "See Offer"
         },
         {
-          "key": "URLSlide2",
+          "key": "urlSlide2",
           "type": "url",
           "value": "https://example.com/terms"
         },
@@ -59,7 +59,7 @@ let carouselMockJson = """
           "value": "Learn More"
         },
         {
-          "key": "URLSlide3",
+          "key": "urlSlide3",
           "type": "url",
           "value": "https://example.com/terms"
         }
