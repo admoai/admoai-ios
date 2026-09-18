@@ -13,6 +13,9 @@ final class MockURLProtocol: URLProtocol {
         var statusCode: Int = 200
         var body: Data = Data("[]".utf8)
         var headers: [String: String] = ["Content-Type": "application/json"]
+        /// Hosts whose requests fail with a connection error instead of a response —
+        /// for failure-isolation tests (a refused tracker must not affect siblings).
+        var errorHosts: Set<String> = []
     }
 
     private static let lock = NSLock()
@@ -80,12 +83,34 @@ final class MockURLProtocol: URLProtocol {
         MockURLProtocol.record(request)
         let stub = MockURLProtocol.currentStub
         let url = request.url ?? URL(string: "https://mock.invalid")!
+
+        if let host = url.host, stub.errorHosts.contains(host) {
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+
         let response = HTTPURLResponse(
             url: url,
             statusCode: stub.statusCode,
             httpVersion: "HTTP/1.1",
             headerFields: stub.headers
         )!
+
+        // A 3xx stub with a Location must be reported as a REDIRECT, the way a real
+        // protocol does — otherwise URLSession never consults the task delegate's
+        // willPerformHTTPRedirection and a redirect-blocking delegate is untestable
+        // (the E31 test would pass even with the blocker deleted). A session that
+        // follows (no delegate) then issues a new request for the Location target;
+        // a blocking delegate receives the 3xx as the final response.
+        if (300...399).contains(stub.statusCode),
+            let location = stub.headers["Location"],
+            let target = URL(string: location, relativeTo: url)
+        {
+            client?.urlProtocol(
+                self, wasRedirectedTo: URLRequest(url: target.absoluteURL),
+                redirectResponse: response)
+        }
+
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: stub.body)
         client?.urlProtocolDidFinishLoading(self)

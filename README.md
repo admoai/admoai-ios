@@ -767,6 +767,29 @@ Each tracking type supports multiple keys. Use `"default"` for standard events, 
 keys defined in your campaign configuration. A key that does not exist fires nothing — it is a
 safe no-op, not an error.
 
+### Third-party Event Trackers (automatic)
+
+Campaigns can carry fixed third-party tracking URLs (agency ad servers such as CM360). When the
+decision response includes them (`tracking.thirdPartyTrackers`, served under
+`X-Decision-Version: 2025-11-01`), **`fireImpression` and `fireClick` fan them out
+automatically** — your call sites do not change and there is nothing to opt into:
+
+- Impression trackers fire with `fireImpression`; click trackers fire with `fireClick`
+  (an *any-click* tracker on every valid key, a *specific* tracker only when the reported
+  key matches its configured event).
+- Exactly **one attempt per matching tracker per invocation** — no retries, no queuing, and
+  byte-identical URLs are deduplicated within an invocation.
+- Dispatch happens on a **separate, credential-isolated session**: plain GET, no Admoai
+  headers or cookies, redirects never followed, HTTP cache bypassed. A slow or failing
+  tracker never delays your app, the canonical beacon, or the other trackers.
+- The URL is fired exactly as stored. A URL the platform parser cannot represent
+  byte-identically (e.g. a raw `%%MACRO%%` placeholder) is discarded — firing a
+  normalized variant would corrupt the agency's counts.
+- If the reported key has no canonical tracking URL, nothing fires — canonical or
+  third-party.
+
+Older SDK versions simply ignore the field. Tracker URLs are never logged.
+
 ---
 
 ### Video Tracking Events
@@ -874,7 +897,8 @@ APIResponse<DecisionResponse>
 │   │               │   ├── clicks: [TrackingItem]?
 │   │               │   ├── custom: [TrackingItem]?
 │   │               │   ├── videoEvents: [TrackingItem]?   // JSON delivery only
-│   │               │   └── completions: [TrackingItem]?   // Journey custom_event deals only
+│   │               │   ├── completions: [TrackingItem]?   // Journey custom_event deals only
+│   │               │   └── thirdPartyTrackers: [ThirdPartyTracker]?  // agency trackers; fired automatically
 │   │               ├── metadata: Metadata?
 │   │               ├── delivery: String?           // "json", "vast_tag", "vast_xml"
 │   │               ├── vast: VastData?             // {tagUrl} or {xmlBase64}
