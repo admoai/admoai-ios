@@ -522,7 +522,8 @@ struct LiveIntegrationTrackingTests {
             clicks: [TrackingItem(key: "default", url: "https://api.mock.admoai.com/click")],
             custom: [TrackingItem(key: "companionOpened", url: "https://api.mock.admoai.com/custom")],
             videoEvents: [TrackingItem(key: "start", url: "https://api.mock.admoai.com/video")],
-            completions: nil
+            completions: nil,
+            thirdPartyTrackers: nil
         )
 
         sdk.fireImpression(tracking: tracking)

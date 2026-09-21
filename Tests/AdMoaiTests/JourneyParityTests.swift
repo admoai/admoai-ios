@@ -315,7 +315,8 @@ extension MockNetworkTests {
                 clicks: nil,
                 custom: [TrackingItem(key: "companionOpened", url: "https://h/v1/tracking?e=custom1")],
                 videoEvents: nil,
-                completions: nil
+                completions: nil,
+                thirdPartyTrackers: nil
             )
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: journeyVersion))
 
@@ -337,7 +338,8 @@ extension MockNetworkTests {
                 clicks: nil,
                 custom: [TrackingItem(key: "companionOpened", url: "https://h/v1/tracking?e=custom1")],
                 videoEvents: nil,
-                completions: nil
+                completions: nil,
+                thirdPartyTrackers: nil
             )
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: journeyVersion))
 

@@ -211,6 +211,12 @@ public struct Tracking: Decodable {
     /// Journey Takeover Ads: completion beacons, populated only for `custom_event`
     /// completion deals (one `{key,url}` entry). Fire once when the mapped action occurs.
     public let completions: [TrackingItem]?
+    /// Third-party event trackers (agency ad servers such as CM360), served additively under
+    /// `X-Decision-Version: 2025-11-01` and absent otherwise (the engine never sends `[]`).
+    /// `fireImpression`/`fireClick` fan these out automatically through a credential-isolated
+    /// dispatcher — publishers never fire them by hand. Not part of `TrackingType`: entries are
+    /// matched by event semantics (`eventType`/`matchType`/`eventKey`), not addressed by key.
+    public let thirdPartyTrackers: [ThirdPartyTracker]?
 
     public func hasTrackingFor(type: TrackingType, key: String) -> Bool {
         switch type {
@@ -266,15 +272,18 @@ public struct Tracking: Decodable {
 extension Tracking {
     /// Empty tracking block, used as a tolerant fallback when the block is missing/malformed.
     public init() {
-        self.init(impressions: nil, clicks: nil, custom: nil, videoEvents: nil, completions: nil)
+        self.init(
+            impressions: nil, clicks: nil, custom: nil, videoEvents: nil, completions: nil,
+            thirdPartyTrackers: nil)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case impressions, clicks, custom, videoEvents, completions
+        case impressions, clicks, custom, videoEvents, completions, thirdPartyTrackers
     }
 
     /// Tolerant decoder: every category drops malformed entries (via `SafelyDecodable`) so a
-    /// single bad `{key,url}` never fails the whole response. Covers the new `completions`.
+    /// single bad `{key,url}` never fails the whole response. Covers the new `completions`
+    /// and `thirdPartyTrackers`.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         func list(_ key: CodingKeys) -> [TrackingItem]? {
@@ -285,13 +294,36 @@ extension Tracking {
             clicks: list(.clicks),
             custom: list(.custom),
             videoEvents: list(.videoEvents),
-            completions: list(.completions)
+            completions: list(.completions),
+            thirdPartyTrackers: (try? c.decode(
+                [SafelyDecodable<ThirdPartyTracker>].self, forKey: .thirdPartyTrackers))?
+                .compactMap(\.value)
         )
     }
 }
 
 public struct TrackingItem: Decodable {
     public let key: String
+    public let url: String
+}
+
+/// One fixed third-party tracker entry, exactly as the engine serialized it
+/// (`tracking.thirdPartyTrackers[]`). Fields stay raw `String`s so decoding is tolerant of
+/// values this SDK version does not know; semantic validation (event/match shape, HTTPS)
+/// happens at fire time in `ThirdPartyTrackerDispatcher`, where invalid entries are dropped
+/// individually with a sanitized log. The `url` is stored verbatim and either dispatched
+/// byte-identically or discarded (a URL the platform parser cannot round-trip is never
+/// fired mutated) — and it is never logged.
+public struct ThirdPartyTracker: Decodable, Equatable {
+    /// Public tracker id (`tpt_<ULID>`) — the only identifier ever allowed in logs.
+    public let trackerId: String
+    /// `"impression"` or `"click"`.
+    public let eventType: String
+    /// `"any"` or `"specific"`; present on click trackers only.
+    public let matchType: String?
+    /// Template click-event key; present on `specific` click trackers only.
+    public let eventKey: String?
+    /// Fixed HTTPS tracking URL, byte-identical to what the operator stored.
     public let url: String
 }
 

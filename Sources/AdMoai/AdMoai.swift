@@ -31,6 +31,9 @@ public struct AdMoai {
     public private(set) var deviceConfig: DeviceConfig
     public private(set) var userConfig: UserConfig
     private let session: URLSession
+    /// Fires `tracking.thirdPartyTrackers` through its own credential-isolated session —
+    /// never through `session`, which carries the SDK User-Agent and Admoai headers.
+    private let thirdPartyDispatcher: ThirdPartyTrackerDispatcher
 
     /// Journey Takeover Ads: sticky, publisher-owned session identifier inherited by every
     /// request builder created via ``createRequestBuilder()``. Rotate it explicitly with
@@ -66,6 +69,10 @@ public struct AdMoai {
         )
 
         self.session = URLSession(configuration: config.sessionConfiguration)
+        self.thirdPartyDispatcher = ThirdPartyTrackerDispatcher(
+            protocolClasses: config.sessionConfiguration.protocolClasses,
+            logger: config.logger
+        )
     }
 
     // MARK: - App Configuration
@@ -216,14 +223,24 @@ public struct AdMoai {
     /// never reconstructs them. `GET /v1/tracking` version-routes on `X-Tracking-Version`
     /// and ignores `X-Decision-Version` — sending the wrong header silently falls back to a
     /// legacy handler that skips Journey completion, so this sends `X-Tracking-Version`.
+    /// Whether `url` is an absolute http(s) URL with a host — the only shape a canonical
+    /// beacon the engine minted can have. Shared by ``fireTracking(url:)``'s guard and the
+    /// fan-out gate in ``fireImpression(tracking:key:)``/``fireClick(tracking:key:)``, so
+    /// third-party trackers can never fire when the canonical beacon was rejected.
+    private static func isAbsoluteHttpURL(_ url: String) -> Bool {
+        guard let parsed = URL(string: url),
+            let scheme = parsed.scheme?.lowercased(),
+            scheme == "http" || scheme == "https",
+            parsed.host != nil
+        else { return false }
+        return true
+    }
+
     public func fireTracking(url: String) {
         // Require an absolute http(s) URL — `URL(string:)` alone accepts relative/scheme-less
         // strings. On failure, log a redacted reason only; NEVER log the URL/query, which
         // carries the sensitive opaque `e=` token.
-        guard let parsedURL = URL(string: url),
-            let scheme = parsedURL.scheme?.lowercased(),
-            scheme == "http" || scheme == "https",
-            parsedURL.host != nil
+        guard Self.isAbsoluteHttpURL(url), let parsedURL = URL(string: url)
         else {
             config.logger.error("Ignoring invalid tracking URL (expected an absolute http(s) URL)")
             return
@@ -241,16 +258,32 @@ public struct AdMoai {
         session.dataTask(with: request).resume()
     }
 
+    /// Fires the canonical impression beacon and fans out every third-party impression
+    /// tracker (`tracking.thirdPartyTrackers`) exactly once, through the credential-isolated
+    /// dispatcher. A key with no canonical impression URL fires nothing — canonical or
+    /// third-party — so third-party counts can never exceed ours.
     public func fireImpression(tracking: Tracking, key: String = "default") {
-        if let url = tracking.getImpressionUrl(key: key) {
-            fireTracking(url: url)
-        }
+        guard let url = tracking.getImpressionUrl(key: key) else { return }
+        fireTracking(url: url)
+        // Fan out only when the canonical beacon actually fired — a rejected canonical URL
+        // must not leave third-party counts above ours.
+        guard Self.isAbsoluteHttpURL(url) else { return }
+        fireThirdPartyTrackers(tracking, event: .impression)
     }
 
+    /// Fires the canonical click beacon and fans out matching third-party click trackers:
+    /// `any`-click trackers on every valid key, `specific` trackers only when `key` equals
+    /// their `eventKey`. A key with no canonical click URL fires nothing at all.
     public func fireClick(tracking: Tracking, key: String = "default") {
-        if let url = tracking.getClickUrl(key: key) {
-            fireTracking(url: url)
-        }
+        guard let url = tracking.getClickUrl(key: key) else { return }
+        fireTracking(url: url)
+        guard Self.isAbsoluteHttpURL(url) else { return }
+        fireThirdPartyTrackers(tracking, event: .click(key: key))
+    }
+
+    private func fireThirdPartyTrackers(_ tracking: Tracking, event: ThirdPartyTrackerEvent) {
+        guard let trackers = tracking.thirdPartyTrackers, !trackers.isEmpty else { return }
+        thirdPartyDispatcher.dispatch(trackers, event: event)
     }
 
     /// Fires a custom-event tracking beacon by key (fire-and-forget).

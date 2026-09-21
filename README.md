@@ -767,6 +767,108 @@ Each tracking type supports multiple keys. Use `"default"` for standard events, 
 keys defined in your campaign configuration. A key that does not exist fires nothing — it is a
 safe no-op, not an error.
 
+### Third-party Event Trackers (automatic)
+
+#### Why this exists commercially
+
+Advertisers often buy through an agency, and the agency counts impressions and clicks on
+**its own ad server** (Google CM360 and similar) before it will activate or renew a campaign.
+Their trafficking sheet supplies fixed measurement URLs — "GET this URL of mine every time
+the ad is shown". Without a safe way to fire those URLs, campaigns stall at activation.
+This feature closes that gap, and **it asks nothing of your integration**: if your app
+already calls `fireImpression`/`fireClick` at the right moments, agency measurement works
+the day the campaign is configured.
+
+#### What the SDK does — and never does
+
+- It **does** fire each matching third-party URL automatically when you call
+  `fireImpression(tracking:)` or `fireClick(tracking:key:)`. Your call sites do not change.
+- It **never** fires anything on its own — no view-lifecycle hooks, no visibility detection.
+  You still decide when an impression or click happened, exactly as before.
+- It **never** lets a third-party tracker affect your app: dispatch is fire-and-forget on a
+  separate session, so a slow or dead agency server cannot delay rendering, the Admoai
+  beacon, or the other trackers.
+
+#### What arrives in the response
+
+Under `X-Decision-Version: 2025-11-01`, a creative that carries trackers gains one extra,
+read-only list. There are exactly three shapes:
+
+```jsonc
+"tracking": {
+  "impressions": [...], "clicks": [...],            // canonical — unchanged
+  "thirdPartyTrackers": [                            // absent when the campaign has none
+    { "trackerId": "tpt_…", "eventType": "impression", "url": "https://…" },
+    { "trackerId": "tpt_…", "eventType": "click", "matchType": "any", "url": "https://…" },
+    { "trackerId": "tpt_…", "eventType": "click", "matchType": "specific",
+      "eventKey": "cta_tap", "url": "https://…" }
+  ]
+}
+```
+
+You can read `creative.tracking.thirdPartyTrackers` (e.g. to display in a debug screen),
+but you never fire these yourself — the helpers own dispatch.
+
+#### When exactly a tracker fires — and why
+
+| Your call | What fires alongside the canonical beacon |
+|---|---|
+| `fireImpression(tracking:)` | every `eventType: "impression"` tracker |
+| `fireClick(tracking:, key: "anyValidKey")` | every `matchType: "any"` click tracker |
+| `fireClick(tracking:, key: "cta_tap")` | the above **plus** every `matchType: "specific"` tracker whose `eventKey == "cta_tap"` |
+| A key with **no canonical URL** | **nothing** — canonical or third-party |
+
+The "specific" shape exists because an operator can tie a tracker to one named click event
+(say, the CTA button) instead of every tap on the card — the agency then counts CTA
+engagement, not card touches.
+
+Worked example — same code you already have:
+
+```swift
+// Ad displayed:
+sdk.fireImpression(tracking: creative.tracking)
+// → 1 Admoai impression beacon + 1 GET per impression tracker
+
+// User taps the CTA (a click event your template names "cta_tap"):
+sdk.fireClick(tracking: creative.tracking, key: "cta_tap")
+// → 1 Admoai click beacon + every any-click tracker + the cta_tap-specific trackers
+```
+
+#### The guarantees behind the counts
+
+Agencies reconcile their numbers against Admoai reporting, so dispatch is deliberately strict:
+
+- **One attempt per matching unique URL per invocation.** No retries, no queuing, no re-fire
+  on app lifecycle. Calling `fireImpression` twice fires everything twice — by design, the
+  SDK never second-guesses your event reporting.
+- **Third-party can never out-count Admoai**: trackers fire only when the canonical beacon
+  for that key fires.
+- **The URL goes out byte-identical** to what the operator stored. A URL the platform cannot
+  represent verbatim (e.g. a raw `%%MACRO%%` placeholder) is discarded rather than fired
+  mutated — a corrupted URL would silently skew the agency's counts.
+- **Credential isolation**: a plain GET with no Admoai headers, no cookies stored or sent,
+  redirects never followed, HTTP cache bypassed. The agency sees an anonymous hit, never
+  your users' or Admoai's identity.
+- **Privacy**: tracker URLs never appear in SDK logs (outcomes log the `trackerId` only).
+
+#### What can you configure? Nothing — by design
+
+There is no opt-in, no opt-out, and no per-tracker setting on the SDK side. Which trackers
+exist, on which events, is entirely a campaign-configuration decision made in the Ad Manager
+by the people trafficking the campaign — the SDK is a faithful dispatcher. Older SDK versions
+simply ignore the field, so upgrading is the only integration step that exists.
+
+#### "Why didn't my tracker fire?"
+
+1. **Wrong API version** — the field is only served under `X-Decision-Version: 2025-11-01`.
+2. **The key had no canonical URL** — an unknown key is a safe no-op for everything.
+3. **A `specific` tracker on a different key** — it only fires when the reported key equals
+   its `eventKey`.
+4. **The URL is not a plain, final HTTPS URL** — macro placeholders and malformed URLs are
+   discarded (check the campaign configuration).
+5. **VAST-delivered video** — the engine never serves third-party trackers with VAST
+   creatives; the player owns those beacons.
+
 ---
 
 ### Video Tracking Events
@@ -874,7 +976,8 @@ APIResponse<DecisionResponse>
 │   │               │   ├── clicks: [TrackingItem]?
 │   │               │   ├── custom: [TrackingItem]?
 │   │               │   ├── videoEvents: [TrackingItem]?   // JSON delivery only
-│   │               │   └── completions: [TrackingItem]?   // Journey custom_event deals only
+│   │               │   ├── completions: [TrackingItem]?   // Journey custom_event deals only
+│   │               │   └── thirdPartyTrackers: [ThirdPartyTracker]?  // agency trackers; fired automatically
 │   │               ├── metadata: Metadata?
 │   │               ├── delivery: String?           // "json", "vast_tag", "vast_xml"
 │   │               ├── vast: VastData?             // {tagUrl} or {xmlBase64}

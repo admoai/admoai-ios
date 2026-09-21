@@ -108,6 +108,14 @@ struct DocumentedAPITests {
         sdk.fireCompletion(tracking: creative.tracking, key: "journey_complete")
         sdk.fireTracking(url: "https://api.admoai.com/v1/tracking?e=abc")
 
+        // README "Third-party Event Trackers (automatic)" + response tree: the documented
+        // field and entry type exist (renaming either breaks this build, as promised).
+        let documentedTrackers: [ThirdPartyTracker]? = creative.tracking.thirdPartyTrackers
+        if let entry = documentedTrackers?.first {
+            let _: (String, String, String?, String?, String) =
+                (entry.trackerId, entry.eventType, entry.matchType, entry.eventKey, entry.url)
+        }
+
         #expect(void == ())
     }
 
