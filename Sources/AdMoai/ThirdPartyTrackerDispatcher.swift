@@ -153,6 +153,16 @@ internal final class ThirdPartyTrackerDispatcher {
         else {
             return "url is not an absolute https URL"
         }
+        // Defense in depth (the Ad Manager already rejects these at creation): a tracker
+        // URL must carry no embedded credentials — they would travel in cleartext through
+        // proxies and land in the agency server's access logs — and no fragment, which is
+        // client-side-only and never part of a fixed measurement URL.
+        if url.user != nil || url.password != nil {
+            return "url embeds credentials (userinfo)"
+        }
+        if url.fragment != nil {
+            return "url carries a fragment"
+        }
         // The wire request is built from the parsed URL, and modern Foundation's lenient
         // parser re-encodes what it cannot represent (a raw %%MACRO%% becomes %25%25…,
         // and adjacent VALID escapes get double-encoded). Never fire mutated bytes: a URL
