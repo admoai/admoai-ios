@@ -151,6 +151,19 @@ struct ThirdPartyTrackerValidationTests {
         #expect(reason != nil)
     }
 
+    // A8b: URLs with embedded credentials or fragments are rejected — the Ad Manager
+    // blocks these at creation, but a row written past the BFF must still never
+    // dispatch (credentials would reach the agency's access logs; fragments are
+    // client-side-only).
+    @Test(arguments: [
+        "https://user:pass@agency.example/imp",
+        "https://user@agency.example/imp",
+        "https://agency.example/imp#frag",
+    ])
+    func testCredentialedOrFragmentURLIsRejected(url: String) {
+        #expect(ThirdPartyTrackerDispatcher.rejectionReason(tracker(url: url)) != nil)
+    }
+
     // A9: unknown eventType / matchType are rejected
     @Test
     func testUnknownEventTypeAndMatchTypeAreRejected() {
