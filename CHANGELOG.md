@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1](https://github.com/admoai/admoai-ios/compare/v1.6.0...v1.6.1) (2026-09-22)
+
+
+### Fixed
+
+* reject tracker URLs with embedded credentials or fragments ([#42](https://github.com/admoai/admoai-ios/issues/42)) ([7f119de](https://github.com/admoai/admoai-ios/commit/7f119de07541340073eade561cc32e1c02913f61))
+
 ## [1.6.0](https://github.com/admoai/admoai-ios/compare/v1.5.0...v1.6.0) (2026-09-21)
 
 
