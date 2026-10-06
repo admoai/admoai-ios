@@ -10,12 +10,36 @@ public enum SDKError: Error, CustomStringConvertible, Equatable {
     /// so the SDK fails locally instead of spending a network round-trip to learn it.
     case noPlacements
 
+    /// A Sponsored Pin search named a point off the globe.
+    case invalidDistanceCoordinate(latitude: Double, longitude: Double)
+
+    /// A Sponsored Pin radius search named a radius of zero or less. The ceiling is NOT
+    /// checked here: it is server policy, and an SDK that hard-codes it refuses what a newer
+    /// engine would accept.
+    case invalidDistanceRadius(Double)
+
+    /// A Sponsored Pin bounds search named a rectangle that encloses nothing.
+    case invalidDistanceBounds(String)
+
+    /// A Sponsored Pin search named a limit of zero or less. The limit narrows the campaign's
+    /// own cap; asking for none of it is a bug, not a way to ask for all of it.
+    case invalidDistanceLimit(Int)
+
     public var description: String {
         switch self {
         case .invalidMinConfidence(let value):
             return "minConfidence must be in [0.0, 1.0], got \(value)"
         case .noPlacements:
             return "At least one placement is required"
+        case .invalidDistanceCoordinate(let latitude, let longitude):
+            return
+                "distance latitude must be in [-90, 90] and longitude in [-180, 180], got (\(latitude), \(longitude))"
+        case .invalidDistanceRadius(let value):
+            return "distance radius must be greater than 0 metres, got \(value)"
+        case .invalidDistanceBounds(let reason):
+            return "distance bounds \(reason)"
+        case .invalidDistanceLimit(let value):
+            return "distance limit must be greater than 0, got \(value)"
         }
     }
 }
@@ -115,7 +139,8 @@ public class DecisionRequestBuilder {
                 geo: geoNameIds,
                 location: targeting?.location,
                 destination: targeting?.destination,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -145,7 +170,8 @@ public class DecisionRequestBuilder {
                 geo: nil,
                 location: targeting?.location,
                 destination: targeting?.destination,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -172,7 +198,8 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: uniqueLocations,
                 destination: targeting?.destination,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -213,7 +240,8 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: targeting?.location,
                 destination: uniqueDestinations,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -262,7 +290,8 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: nil,
                 destination: targeting?.destination,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -274,10 +303,117 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: targeting?.location,
                 destination: nil,
-                custom: targeting?.custom
+                custom: targeting?.custom,
+                distance: targeting?.distance
             )
         }
         return self
+    }
+
+    /// Asks for the campaign's pins within `radius` metres of a point (Sponsored Pin Locations).
+    ///
+    /// This is a search the publisher is running, not a statement about where the viewer is —
+    /// see ``Targeting/distance``. Rendering the pins that come back is the app's job; the SDK
+    /// draws nothing and never infers that a pin was seen.
+    ///
+    /// - Parameter limit: narrows the campaign's own cap on how many points come back. It can
+    ///   never widen it, and omitting it means "as many as the campaign allows".
+    /// - Throws: ``SDKError/invalidDistanceCoordinate(latitude:longitude:)``,
+    ///   ``SDKError/invalidDistanceRadius(_:)`` or ``SDKError/invalidDistanceLimit(_:)``.
+    ///   The radius *ceiling* is server policy and is not checked here.
+    @discardableResult
+    public func setDistanceTargeting(
+        latitude: Double,
+        longitude: Double,
+        radius: Double,
+        limit: Int? = nil
+    ) throws -> DecisionRequestBuilder {
+        try Self.validateDistanceOrigin(latitude: latitude, longitude: longitude)
+        guard radius > 0 else { throw SDKError.invalidDistanceRadius(radius) }
+        try Self.validateDistanceLimit(limit)
+        return applyDistance(
+            Distance(
+                latitude: latitude, longitude: longitude, radius: radius, bounds: nil, limit: limit))
+    }
+
+    /// Asks for the campaign's pins inside a rectangle, measured from a point.
+    ///
+    /// The origin stays required: "nearest first" needs somewhere to measure from, and the
+    /// centre of the rectangle is not necessarily where the viewer is.
+    ///
+    /// - Throws: ``SDKError/invalidDistanceCoordinate(latitude:longitude:)``,
+    ///   ``SDKError/invalidDistanceBounds(_:)`` or ``SDKError/invalidDistanceLimit(_:)``.
+    ///   The diagonal *ceiling* is server policy and is not checked here.
+    @discardableResult
+    public func setDistanceTargeting(
+        latitude: Double,
+        longitude: Double,
+        bounds: DistanceBounds,
+        limit: Int? = nil
+    ) throws -> DecisionRequestBuilder {
+        try Self.validateDistanceOrigin(latitude: latitude, longitude: longitude)
+        try Self.validateDistanceBounds(bounds)
+        try Self.validateDistanceLimit(limit)
+        return applyDistance(
+            Distance(
+                latitude: latitude, longitude: longitude, radius: nil, bounds: bounds, limit: limit))
+    }
+
+    /// Removes a previously set Sponsored Pin search, leaving every other targeting axis alone.
+    @discardableResult
+    public func clearDistanceTargeting() -> DecisionRequestBuilder {
+        if targeting != nil {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: targeting?.location,
+                destination: targeting?.destination,
+                custom: targeting?.custom,
+                distance: nil
+            )
+        }
+        return self
+    }
+
+    private func applyDistance(_ distance: Distance) -> DecisionRequestBuilder {
+        if targeting == nil {
+            targeting = Targeting(distance: distance)
+        } else {
+            targeting = Targeting(
+                geo: targeting?.geo,
+                location: targeting?.location,
+                destination: targeting?.destination,
+                custom: targeting?.custom,
+                distance: distance
+            )
+        }
+        return self
+    }
+
+    private static func validateDistanceOrigin(latitude: Double, longitude: Double) throws {
+        guard (-90.0...90.0).contains(latitude), (-180.0...180.0).contains(longitude) else {
+            throw SDKError.invalidDistanceCoordinate(latitude: latitude, longitude: longitude)
+        }
+    }
+
+    private static func validateDistanceBounds(_ b: DistanceBounds) throws {
+        guard (-90.0...90.0).contains(b.north), (-90.0...90.0).contains(b.south),
+            (-180.0...180.0).contains(b.east), (-180.0...180.0).contains(b.west)
+        else {
+            throw SDKError.invalidDistanceBounds(
+                "latitudes must be in [-90, 90] and longitudes in [-180, 180]")
+        }
+        guard b.north > b.south else {
+            throw SDKError.invalidDistanceBounds("require north greater than south")
+        }
+        // The engine refuses a rectangle crossing the antimeridian, so west < east is flat.
+        guard b.west < b.east else {
+            throw SDKError.invalidDistanceBounds(
+                "must not cross the antimeridian: west must be less than east")
+        }
+    }
+
+    private static func validateDistanceLimit(_ limit: Int?) throws {
+        if let limit = limit, limit <= 0 { throw SDKError.invalidDistanceLimit(limit) }
     }
 
     public func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
@@ -294,7 +430,8 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: targeting?.location,
                 destination: targeting?.destination,
-                custom: uniqueCustom
+                custom: uniqueCustom,
+                distance: targeting?.distance
             )
         }
         return self
@@ -324,7 +461,8 @@ public class DecisionRequestBuilder {
                 geo: targeting?.geo,
                 location: targeting?.location,
                 destination: targeting?.destination,
-                custom: nil
+                custom: nil,
+                distance: targeting?.distance
             )
         }
         return self

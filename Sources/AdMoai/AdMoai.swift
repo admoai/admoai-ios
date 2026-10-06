@@ -286,6 +286,66 @@ public struct AdMoai {
         thirdPartyDispatcher.dispatch(trackers, event: event)
     }
 
+    // MARK: - Sponsored Pin point tracking
+
+    /// Reports that one pin became **visible to the user** (`pin_view`). Free.
+    ///
+    /// **Returning a point is not seeing it. Rendering a point is not seeing it.** The SDK
+    /// draws no map and cannot know whether a pin is clustered, behind a sheet or scrolled off
+    /// screen, so it never fires this for you — call it from whatever your map tells you about
+    /// visibility. Firing on parse would report views of pins nobody saw.
+    ///
+    /// Pin views are **in addition to** the creative's own impression, never summed into it:
+    /// one served creative is one impression however many pins it shows.
+    public func trackPointView(_ point: MatchedPoint) {
+        fireAll(point.tracking?.views)
+    }
+
+    /// Reports that the user **tapped the marker** (`pin_tap`). Free.
+    ///
+    /// **A tap is not a click.** The user tapping a marker and a detail card opening is this
+    /// and nothing else. Only when they go on to activate the destination does
+    /// ``trackPointClick(_:)`` apply — calling that one for a card opening charges the
+    /// advertiser for someone who only looked.
+    public func trackPointTap(_ point: MatchedPoint) {
+        fireAll(point.tracking?.taps)
+    }
+
+    /// Reports that the user **activated the pin's destination** (`click`). Billable at the
+    /// campaign's CPC, attributed to this location.
+    ///
+    /// Fire this **instead of** ``fireClick(tracking:key:)`` for the same action, never in
+    /// addition — both would count and charge it twice. Navigate to ``MatchedPoint/clickUrl``
+    /// verbatim; the engine has already resolved which URL this pin should open.
+    ///
+    /// Third-party trackers do not fan out per point, so this fires the point's beacons only.
+    public func trackPointClick(_ point: MatchedPoint) {
+        fireAll(point.tracking?.clicks)
+    }
+
+    /// Reports that several pins became visible at once (`pin_view` each) — the bulk form of
+    /// ``trackPointView(_:)``, for the usual case of a map drawing a screenful.
+    ///
+    /// A point named twice in one call is reported once. There is no de-duplication *across*
+    /// calls: two renders are two views, which is what the number means.
+    ///
+    /// There is deliberately no bulk tap or bulk click. Each of those is one user gesture, so
+    /// a plural form could only report something that did not happen — and for clicks, bill
+    /// for it.
+    public func trackPointViews(_ points: [MatchedPoint]) {
+        var seen = Set<String>()
+        for point in points where seen.insert(point.id).inserted {
+            trackPointView(point)
+        }
+    }
+
+    private func fireAll(_ items: [TrackingItem]?) {
+        guard let items = items else { return }
+        for item in items {
+            fireTracking(url: item.url)
+        }
+    }
+
     /// Fires a custom-event tracking beacon by key (fire-and-forget).
     ///
     /// Canonical name across all three SDKs (Android `fireCustomEvent`, Flutter

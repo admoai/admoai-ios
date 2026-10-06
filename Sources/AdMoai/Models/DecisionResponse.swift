@@ -33,6 +33,17 @@ public struct Creative: Decodable {
     /// Journey Takeover Ads: read-only Journey metadata, present only for Journey serves.
     /// `nil` for normal ads (backward compatible).
     public let journey: CreativeJourney?
+    /// The Advertiser Locations this creative is promoting, nearest first (Sponsored Pin
+    /// Locations, epic #3138). Empty for every creative that is not a Sponsored Pin creative.
+    ///
+    /// Resolved once at decode from the `matched_points` entry in ``contents``, where the wire
+    /// format puts it — mirroring it here as well would give two places to read the same thing
+    /// and one of them to forget.
+    ///
+    /// **Rendering these is your job.** The SDK draws no map and knows nothing about
+    /// clustering, sheets or scroll position, which is exactly why it never fires a point
+    /// event on your behalf. See ``AdMoai/trackPointView(_:)``.
+    public let matchedPoints: [MatchedPoint]
 }
 
 extension Creative {
@@ -61,7 +72,61 @@ extension Creative {
         self.delivery = try? c.decode(String.self, forKey: .delivery)
         self.vast = try? c.decode(VastData.self, forKey: .vast)
         self.journey = try? c.decode(CreativeJourney.self, forKey: .journey)
+        // Decoded straight off the wire rather than through `contents`' `AnyCodable` values,
+        // so the points arrive typed without a re-encode round trip. Tolerant at both levels:
+        // a malformed entry is dropped and a malformed point inside a good entry is dropped,
+        // and neither can fail the creative.
+        self.matchedPoints =
+            ((try? c.decode([SafelyDecodable<MatchedPointsEntry>].self, forKey: .contents)) ?? [])
+            .compactMap(\.value)
+            .first { $0.key == MatchedPointsEntry.contentKey }
+            .map { $0.value.compactMap(\.value) } ?? []
     }
+}
+
+/// The `contents` entry that carries Matched Points, decoded as itself rather than as an
+/// `AnyCodable` blob. Only the entry whose key matches is kept, so a creative's other content
+/// entries decode through `Content` exactly as before.
+struct MatchedPointsEntry: Decodable {
+    static let contentKey = "matched_points"
+
+    let key: String
+    let value: [SafelyDecodable<MatchedPoint>]
+}
+
+/// One Advertiser Location a Sponsored Pin creative is promoting.
+///
+/// Read ``clickUrl`` verbatim. The engine has already applied the precedence — the location's
+/// own URL, unless the campaign overrides every pin with the creative's default — so falling
+/// back to the creative's URL would silently defeat a campaign that deliberately points each
+/// shop at its own page.
+public struct MatchedPoint: Decodable, Equatable {
+    /// The Advertiser Location's public id. The server's internal integer never leaves it.
+    public let id: String
+    public let name: String
+    /// Absent when the location has no address — never an empty string.
+    public let address: String?
+    public let latitude: Double
+    public let longitude: Double
+    /// Metres from the point the request searched around.
+    public let distance: Int
+    /// Where a click on this pin goes, already resolved. Absent when nothing supplies one: a
+    /// pin with no destination is still a pin on the map.
+    public let clickUrl: String?
+    /// This point's own beacons. Absent leaves the point perfectly renderable — it simply has
+    /// nothing to report.
+    public let tracking: MatchedPointTracking?
+}
+
+/// One Matched Point's three beacon lists.
+///
+/// `views` and `taps` are analytics only and cost nothing. `clicks` is a standard billable
+/// click at the campaign's CPC, attributed to that location — which is why
+/// ``AdMoai/trackPointClick(_:)`` replaces the creative-level click rather than joining it.
+public struct MatchedPointTracking: Decodable, Equatable {
+    public let views: [TrackingItem]?
+    public let taps: [TrackingItem]?
+    public let clicks: [TrackingItem]?
 }
 
 /// Tolerant array-element wrapper: a malformed or non-object element decodes to `nil`
@@ -302,7 +367,7 @@ extension Tracking {
     }
 }
 
-public struct TrackingItem: Decodable {
+public struct TrackingItem: Decodable, Equatable {
     public let key: String
     public let url: String
 }
