@@ -17,6 +17,10 @@ The AdMoai iOS SDK is a lightweight wrapper around the Decision Engine API, enab
 - **Journey Ads** – Single-advertiser experiences spanning a session. Read
   [Journey Ads](#journey-ads) before integrating: it is the one feature that
   requires the same `sessionId` on **every** call
+- **Sponsored Pin Locations** – Promote an advertiser's real places as pins on your map.
+  Read [Sponsored Pin Locations](#sponsored-pin-locations) before integrating: the SDK
+  renders nothing and never infers that a pin was seen, so the measurement contract is
+  yours to honour
 - **Rich Targeting** – Geo, location, and custom key-value targeting
 - **Format Filter** – Request native-only, video-only, or any format
 - **User Consent** – GDPR compliance with consent management
@@ -920,6 +924,416 @@ author-controlled. For a typed value read `creative.metadata?.skipOffsetSeconds`
 `getSkipOffset()` returns a `String?` for backwards compatibility.
 
 ---
+
+## Sponsored Pin Locations
+
+An advertiser buys a **format**, not a template: a Sponsored Pin Location campaign promotes real
+places — their shops, branches, pickup points — as pins on your map.
+
+Those places are **Advertiser Locations**: an inventory the advertiser maintains in the Ad
+Manager, each with a name, coordinates, an optional address and an optional destination URL. They
+group them into **Location Sets** ("all airport counters", "stores open past 10pm") and attach a
+selection to a campaign as its **Distance Targeting**.
+
+Two halves make it work, and they belong to different people:
+
+- the **advertiser** says *which places* — their Locations, in the Ad Manager;
+- **you** say *where to look and how far* — the distance search, on the request.
+
+That is why the Ad Manager has no radius or bounds control anywhere. The campaign cannot know
+where your user is looking; only your request does.
+
+### Why your integration matters commercially
+
+A Sponsored Pin campaign is bought on the promise that a real person saw a real shop near them.
+Three parts of that promise live in your code and nowhere else:
+
+- **Whether a pin is on screen.** We cannot see your map. If you report a view for every pin you
+  drew, the advertiser pays attention to numbers that describe nothing.
+- **Which pin the user chose.** Attribution is per location, so "someone clicked" is worth far
+  less than "someone clicked *Providencia*".
+- **Whether an action was a look or a decision.** A tap that opens a card is free. A click that
+  opens the shop is billable. Confusing them bills the advertiser for curiosity.
+
+Get those three right and the campaign reports honestly. Get them wrong and the numbers are
+confidently false, which is worse than missing.
+
+### What the SDK does, and never does
+
+| The SDK does | The SDK never does |
+|---|---|
+| Send your distance search and validate it before the network call | Render a map, a pin, a cluster or a card |
+| Give you typed, tolerant access to the places that came back | Decide whether a pin is visible |
+| Fire the beacon you ask it to, exactly once per call | Fire anything because a response was parsed |
+| Resolve nothing about the destination — the server already did | Re-derive a pin's click URL from the creative |
+
+**Rendering is yours.** Deliberately: you know your map, your clustering, your sheets and your
+scroll position, and we do not. The whole measurement contract rests on that honesty.
+
+### Before anything else: the API version
+
+```swift
+let sdk = AdMoai(config: SDKConfig(
+    baseUrl: "https://api.admoai.com",
+    apiVersion: "2025-11-01"   // REQUIRED — see below
+))
+```
+
+**Without `apiVersion` set to `2025-11-01`, no pins come back at all.** The decision API is
+versioned by header; a request that omits it falls back to the older default, which has no concept
+of Matched Points. The response is a perfectly ordinary, perfectly empty-of-pins ad — no error, no
+warning. If `matchedPoints` is always empty, check this first.
+
+### Asking for pins
+
+Two overloads of the same method, one per shape. A call naming both a radius and a rectangle, or neither, does not compile.
+
+**A radius**, when you have a point and a sensible distance — a user's location, a searched
+address:
+
+```swift
+let request = try sdk.createRequestBuilder()
+    .addPlacement(key: "map")
+    .setDistanceTargeting(
+        latitude: viewer.latitude,
+        longitude: viewer.longitude,
+        radius: 8000            // metres
+    )
+    .build()
+```
+
+**Bounds**, when the user is looking at a region — the natural call for a map that pans and
+zooms, because it matches what is actually on screen:
+
+```swift
+let visible = mapView.visibleRegion
+let request = try sdk.createRequestBuilder()
+    .addPlacement(key: "map")
+    .setDistanceTargeting(
+        latitude: mapView.centerCoordinate.latitude,
+        longitude: mapView.centerCoordinate.longitude,
+        bounds: DistanceBounds(
+            north: visible.north, south: visible.south,
+            east: visible.east,   west: visible.west
+        )
+    )
+    .build()
+```
+
+The origin stays required for a bounds search. "Nearest first" needs somewhere to measure from,
+and the centre of the viewport is not necessarily where the user is.
+
+**`limit`** is optional and **narrows** the campaign's own cap — it can never widen it. The
+advertiser sets a maximum (20 by default); your limit asks for no more than N of those. Omit it to
+take as many as the campaign allows:
+
+```swift
+.setDistanceTargeting(latitude: lat, longitude: lng, radius: 5000, limit: 10)
+```
+
+`clearDistanceTargeting()` removes the search and leaves every other targeting axis alone.
+
+### What the SDK checks, and what the server decides
+
+Checked locally, before any network call, because they are mistakes no round trip should be spent
+on — each throws `SDKError`:
+
+- latitude in [-90, 90], longitude in [-180, 180];
+- a radius greater than zero;
+- bounds with north above south and west below east (a rectangle crossing the antimeridian is
+  refused in this version);
+- a limit greater than zero.
+
+**Not** checked locally, on purpose:
+
+- **The radius and diagonal ceilings** (50 km and 100 km today). They are server policy. An SDK
+  that hard-codes them ships a client that refuses what a newer engine would accept, and every
+  publisher would need an app release to benefit from a raised limit. The server's error is the
+  authority.
+- **Whether any pins will match.** That is the question the request exists to ask.
+
+### `distance` is not `setLocationTargeting`
+
+The one thing every integrator asks. They look alike on the wire and are completely different
+questions:
+
+| | what it answers | what it affects |
+|---|---|---|
+| `setLocationTargeting` | where is the **viewer**? | whether a campaign is eligible to serve at all |
+| `distance` | where am **I looking**, and how far? | which of an eligible campaign's places come back |
+
+They compose, and neither implies the other. A Sponsored Pin request often sends both: one says
+the user is in Santiago, the other says show me what is within 8 km of this corner.
+
+### Reading the pins
+
+```swift
+let response = try await sdk.requestAds(request)
+
+for decision in response.body.data ?? [] {
+    guard let creative = decision.creatives?.first else { continue }
+
+    for point in creative.matchedPoints {
+        let marker = MKPointAnnotation()
+        marker.coordinate = CLLocationCoordinate2D(
+            latitude: point.latitude, longitude: point.longitude)
+        marker.title = point.name
+        marker.subtitle = point.address          // may be nil
+        mapView.addAnnotation(marker)
+    }
+}
+```
+
+| field | type | notes |
+|---|---|---|
+| `id` | String | the Advertiser Location's public id — the unit of attribution |
+| `name` | String | the shop's name, as the advertiser maintains it |
+| `address` | String? | null when the location has none |
+| `latitude`, `longitude` | Double | where to draw it |
+| `distance` | Int | **metres** from the point you searched around |
+| `clickUrl` | String? | where this pin goes — already resolved, see below |
+| `tracking` | object? | this point's own beacons |
+
+Points come back **nearest first**. They hang off the creative, so with several winning ads each
+creative keeps its own — there is no flat list to confuse.
+
+A creative that is not a Sponsored Pin creative returns an empty list, never an error. Code that
+does not know about pins keeps working unchanged: the points ride inside `contents` as one more
+entry, and every version of this SDK has tolerated entries it does not recognise.
+
+### The click URL is already decided
+
+`point.clickUrl` is the answer. The server has already applied the precedence — the location's own
+URL, unless the campaign deliberately overrides every pin with the creative's default.
+
+**Do not fall back to the creative's URL when it is null.** This is the single most likely place
+for a well-meaning integration to go wrong, because the creative also has a URL and it is right
+there. A pin with no destination is a pin you render and do not make tappable-through. Falling
+back silently defeats a campaign that points each shop at its own page, and the bug surfaces
+months later as "our clicks all go to the homepage".
+
+### The three events, and what each one costs
+
+| call | fires when | cost |
+|---|---|---|
+| `fireImpression(creative.tracking)` | the creative is on screen — **once**, however many pins it shows | the campaign's **CPM** |
+| `trackPointView(point)` | that specific pin became visible to the user | free |
+| `trackPointTap(point)` | the user tapped that marker | free |
+| `trackPointClick(point)` | the user activated that pin's destination | the campaign's **CPC** |
+
+Three consequences worth stating plainly:
+
+1. **A screenful of pins is one impression.** Five pins is one impression and five views. Pin views
+   are in addition to the impression, never summed into it.
+2. **A tap is not a click.** Opening your detail card is a tap and nothing more.
+3. **`trackPointClick` replaces `fireClick` for that action.** Never both — both would count and
+   charge the same click twice.
+
+Nothing in the SDK encodes a price. The cost rides inside the signed token the server minted, so
+a pricing change never needs an app release.
+
+### Worked example 1 — a map screen, end to end
+
+Ask, render, then report only what was genuinely seen:
+
+```swift
+final class SponsoredPinMapController: UIViewController, MKMapViewDelegate {
+    private var pins: [String: MatchedPoint] = [:]   // marker id -> point
+    private var creative: Creative?
+    private var reportedImpression = false
+    private var viewed = Set<String>()
+
+    // 1. ASK. One request per meaningful map move, not per frame.
+    func loadPins(around centre: CLLocationCoordinate2D) async throws {
+        let request = try sdk.createRequestBuilder()
+            .addPlacement(key: "map")
+            .setDistanceTargeting(
+                latitude: centre.latitude, longitude: centre.longitude, radius: 8000)
+            .build()
+
+        let response = try await sdk.requestAds(request)
+        guard let creative = response.body.data?.first?.creatives?.first else {
+            clearPins()          // no ad: show no sponsored pins at all
+            return
+        }
+        self.creative = creative
+        self.reportedImpression = false
+        self.viewed.removeAll()
+
+        // 2. RENDER. Entirely your code — the SDK draws nothing.
+        clearPins()
+        for point in creative.matchedPoints {
+            pins[point.id] = point
+            addMarker(for: point)
+        }
+    }
+
+    // 3. REPORT what the user actually saw, never what you merely drew.
+    func mapView(_ mapView: MKMapView, didAdd views: [MKAnnotationView]) {
+        guard let creative else { return }
+
+        // The creative's own impression: ONCE per served creative, however many pins it shows.
+        if !reportedImpression {
+            sdk.fireImpression(tracking: creative.tracking)
+            reportedImpression = true
+        }
+
+        // One view per pin that is genuinely on screen, first time only.
+        let nowVisible = views
+            .compactMap { pointFor($0) }
+            .filter { isGenuinelyVisible($0) && viewed.insert($0.id).inserted }
+
+        sdk.trackPointViews(nowVisible)
+    }
+}
+```
+
+The three numbered comments are the whole contract. Note what is missing: nothing fires when the
+response arrives, and nothing fires when a marker is added.
+
+### Worked example 2 — a detail card, and the one expensive mistake
+
+```swift
+// The user taps a marker and your detail card slides up.
+func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+    guard let point = pointFor(view) else { return }
+
+    sdk.trackPointTap(point)        // FREE. The card opening is not a click.
+    presentDetailCard(for: point)
+}
+
+// The user taps "Order now" inside that card.
+func detailCardDidTapCTA(for point: MatchedPoint) {
+    sdk.trackPointClick(point)      // BILLABLE at the campaign's CPC.
+
+    // Do NOT also call sdk.fireClick(tracking:) — that would charge the click twice.
+    if let url = point.clickUrl.flatMap(URL.init(string:)) {
+        UIApplication.shared.open(url)
+    }
+}
+```
+
+If your marker navigates straight to the destination with no card in between, that is a
+`trackPointClick` — and a `trackPointTap` beside it if you want the interaction counted, which
+remains free.
+
+### Reporting a screenful at once
+
+A map that draws twenty pins reports twenty views. The bulk call saves you the loop:
+
+```swift
+sdk.trackPointViews(nowVisiblePoints)
+```
+
+It de-duplicates by point id **within the call**, so a list naming the same pin twice reports it
+once. It does not de-duplicate across calls: two renders are two views, which is what the number
+means — keep your own "already reported" set, as both worked examples do.
+
+There is deliberately no bulk tap and no bulk click. Each of those is one user gesture, so a
+plural form could only report something that did not happen.
+
+### Journey Ads
+
+Identical. A Journey screen whose creative is a Sponsored Pin creative exposes `matchedPoints` the
+same way and takes the same three calls. A returned Matched Point is not a Journey stage
+impression — the stage's own impression event is, exactly as for every other screen type.
+
+### Common mistakes
+
+| Mistake | Consequence | Do this instead |
+|---|---|---|
+| No `apiVersion`, or an older one | No pins ever come back; the response looks like an ordinary ad | Set `2025-11-01` |
+| Reporting a view when the response arrives | Views for pins nobody saw; the advertiser's numbers describe nothing | Report from your map's visibility signal |
+| Reporting a view when a marker is added | Same, including pins inside a collapsed cluster or off screen | Check the pin is genuinely on screen |
+| Re-reporting a view on every camera idle | One render inflates to dozens of views | Keep a per-render set of already-reported ids |
+| `trackPointClick` when a card opens | The advertiser is charged CPC for someone who only looked | `trackPointTap` for the card, `trackPointClick` for the destination |
+| `trackPointClick` **and** `fireClick` for one action | The click is counted and charged twice | Fire only `trackPointClick` |
+| Firing the creative impression once per pin | A five-pin render bills five impressions instead of one | Fire it once per served creative |
+| Falling back to the creative's URL when `clickUrl` is null | Silently defeats per-location destinations | Treat null as "this pin has no destination" |
+| Re-deriving or rebuilding a tracking URL | Invalidates the signed token; the event is lost | Fire it verbatim |
+| Hard-coding 50 km or 100 km in your app | You refuse searches a newer server would accept | Let the server answer |
+| Sending a new request on every camera frame | Hammers the API and churns pins under the user | One request per settled map move |
+| Treating an empty `matchedPoints` as an error | Normal: no campaign matched that search | Render no sponsored pins |
+| Using `distance` to decide whether the user is in a region | Wrong tool; it does not gate eligibility | Use `setLocationTargeting` |
+
+### Two self-checks that catch most integration bugs
+
+**1. Your view count should exceed your impression count, and never equal it by accident.**
+
+```swift
+// Self-check 1 — print what you are about to report.
+print("impression: 1, views: \(nowVisible.count), pins drawn: \(creative.matchedPoints.count)")
+```
+
+One served creative showing five visible pins should print one impression and five views. If
+impressions and views are always equal, you are reporting one view per creative rather than per
+pin. If views equal the number of pins *drawn* rather than *seen*, your visibility check is not
+doing anything.
+
+**2. Open a card, close it, and check nothing was charged.**
+
+Tap a marker, let the card open, close it without touching the CTA. Exactly one `pin_tap` should
+have been reported and zero clicks. If a click appears, `trackPointClick` is wired to the card
+instead of the destination — the one mistake in this API that costs the advertiser money.
+
+### How your integration shows up in reporting
+
+The advertiser sees, per location: pin views, pin taps, clicks, and the rates between them. A
+location they attached but that never matched shows a row of zeros with a dash for its rates —
+deliberately, because "never seen" and "seen and ignored" are different facts and only one of them
+is a reason to drop a shop.
+
+A location the campaign later stops targeting keeps its history and is labelled as no longer
+targeted. Dropping a shop does not erase what it earned.
+
+### Before you ship
+
+- `apiVersion` is `2025-11-01`.
+- Your distance search is sent on the placement the campaign is booked against.
+- Pins render from `matchedPoints`, and the screen renders nothing sponsored when it is empty.
+- A view is reported from real visibility, once per pin per render.
+- The creative impression is fired once per served creative.
+- Tap and click are wired to different gestures, and the click is not doubled with `fireClick`.
+- `clickUrl` is used verbatim, and a null one is handled.
+- A no-ad response leaves no sponsored pins on the map.
+
+### Glossary
+
+| term | meaning |
+|---|---|
+| **Advertiser Location** | One real place in the advertiser's inventory. The unit of attribution. |
+| **Location Set** | A named group of Advertiser Locations, attached to campaigns as a unit. |
+| **Distance Targeting** | The campaign's attached selection of Locations and Sets. Set by the advertiser, not by you. |
+| **Matched Point** | One Advertiser Location that answered *your* distance search, with its distance and beacons. |
+| **Max matched points** | The campaign's own cap on how many points it will return. Your `limit` narrows it. |
+| **pin view** | One Advertiser Location seen by the user inside one served creative. Free. |
+| **pin tap** | The user tapped that marker. Free. |
+| **click** | The user activated the destination. Billable, attributed to that location. |
+
+### Questions publishers ask
+
+**Do I have to use a map?** No. Pins are places with coordinates, a name and a distance; a sorted
+list of nearby shops is a perfectly good rendering. The measurement rules do not change — a row
+the user scrolled past is a view, a row they never reached is not.
+
+**How often should I request?** When the map settles, not while it moves. Each request is a fresh
+decision; churning them changes the pins under the user and spends quota for nothing.
+
+**What if the user denies location permission?** Send the centre of whatever region you are
+showing. The search is about where you are looking, not where the user is — only `setLocationTargeting`
+carries that claim.
+
+**Can I filter or re-sort the points?** Render fewer if you must, and report views only for the
+ones you actually showed. Do not re-sort by your own idea of relevance and call the result
+"nearest"; `distance` is there if you want to show it.
+
+**Why is `matchedPoints` empty when I can see the campaign is live?** In order of likelihood:
+`apiVersion` is not `2025-11-01`; the search is centred somewhere the advertiser has no locations;
+the radius is too small; or the placement you asked for is not the one the campaign is booked
+against.
+
+**Does any of this fan out third-party trackers?** No. Third-party trackers stay at the creative
+level and are not duplicated per pin.
 
 ## Request Builder
 

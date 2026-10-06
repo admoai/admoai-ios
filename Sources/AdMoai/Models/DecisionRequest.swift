@@ -147,6 +147,51 @@ public enum JourneyOpt: String, Codable {
     }
 }
 
+/// A rectangle to search inside, in degrees.
+///
+/// The engine refuses one that crosses the antimeridian, which keeps `west < east` a flat
+/// invariant rather than a special case; supporting it later is additive.
+public struct DistanceBounds: Encodable, Equatable {
+    public let north: Double
+    public let south: Double
+    public let east: Double
+    public let west: Double
+
+    public init(north: Double, south: Double, east: Double, west: Double) {
+        self.north = north
+        self.south = south
+        self.east = east
+        self.west = west
+    }
+}
+
+/// One Sponsored Pin search: a point, exactly one shape around it, and an optional cap.
+///
+/// Build it through ``DecisionRequestBuilder/setDistanceTargeting(latitude:longitude:radius:limit:)``
+/// or its `bounds:` overload, which validate before anything leaves the device. The two
+/// shapes are mutually exclusive, which is why the overloads exist: an ambiguous call is
+/// not writeable.
+///
+/// The origin stays required for a bounds search, because "nearest first" needs somewhere
+/// to measure from and the centre of a rectangle is not necessarily where the viewer is.
+public struct Distance: Encodable, Equatable {
+    public let latitude: Double
+    public let longitude: Double
+    /// Radius in **metres**. Mutually exclusive with ``bounds``.
+    public let radius: Double?
+    public let bounds: DistanceBounds?
+    /// Narrows the campaign's own cap on how many points come back; it can never widen it.
+    public let limit: Int?
+
+    init(latitude: Double, longitude: Double, radius: Double?, bounds: DistanceBounds?, limit: Int?) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.radius = radius
+        self.bounds = bounds
+        self.limit = limit
+    }
+}
+
 public struct Targeting: Encodable {
     public typealias LocationCoordinate = (latitude: Double, longitude: Double)
     public typealias DestinationCoordinate = (latitude: Double, longitude: Double, minConfidence: Double)
@@ -156,17 +201,28 @@ public struct Targeting: Encodable {
     public let location: [LocationCoordinate]?
     public let destination: [DestinationCoordinate]?
     public let custom: [CustomKeyValue]?
+    /// The Sponsored Pin search (Sponsored Pin Locations, epic #3138). Additive: a request
+    /// that omits it behaves exactly as it did before.
+    ///
+    /// This is **not** ``location``, which it resembles on the wire and differs from
+    /// entirely. `location` is where the viewer is, matched against a fence the advertiser
+    /// drew, and it decides whether an Ad may serve at all. `distance` decides which pins a
+    /// serving creative carries, and filters no candidate by itself. They compose, and
+    /// neither implies the other.
+    public let distance: Distance?
 
     public init(
         geo: [Int]? = nil,
         location: [LocationCoordinate]? = nil,
         destination: [DestinationCoordinate]? = nil,
-        custom: [CustomKeyValue]? = nil
+        custom: [CustomKeyValue]? = nil,
+        distance: Distance? = nil
     ) {
         self.geo = geo
         self.location = location
         self.destination = destination
         self.custom = custom
+        self.distance = distance
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -199,10 +255,12 @@ public struct Targeting: Encodable {
             }
             try container.encode(encodableCustoms, forKey: .custom)
         }
+
+        try container.encodeIfPresent(distance, forKey: .distance)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case geo, location, destination, custom
+        case geo, location, destination, custom, distance
     }
 }
 
