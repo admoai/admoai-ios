@@ -21,12 +21,14 @@ final class MockURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var _stub = Stub()
     private static var _requests: [URLRequest] = []
+    private static var _bodies: [Int: Data] = [:]
 
     /// Resets captured requests and installs a stub. Call in each test before exercising the SDK.
     static func reset(stub: Stub = Stub()) {
         lock.lock(); defer { lock.unlock() }
         _stub = stub
         _requests = []
+        _bodies = [:]
     }
 
     static var capturedRequests: [URLRequest] {
@@ -35,6 +37,17 @@ final class MockURLProtocol: URLProtocol {
     }
 
     static var lastRequest: URLRequest? { capturedRequests.last }
+
+    /// The body of the request at `index`, as it actually went out.
+    ///
+    /// `URLRequest.httpBody` is nil for anything URLSession uploads — it moves the bytes to
+    /// `httpBodyStream` before a protocol ever sees them — so a test that reads `httpBody`
+    /// silently sees nothing and passes. Draining the stream here is the only way to assert
+    /// on what a publisher's device really sent.
+    static func capturedBody(at index: Int) -> Data? {
+        lock.lock(); defer { lock.unlock() }
+        return _bodies[index]
+    }
 
     /// Builds an `SDKConfig` whose sessions route through this protocol.
     static func config(
@@ -65,8 +78,23 @@ final class MockURLProtocol: URLProtocol {
     }
 
     private static func record(_ request: URLRequest) {
+        let body = request.httpBody ?? request.httpBodyStream.map(drain)
         lock.lock(); defer { lock.unlock() }
         _requests.append(request)
+        if let body { _bodies[_requests.count - 1] = body }
+    }
+
+    private static func drain(_ stream: InputStream) -> Data {
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let read = stream.read(&buffer, maxLength: buffer.count)
+            if read <= 0 { break }
+            data.append(buffer, count: read)
+        }
+        return data
     }
 
     private static var currentStub: Stub {

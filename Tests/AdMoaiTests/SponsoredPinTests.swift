@@ -332,6 +332,42 @@ extension MockNetworkTests {
         MockURLProtocol.capturedRequests.compactMap { $0.url?.absoluteString }
     }
 
+    /// The one that matters: what actually leaves the device.
+    ///
+    /// Every other request-side test in this file inspects the builder's output. Between
+    /// `build()` and the socket the SDK still assembles the final request, and an assembly
+    /// step that forgets an axis drops it on the floor — which is exactly what happened to
+    /// `distance` on Android until the live-engine scenarios caught it
+    /// (admoai/admoai-android#90). The builder was correct and the wire was not.
+    @Test func distanceSearchReachesTheWire() async throws {
+        MockURLProtocol.reset()
+
+        let instance = sdk()
+        let request = try instance.createRequestBuilder()
+            .addPlacement(key: "map")
+            .setDistanceTargeting(latitude: -33.4175, longitude: -70.6065, radius: 8000, limit: 7)
+            .build()
+        // The default stub answers "[]", which does not decode. This test is about the bytes
+        // that went out, not the ones that came back.
+        _ = try? await instance.requestAds(request)
+        await MockURLProtocol.waitForRequests(1)
+
+        let body = try #require(MockURLProtocol.capturedBody(at: 0), "no request body was captured")
+        let json = try #require(
+            try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let targeting = try #require(
+            json["targeting"] as? [String: Any],
+            "the wire body carries no targeting: \(String(decoding: body, as: UTF8.self))")
+        let distance = try #require(
+            targeting["distance"] as? [String: Any],
+            "the wire body carries no distance search: \(String(decoding: body, as: UTF8.self))")
+
+        #expect(distance["radius"] as? Double == 8000)
+        #expect(distance["latitude"] as? Double == -33.4175)
+        #expect(distance["limit"] as? Int == 7)
+        #expect(distance["bounds"] == nil)
+    }
+
     /// AC7 — parsing a response fires nothing. The SDK draws no map and cannot know what the
     /// user saw, so it never reports a view on anyone's behalf.
     @Test func parsingFiresNothing() async throws {
@@ -447,6 +483,39 @@ extension MockNetworkTests {
         #expect(firedURLs() == ["https://t/a", "https://t/a"])
     }
 
+    /// AC8b — a full screenful at the campaign's ceiling.
+    ///
+    /// A campaign may return up to 50 matched points, and max cardinality is where collection
+    /// bugs live: a truncated list, a set that de-duplicates on the wrong key, a dispatch that
+    /// drops under load. The scenarios above use three, which proves none of that.
+    @Test func bulkFiresFiftyDistinctBeacons() async throws {
+        let points = try fiftyPoints()
+        #expect(points.count == 50, "all 50 points decode")
+
+        MockURLProtocol.reset()
+        sdk().trackPointViews(points)
+        await MockURLProtocol.waitForRequests(50)
+
+        let fired = firedURLs()
+        #expect(fired.count == 50, "one beacon per point, none dropped")
+        #expect(Set(fired).count == 50, "and all of them distinct")
+        #expect(Set(fired) == Set((0..<50).map { "https://t/p\($0)" }))
+    }
+
+    /// AC8b — de-duplication still holds at the ceiling.
+    @Test func bulkDeduplicatesAtFifty() async throws {
+        let points = try fiftyPoints()
+
+        MockURLProtocol.reset()
+        sdk().trackPointViews(points + points)
+        await MockURLProtocol.waitForRequests(50)
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        #expect(
+            firedURLs().count == 50,
+            "the same screenful listed twice in one call is still one view each")
+    }
+
     /// AC8b — an empty list is a no-op, not a crash.
     @Test func bulkWithNoPointsFiresNothing() async throws {
         MockURLProtocol.reset()
@@ -481,6 +550,20 @@ extension MockNetworkTests {
         let point = try #require(creative.matchedPoints.first)
 
         #expect(point.clickUrl == "https://shop.example/parque-arauco")
+    }
+
+    private func fiftyPoints() throws -> [MatchedPoint] {
+        let entries = (0..<50).map { i in
+            """
+            { "id": "p\(i)", "name": "P\(i)", "latitude": 1, "longitude": 1, "distance": \(i),
+              "tracking": { "views": [{ "key": "default", "url": "https://t/p\(i)" }] } }
+            """
+        }.joined(separator: ",")
+        return try decodeCreative(
+            contents: """
+                [{ "key": "matched_points", "type": "matched_points", "value": [\(entries)]}]
+                """
+        ).matchedPoints
     }
 
     private func threePoints() throws -> [MatchedPoint] {
