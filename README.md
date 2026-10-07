@@ -1033,6 +1033,13 @@ take as many as the campaign allows:
 
 `clearDistanceTargeting()` removes the search and leaves every other targeting axis alone.
 
+**A Sponsored Pin campaign does not serve without a distance search — at all.** Not "serves with
+no pins": the response carries no ad. A publisher who asked no spatial question has no map, and
+rendering the creative with an empty pin list would bill for something nobody can act on, so the
+campaign is dropped from the auction. The practical consequence: only request the Sponsored Pin
+placement from a surface that can send a search. Asking for it from a screen with no map looks
+exactly like a fill problem and is not one.
+
 ### What the SDK checks, and what the server decides
 
 Checked locally, before any network call, because they are mistakes no round trip should be spent
@@ -1254,6 +1261,7 @@ impression — the stage's own impression event is, exactly as for every other s
 | Hard-coding 50 km or 100 km in your app | You refuse searches a newer server would accept | Let the server answer |
 | Sending a new request on every camera frame | Hammers the API and churns pins under the user | One request per settled map move |
 | Treating an empty `matchedPoints` as an error | Normal: no campaign matched that search | Render no sponsored pins |
+| Requesting the placement without a distance search | **No ad at all**, which reads as a fill problem | Only request it where you can send a search |
 | Using `distance` to decide whether the user is in a region | Wrong tool; it does not gate eligibility | Use `setLocationTargeting` |
 
 ### Two self-checks that catch most integration bugs
@@ -1331,6 +1339,10 @@ ones you actually showed. Do not re-sort by your own idea of relevance and call 
 `apiVersion` is not `2025-11-01`; the search is centred somewhere the advertiser has no locations;
 the radius is too small; or the placement you asked for is not the one the campaign is booked
 against.
+
+**And why did I get no ad at all?** If you sent no distance search, that is the expected answer
+rather than a fill problem — see above. Otherwise it is an ordinary no-fill: no campaign was
+eligible for that placement.
 
 **Does any of this fan out third-party trackers?** No. Third-party trackers stay at the creative
 level and are not duplicated per pin.
