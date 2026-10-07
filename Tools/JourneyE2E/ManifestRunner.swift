@@ -37,6 +37,25 @@ struct ManifestRequest: Decodable {
     var journeyOpt: String?
     /// Absent = the suite default. `"none"` = send no version header at all.
     var apiVersion: String?
+    /// Sponsored Pin: a radius or a bounds search (epic #3138).
+    var distance: ManifestDistance?
+}
+
+/// One Sponsored Pin search, declared once in the shared manifest and expressed by each SDK
+/// through its own idiom for the two shapes.
+struct ManifestDistance: Decodable {
+    let latitude: Double
+    let longitude: Double
+    var radius: Double?
+    var bounds: ManifestBounds?
+    var limit: Int?
+}
+
+struct ManifestBounds: Decodable {
+    let north: Double
+    let south: Double
+    let east: Double
+    let west: Double
 }
 
 struct ManifestPlacement: Decodable {
@@ -81,6 +100,14 @@ struct ManifestCreative: Decodable {
     var priorityIn: [String]?
     var impressions: String?
     var clicksAtLeast: Int?
+    // --- Sponsored Pin ---
+    var matchedPointsAtLeast: Int?
+    var matchedPointsEquals: Int?
+    var matchedPointsNone: Bool?
+    var matchedPointsNearestFirst: Bool?
+    var matchedPointsWellFormed: Bool?
+    var matchedPointsHaveBeacons: Bool?
+    var matchedPointsHaveClickUrl: Bool?
     var videoEventCount: Int?
     var videoEventKeys: [String]?
     var requireVastTagUrl: Bool?
@@ -151,6 +178,17 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
     if entry.request.session != nil { _ = builder.setSessionId(freshSession(entry.id.lowercased())) }
     if let opt = entry.request.journeyOpt {
         _ = builder.setJourneyOpt(opt == "in" ? .optIn : .optOut)
+    }
+    if let d = entry.request.distance {
+        if let b = d.bounds {
+            _ = try builder.setDistanceTargeting(
+                latitude: d.latitude, longitude: d.longitude,
+                bounds: DistanceBounds(north: b.north, south: b.south, east: b.east, west: b.west),
+                limit: d.limit)
+        } else if let r = d.radius {
+            _ = try builder.setDistanceTargeting(
+                latitude: d.latitude, longitude: d.longitude, radius: r, limit: d.limit)
+        }
     }
 
     let request = builder.build()
@@ -281,6 +319,67 @@ private func assertCreative(
         try check(
             creative.delivery == delivery,
             "delivery is \"\(delivery)\" (got \(creative.delivery ?? "nil"))")
+    }
+
+    // --- Sponsored Pin ------------------------------------------------------------------
+    let points = creative.matchedPoints
+    if let atLeast = expect.matchedPointsAtLeast {
+        try check(
+            points.count >= atLeast,
+            "the creative carries at least \(atLeast) matched point(s) (got \(points.count))")
+    }
+    if let exactly = expect.matchedPointsEquals {
+        try check(
+            points.count == exactly,
+            "the creative carries exactly \(exactly) matched point(s) (got \(points.count))")
+    }
+    if expect.matchedPointsNone == true {
+        try check(points.isEmpty, "the creative carries NO matched points (got \(points.count))")
+    }
+    if expect.matchedPointsNearestFirst == true {
+        var ordered = true
+        for i in 1..<max(points.count, 1) where points[i - 1].distance > points[i].distance {
+            ordered = false
+        }
+        try check(ordered, "matched points are ordered nearest first")
+    }
+    if expect.matchedPointsWellFormed == true {
+        try check(!points.isEmpty, "there are matched points to inspect")
+        for p in points {
+            try check(!p.id.isEmpty, "point id is non-empty")
+            try check(
+                p.id.hasPrefix("advertiser_location_"),
+                "point id is an Advertiser Location public id (got \(p.id))")
+            try check(!p.name.isEmpty, "point \(p.id) has a name")
+            try check(p.distance >= 0, "point \(p.name) has a non-negative distance")
+        }
+    }
+    if expect.matchedPointsHaveBeacons == true {
+        try check(!points.isEmpty, "there are matched points to inspect")
+        var seen = Set<String>()
+        for p in points {
+            guard let t = p.tracking else {
+                try check(false, "point \(p.name) carries tracking")
+                continue
+            }
+            try check(!(t.views ?? []).isEmpty, "point \(p.name) has a view beacon")
+            try check(!(t.taps ?? []).isEmpty, "point \(p.name) has a tap beacon")
+            try check(!(t.clicks ?? []).isEmpty, "point \(p.name) has a click beacon")
+            // A shared beacon would attribute every shop's numbers to whichever one the
+            // signed token happens to name.
+            for item in t.views ?? [] {
+                try check(
+                    seen.insert(item.url).inserted,
+                    "point \(p.name) has its own view beacon, not a shared one")
+            }
+        }
+    }
+    if expect.matchedPointsHaveClickUrl == true {
+        for p in points {
+            try check(
+                !(p.clickUrl ?? "").isEmpty,
+                "point \(p.name) carries a resolved destination")
+        }
     }
     switch expect.impressions {
     case "required":
