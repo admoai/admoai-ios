@@ -737,6 +737,11 @@ All tracking methods are **fire-and-forget**: they return `Void`, dispatch on th
 session, and never throw into the caller. Failures are logged, not surfaced — so there is no
 return value to branch on and nothing to `await`.
 
+A click beacon records the click and nothing else. The tracking endpoint answers a click with a
+`302` to the creative's destination, which is meant for browsers; the SDK takes that response as
+final and never requests the destination. Opening it is your app's job — call `fireClick` and
+navigate from the creative's contents.
+
 The URLs are opaque (`…/v1/tracking?e=<encrypted token>`) and are fired **verbatim**. Never
 parse, rebuild, or append to them: the attribution identity lives inside the token.
 
