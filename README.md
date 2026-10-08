@@ -49,7 +49,7 @@ Add the following dependency to your `Package.swift`:
 <!-- x-release-please-start-version -->
 ```swift
 dependencies: [
-    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.6.1")
+    .package(url: "https://github.com/admoai/admoai-ios.git", from: "1.7.0")
 ]
 ```
 <!-- x-release-please-end-version -->

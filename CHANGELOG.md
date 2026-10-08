@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/admoai/admoai-ios/compare/v1.6.1...v1.7.0) (2026-10-08)
+
+
+### Added
+
+* sponsored pin distance search, matched points and point-level tracking ([#44](https://github.com/admoai/admoai-ios/issues/44)) ([dc9e34a](https://github.com/admoai/admoai-ios/commit/dc9e34a875fbedba0083baa31b42e9f3cd123121))
+
+
+### Documentation
+
+* say that a Sponsored Pin campaign needs a distance search to serve ([#45](https://github.com/admoai/admoai-ios/issues/45)) ([08123b1](https://github.com/admoai/admoai-ios/commit/08123b187dabebb3164054017b8841e393e7c0cb))
+
 ## [1.6.1](https://github.com/admoai/admoai-ios/compare/v1.6.0...v1.6.1) (2026-09-22)
 
 
