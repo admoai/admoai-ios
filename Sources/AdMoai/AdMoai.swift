@@ -30,7 +30,9 @@ public struct AdMoai {
     public private(set) var appConfig: AppConfig
     public private(set) var deviceConfig: DeviceConfig
     public private(set) var userConfig: UserConfig
-    private let session: URLSession
+    /// Fires canonical beacons. Never follows a redirect: a click's `302` is the engine
+    /// recording it, and the app — not the SDK — opens the destination.
+    private let session: BeaconSession
     /// Fires `tracking.thirdPartyTrackers` through its own credential-isolated session —
     /// never through `session`, which carries the SDK User-Agent and Admoai headers.
     private let thirdPartyDispatcher: ThirdPartyTrackerDispatcher
@@ -68,7 +70,7 @@ public struct AdMoai {
             logger: config.logger
         )
 
-        self.session = URLSession(configuration: config.sessionConfiguration)
+        self.session = BeaconSession(configuration: config.sessionConfiguration)
         self.thirdPartyDispatcher = ThirdPartyTrackerDispatcher(
             protocolClasses: config.sessionConfiguration.protocolClasses,
             logger: config.logger
@@ -255,7 +257,7 @@ public struct AdMoai {
         if let apiVersion = config.apiVersion {
             request.setValue(apiVersion, forHTTPHeaderField: "X-Tracking-Version")
         }
-        session.dataTask(with: request).resume()
+        session.fire(request)
     }
 
     /// Fires the canonical impression beacon and fans out every third-party impression

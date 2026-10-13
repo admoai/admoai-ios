@@ -20,7 +20,7 @@ internal enum ThirdPartyTrackerEvent {
 ///   re-encode it, iOS 14–16 would fail to parse it) is discarded at validation: firing
 ///   normalized/re-encoded bytes would corrupt what the agency counts, and OS-dependent
 ///   behavior would make the same campaign count differently per iOS version.
-/// - **3xx terminal**: redirects are never followed (the delegate cancels them) — a redirect
+/// - **3xx terminal**: redirects are never followed (``BeaconSession``) — a redirect
 ///   target runs logic outside our contract.
 /// - **Cache bypass**: a cached hit would be an unmeasured impression on the agency side.
 /// - **Failure isolation**: every dispatch is independent fire-and-forget; a slow or failing
@@ -35,25 +35,8 @@ internal final class ThirdPartyTrackerDispatcher {
     /// numbers quietly disagree with ours, so the whole collection is discarded instead.
     internal static let maxTrackers = 10
 
-    /// 3xx is terminal: never follow a tracker redirect.
-    ///
-    /// A separate object rather than the dispatcher itself because `URLSession` retains its
-    /// delegate strongly — a self-delegate would cycle (dispatcher → session → dispatcher)
-    /// and neither would ever deallocate.
-    private final class RedirectBlocker: NSObject, URLSessionTaskDelegate {
-        func urlSession(
-            _ session: URLSession,
-            task: URLSessionTask,
-            willPerformHTTPRedirection response: HTTPURLResponse,
-            newRequest request: URLRequest,
-            completionHandler: @escaping (URLRequest?) -> Void
-        ) {
-            completionHandler(nil)
-        }
-    }
-
     private let logger: Logger
-    private let session: URLSession
+    private let session: BeaconSession
 
     /// - Parameter protocolClasses: carried over from `SDKConfig.sessionConfiguration` so
     ///   test stubs (`MockURLProtocol`) can observe the isolated session; nothing else of
@@ -70,14 +53,7 @@ internal final class ThirdPartyTrackerDispatcher {
         configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         configuration.timeoutIntervalForRequest = 10
         configuration.protocolClasses = protocolClasses
-        self.session = URLSession(
-            configuration: configuration, delegate: RedirectBlocker(), delegateQueue: nil)
-    }
-
-    deinit {
-        // Lets in-flight beacons finish, then releases the session's delegate and threads —
-        // without this, every discarded dispatcher (SDK re-init, tests) leaks its session.
-        session.finishTasksAndInvalidate()
+        self.session = BeaconSession(configuration: configuration)
     }
 
     // MARK: - Fan-out
@@ -120,7 +96,7 @@ internal final class ThirdPartyTrackerDispatcher {
                 timeoutInterval: 10
             )
             request.httpShouldHandleCookies = false
-            session.dataTask(with: request).resume()
+            session.fire(request)
         }
     }
 
