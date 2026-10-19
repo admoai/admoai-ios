@@ -1153,7 +1153,6 @@ final class SponsoredPinMapController: UIViewController, MKMapViewDelegate {
     private var pins: [String: MatchedPoint] = [:]   // marker id -> point
     private var creative: Creative?
     private var reportedImpression = false
-    private var viewed = Set<String>()
 
     // 1. ASK. One request per meaningful map move, not per frame.
     func loadPins(around centre: CLLocationCoordinate2D) async throws {
@@ -1170,7 +1169,6 @@ final class SponsoredPinMapController: UIViewController, MKMapViewDelegate {
         }
         self.creative = creative
         self.reportedImpression = false
-        self.viewed.removeAll()
 
         // 2. RENDER. Entirely your code — the SDK draws nothing.
         clearPins()
@@ -1190,10 +1188,11 @@ final class SponsoredPinMapController: UIViewController, MKMapViewDelegate {
             reportedImpression = true
         }
 
-        // One view per pin that is genuinely on screen, first time only.
+        // One view per pin that is genuinely on screen. Pins already reported for this
+        // response send nothing, so there is no "already seen" set to keep.
         let nowVisible = views
             .compactMap { pointFor($0) }
-            .filter { isGenuinelyVisible($0) && viewed.insert($0.id).inserted }
+            .filter { isGenuinelyVisible($0) }
 
         sdk.trackPointViews(nowVisible)
     }
@@ -1237,9 +1236,12 @@ A map that draws twenty pins reports twenty views. The bulk call saves you the l
 sdk.trackPointViews(nowVisiblePoints)
 ```
 
-It de-duplicates by point id **within the call**, so a list naming the same pin twice reports it
-once. It does not de-duplicate across calls: two renders are two views, which is what the number
-means — keep your own "already reported" set, as both worked examples do.
+Call it on every render with whatever is on screen. **Each pin is reported once per decision
+response**: re-rendering the same response — a zoom, a pan, a cluster expanding — sends nothing for
+pins already reported, and only the newly visible ones fire. A new response returning the same
+location is a new view and is reported again. `trackPointView` follows the same rule. The SDK
+remembers the last 500 view URLs (ten full responses); a view that failed to send is not retried.
+Taps and clicks are never de-duplicated: two taps are two taps.
 
 There is deliberately no bulk tap and no bulk click. Each of those is one user gesture, so a
 plural form could only report something that did not happen.
