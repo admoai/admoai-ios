@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written.",
+  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written.",
   "scenarios": [
     {
       "id": "L1",
@@ -191,7 +191,7 @@
     },
     {
       "id": "M7",
-      "title": "omitting format still serves — the engine chooses",
+      "title": "omitting format still serves \u2014 the engine chooses",
       "request": {
         "placements": [
           {
@@ -374,7 +374,7 @@
     {
       "id": "V4",
       "title": "the SDK deduplicates a repeated custom key, so the engine never sees the duplicate that would fail the whole request",
-      "comment": "Sent raw over HTTP this same payload returns 422 code 10031, and the engine aborts validation for the ENTIRE request — every placement, not just the offending target. All three SDKs dedupe by key (last write wins), so a publisher cannot reach that state through the public API. This scenario is the live proof of that guard: it must SERVE, and both placements must come back.",
+      "comment": "Sent raw over HTTP this same payload returns 422 code 10031, and the engine aborts validation for the ENTIRE request \u2014 every placement, not just the offending target. All three SDKs dedupe by key (last write wins), so a publisher cannot reach that state through the public API. This scenario is the live proof of that guard: it must SERVE, and both placements must come back.",
       "request": {
         "placements": [
           {
@@ -518,7 +518,7 @@
     },
     {
       "id": "SP2",
-      "title": "a bounds search returns them too — the other shape a map can ask with",
+      "title": "a bounds search returns them too \u2014 the other shape a map can ask with",
       "request": {
         "apiVersion": "2025-11-01",
         "placements": [
@@ -655,7 +655,7 @@
     },
     {
       "id": "SP8",
-      "title": "on the older API version the ad still serves, silently carrying no pins — the failure an integrator must recognise",
+      "title": "on the older API version the ad still serves, silently carrying no pins \u2014 the failure an integrator must recognise",
       "request": {
         "apiVersion": "none",
         "placements": [
@@ -673,6 +673,272 @@
         "outcome": "served",
         "creative": {
           "matchedPointsNone": true
+        }
+      }
+    },
+    {
+      "id": "SP9",
+      "title": "a map's first render sends every shop's view beacon exactly once",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 1,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "views": "all"
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "SP10",
+      "title": "re-rendering the same response sends no view beacon again",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 1,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "views": "all"
+          },
+          {
+            "views": "all"
+          },
+          {
+            "views": "all"
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "SP11",
+      "title": "a render that brings new shops into view sends views only for the new ones",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 4,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "views": {
+              "from": 0,
+              "to": 2
+            }
+          },
+          {
+            "views": {
+              "from": 1,
+              "to": 4
+            }
+          },
+          {
+            "views": {
+              "from": 0,
+              "to": 4
+            }
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "SP12",
+      "title": "a new decision response reports the same shops again, once",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 1,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "views": "all"
+          },
+          {
+            "newResponse": true
+          },
+          {
+            "views": "all"
+          },
+          {
+            "views": "all"
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "newResponseHasNewViewUrls": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "SP13",
+      "title": "single-pin views follow the same once-per-response rule as the bulk call",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 1,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "view": 0
+          },
+          {
+            "view": 0
+          },
+          {
+            "views": "all"
+          },
+          {
+            "view": 0
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "SP14",
+      "title": "taps and clicks are sent on every call, never de-duplicated",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "poi"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 1,
+          "matchedPointsHaveBeacons": true
+        }
+      },
+      "pinTracking": {
+        "steps": [
+          {
+            "views": "all"
+          },
+          {
+            "tap": 0
+          },
+          {
+            "tap": 0
+          },
+          {
+            "click": 0
+          },
+          {
+            "click": 0
+          },
+          {
+            "views": "all"
+          }
+        ],
+        "expect": {
+          "viewsOncePerResponse": true,
+          "interactionsEveryCall": true,
+          "engineAcceptsEveryBeacon": true
         }
       }
     }
