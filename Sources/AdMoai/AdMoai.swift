@@ -50,6 +50,8 @@ public struct AdMoai {
     /// which is what a publisher already assumes and what Flutter (a class) and Android (a
     /// singleton) both do.
     private let _session = SessionBox()
+    /// Sponsored Pin view URLs already fired, shared by every copy — see ``trackPointView(_:)``.
+    internal let pointViewLedger = PointViewLedger()
 
     public init(
         config: SDKConfig,
@@ -299,8 +301,18 @@ public struct AdMoai {
     ///
     /// Pin views are **in addition to** the creative's own impression, never summed into it:
     /// one served creative is one impression however many pins it shows.
+    ///
+    /// **Once per decision response.** A pin is reported the first time it is shown for the
+    /// response that returned it; calling this again for the same point — a re-render, a zoom,
+    /// a cluster expanding — sends nothing. A new decision response returning the same location
+    /// carries a new view URL and is reported again. The SDK remembers the last 500 view URLs
+    /// (ten full responses), and a view is never retried: a beacon that failed to send is not
+    /// re-sent on the next render. Taps and clicks are never de-duplicated.
     public func trackPointView(_ point: MatchedPoint) {
-        fireAll(point.tracking?.views)
+        guard let views = point.tracking?.views else { return }
+        for item in views where pointViewLedger.claim(item.url) {
+            fireTracking(url: item.url)
+        }
     }
 
     /// Reports that the user **tapped the marker** (`pin_tap`). Free.
@@ -328,17 +340,15 @@ public struct AdMoai {
     /// Reports that several pins became visible at once (`pin_view` each) — the bulk form of
     /// ``trackPointView(_:)``, for the usual case of a map drawing a screenful.
     ///
-    /// A point named twice in one call is reported once. There is no de-duplication *across*
-    /// calls: two renders are two views, which is what the number means.
+    /// Follows the same once-per-decision-response rule: call it on every render with whatever
+    /// is visible, and only pins not yet reported for their response send anything. A point
+    /// named twice in one call is reported once.
     ///
     /// There is deliberately no bulk tap or bulk click. Each of those is one user gesture, so
     /// a plural form could only report something that did not happen — and for clicks, bill
     /// for it.
     public func trackPointViews(_ points: [MatchedPoint]) {
-        var seen = Set<String>()
-        for point in points where seen.insert(point.id).inserted {
-            trackPointView(point)
-        }
+        points.forEach(trackPointView)
     }
 
     private func fireAll(_ items: [TrackingItem]?) {

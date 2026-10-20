@@ -469,8 +469,9 @@ extension MockNetworkTests {
         #expect(firedURLs() == ["https://t/a"])
     }
 
-    /// AC8b — two renders are two views. There is no de-duplication across invocations.
-    @Test func bulkDoesNotDeduplicateAcrossInvocations() async throws {
+    /// AC8b — a second render of the same response is not a second view. The full rule lives
+    /// in `PointViewLedgerTests`, scenario by scenario.
+    @Test func bulkDeduplicatesAcrossInvocationsOfTheSameResponse() async throws {
         let points = try threePoints()
         let first = try #require(points.first)
         let sdk = self.sdk()
@@ -478,9 +479,10 @@ extension MockNetworkTests {
         MockURLProtocol.reset()
         sdk.trackPointViews([first])
         sdk.trackPointViews([first])
-        await MockURLProtocol.waitForRequests(2)
+        await MockURLProtocol.waitForRequests(1)
+        try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(firedURLs() == ["https://t/a", "https://t/a"])
+        #expect(firedURLs() == ["https://t/a"])
     }
 
     /// AC8b — a full screenful at the campaign's ceiling.

@@ -89,6 +89,7 @@ Each exists because the naive alternative produced a wrong or useless result.
 | §J stages/targeting | `J1` mandatory holds · `J5` optional skips · `J2`/`J3`/`J4` targeting both directions |
 | §F TTL | `F1` expiry restarts · `F2` a new node refreshes the TTL |
 | §G video | `G1` JSON delivery + beacons · `G2` VAST exposes payload, surfaces NO VAST-owned beacons |
+| §Manifest | the shared cross-SDK scenarios (`scenarios.json`), including Sponsored Pin `SP1`–`SP14`. `SP9`–`SP14` drive the point-tracking calls on real served pins and count the tracking GETs that reach the engine: each view once per decision response, taps and clicks on every call (adhub#4410) |
 
 ## The §K trap — read before signing off
 

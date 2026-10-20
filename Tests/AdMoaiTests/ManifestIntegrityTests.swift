@@ -14,7 +14,7 @@ import Testing
 struct ManifestIntegrityTests {
 
     private static let expectedSHA256 =
-        "e6a48841c7bce33ea74f06183fe9c5d979a7272eafc465234642145ef3c7324a"
+        "a55f68eb48a96386f1f2fe653954eaadad58776d48b38fae88b33ac6b0ffed47"
 
     private func manifestURL() -> URL {
         URL(fileURLWithPath: #filePath)

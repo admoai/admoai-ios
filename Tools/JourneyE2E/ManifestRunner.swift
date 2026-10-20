@@ -28,6 +28,8 @@ struct ManifestScenario: Decodable {
     let title: String
     let request: ManifestRequest
     let expect: ManifestExpect
+    /// Sponsored Pin: the point-tracking calls an app makes on the served pins (adhub#4410).
+    var pinTracking: ManifestPinTracking?
 }
 
 struct ManifestRequest: Decodable {
@@ -266,8 +268,12 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
         try check(Set(ids).count == ids.count, "the returned creatives are distinct (got \(ids))")
     }
 
-    guard let expectations = entry.expect.creative else { return }
-    try assertCreative(creatives[0], expectations, &notes)
+    if let expectations = entry.expect.creative {
+        try assertCreative(creatives[0], expectations, &notes)
+    }
+    if let pinTracking = entry.pinTracking {
+        try await runPinTracking(pinTracking, driver, request, creatives[0], &notes)
+    }
 }
 
 // MARK: Creative assertions
@@ -457,6 +463,177 @@ private func assertCreative(
 
 /// Issues a prebuilt request. Mirrors `decide` but takes the request already built, because the
 /// interpreter assembles it from manifest data rather than from named arguments.
+// MARK: Sponsored Pin tracking (adhub#4410)
+//
+// `pinTracking` replays what a map does with the pins it was served, through the SDK's real
+// point-tracking calls, and asserts what actually reached the engine. The semantics are the
+// manifest's, so all three interpreters implement them identically:
+//
+// - Steps run in order against the pins of the CURRENT response — the first creative of the
+//   first decision. `{"newResponse": true}` sends the scenario's request again and makes its pins
+//   current.
+// - `{"views": "all"}` → `trackPointViews(all)`; `{"views": {"from": a, "to": b}}` →
+//   `trackPointViews(pins[a..<b])`; `{"view": i}` → `trackPointView(pins[i])`; `{"tap": i}` and
+//   `{"click": i}` → `trackPointTap` / `trackPointClick` on `pins[i]`.
+// - Expected beacons are derived from the steps: every view URL of every pin a view step named,
+//   once; every tap/click URL, once per call naming it. The runner waits for that many tracking
+//   GETs, then a further 1.5 s so a duplicate arriving late is still caught.
+// - `viewsOncePerResponse`: each expected view URL was sent exactly once, and no view URL of a
+//   pin the app never showed was sent. `interactionsEveryCall`: each tap/click URL was sent once
+//   per call. `newResponseHasNewViewUrls`: no view URL repeats across responses.
+//   `engineAcceptsEveryBeacon`: the engine answered every tracking GET with a status below 400.
+//   Always: the total number of tracking GETs equals the expected total — nothing stray.
+
+struct ManifestPinTracking: Decodable {
+    let steps: [ManifestPinStep]
+    let expect: ManifestPinExpect
+}
+
+struct ManifestPinStep: Decodable {
+    enum Views {
+        case all
+        case range(from: Int, to: Int)
+    }
+
+    var views: Views?
+    var view: Int?
+    var tap: Int?
+    var click: Int?
+    var newResponse: Bool?
+
+    private enum CodingKeys: String, CodingKey { case views, view, tap, click, newResponse }
+    private struct Range: Decodable {
+        let from: Int
+        let to: Int
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let all = try? c.decode(String.self, forKey: .views) {
+            guard all == "all" else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .views, in: c, debugDescription: "views is \"all\" or {from, to}")
+            }
+            views = .all
+        } else if let range = try c.decodeIfPresent(Range.self, forKey: .views) {
+            views = .range(from: range.from, to: range.to)
+        }
+        view = try c.decodeIfPresent(Int.self, forKey: .view)
+        tap = try c.decodeIfPresent(Int.self, forKey: .tap)
+        click = try c.decodeIfPresent(Int.self, forKey: .click)
+        newResponse = try c.decodeIfPresent(Bool.self, forKey: .newResponse)
+    }
+}
+
+struct ManifestPinExpect: Decodable {
+    var viewsOncePerResponse: Bool?
+    var interactionsEveryCall: Bool?
+    var newResponseHasNewViewUrls: Bool?
+    var engineAcceptsEveryBeacon: Bool?
+}
+
+private func runPinTracking(
+    _ pin: ManifestPinTracking, _ driver: Driver, _ request: DecisionRequest,
+    _ first: Creative, _ notes: inout [String]
+) async throws {
+    var responses: [[MatchedPoint]] = [first.matchedPoints]
+    var expectedViews = Set<String>()
+    var expectedInteractions: [String: Int] = [:]
+
+    func pick(_ i: Int) throws -> MatchedPoint {
+        let pins = responses[responses.count - 1]
+        try check(i < pins.count, "the response carries a pin at index \(i) (got \(pins.count))")
+        return pins[i]
+    }
+
+    RecordingURLProtocol.clear()
+    for step in pin.steps {
+        if step.newResponse == true {
+            let served = try await decideManifest(driver, request)
+            let pins = served.decisions.first?.creatives?.first?.matchedPoints ?? []
+            try check(!pins.isEmpty, "the new decision response carries pins")
+            responses.append(pins)
+        }
+        if let views = step.views {
+            let pins = responses[responses.count - 1]
+            let slice: [MatchedPoint]
+            switch views {
+            case .all:
+                slice = pins
+            case .range(let from, let to):
+                try check(to <= pins.count, "the response carries \(to) pins (got \(pins.count))")
+                slice = Array(pins[from..<to])
+            }
+            driver.sdk.trackPointViews(slice)
+            for p in slice { expectedViews.formUnion((p.tracking?.views ?? []).map(\.url)) }
+        }
+        if let i = step.view {
+            let p = try pick(i)
+            driver.sdk.trackPointView(p)
+            expectedViews.formUnion((p.tracking?.views ?? []).map(\.url))
+        }
+        if let i = step.tap {
+            let p = try pick(i)
+            driver.sdk.trackPointTap(p)
+            for item in p.tracking?.taps ?? [] { expectedInteractions[item.url, default: 0] += 1 }
+        }
+        if let i = step.click {
+            let p = try pick(i)
+            driver.sdk.trackPointClick(p)
+            for item in p.tracking?.clicks ?? [] { expectedInteractions[item.url, default: 0] += 1 }
+        }
+    }
+
+    let expectedTotal = expectedViews.count + expectedInteractions.values.reduce(0, +)
+    try check(expectedTotal > 0, "the steps name at least one beacon to send")
+    _ = await waitForFires(expectedTotal, timeout: 10)
+    await sleepSeconds(1.5)
+    let sent = RecordingURLProtocol.sent.filter { $0.contains("/v1/tracking") }
+    let counts = sent.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
+
+    if pin.expect.viewsOncePerResponse == true {
+        let everyViewURL = Set(responses.flatMap { $0 }.flatMap { ($0.tracking?.views ?? []).map(\.url) })
+        for url in expectedViews {
+            try check(counts[url] == 1, "a shown pin's view beacon is sent exactly once (got \(counts[url] ?? 0))")
+        }
+        let unexpected = Set(sent).intersection(everyViewURL).subtracting(expectedViews)
+        try check(unexpected.isEmpty, "no view beacon is sent for a pin the app never showed (got \(unexpected.count))")
+    }
+    if pin.expect.interactionsEveryCall == true {
+        for (url, times) in expectedInteractions {
+            try check(counts[url] == times, "a tap/click beacon is sent on every call: \(times) (got \(counts[url] ?? 0))")
+        }
+    }
+    try check(
+        sent.count == expectedTotal,
+        "exactly \(expectedTotal) tracking GETs reach the engine, nothing stray (got \(sent.count))")
+    if pin.expect.newResponseHasNewViewUrls == true {
+        try check(responses.count >= 2, "the steps fetched a second response")
+        let perResponse = responses.map { Set($0.flatMap { ($0.tracking?.views ?? []).map(\.url) }) }
+        for i in perResponse.indices {
+            for j in perResponse.indices where j > i {
+                try check(
+                    perResponse[i].isDisjoint(with: perResponse[j]),
+                    "a new response mints new view URLs for the same pins")
+            }
+        }
+    }
+    if pin.expect.engineAcceptsEveryBeacon == true {
+        let deadline = Date().addingTimeInterval(10)
+        var answers = RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
+        while answers.count < sent.count, Date() < deadline {
+            await sleepSeconds(0.05)
+            answers = RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
+        }
+        try check(answers.count == sent.count, "the engine answered every beacon (\(answers.count)/\(sent.count))")
+        let rejected = answers.filter { !(200..<400).contains($0.status) }
+        try check(rejected.isEmpty, "the engine accepts every beacon (rejected: \(rejected.map(\.status)))")
+    }
+    notes.append(
+        "\(responses.count) response(s), \(responses.map(\.count)) pins: \(expectedViews.count) view GET(s), "
+            + "\(expectedInteractions.values.reduce(0, +)) tap/click GET(s), \(sent.count) sent in total")
+}
+
 private func decideManifest(_ driver: Driver, _ request: DecisionRequest) async throws -> Served {
     let response = try await driver.sdk.requestAds(request)
     return Served(

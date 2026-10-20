@@ -188,6 +188,7 @@ let report = E2eReport()
 final class RecordingURLProtocol: URLProtocol {
     private static let lock = NSLock()
     private static var _sent: [String] = []
+    private static var _answered: [(url: String, status: Int)] = []
 
     /// Every URL the SDK put on the wire, in order, exactly as the SDK passed it.
     static var sent: [String] {
@@ -195,9 +196,17 @@ final class RecordingURLProtocol: URLProtocol {
         return _sent
     }
 
+    /// Every request that came back, with the engine's HTTP status (`-1` for a transport error),
+    /// in completion order. Lets a scenario prove a beacon was not only sent but accepted.
+    static var answered: [(url: String, status: Int)] {
+        lock.lock(); defer { lock.unlock() }
+        return _answered
+    }
+
     static func clear() {
         lock.lock(); defer { lock.unlock() }
         _sent = []
+        _answered = []
     }
 
     private static func record(_ url: String) {
@@ -205,13 +214,32 @@ final class RecordingURLProtocol: URLProtocol {
         _sent.append(url)
     }
 
+    private static func recordAnswer(_ url: String, _ status: Int) {
+        lock.lock(); defer { lock.unlock() }
+        _answered.append((url, status))
+    }
+
     /// Plain session used to actually perform requests. Deliberately does not include
     /// `RecordingURLProtocol` in its `protocolClasses`.
+    ///
+    /// Never follows a redirect, the same as the SDK's own beacon session: a click's `302` is the
+    /// engine recording it, and following it here would fetch the advertiser's page and record
+    /// that page's status as the engine's answer.
     private static let passthrough: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 20
-        return URLSession(configuration: configuration)
+        return URLSession(configuration: configuration, delegate: TerminalRedirects(), delegateQueue: nil)
     }()
+
+    private final class TerminalRedirects: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession, task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
+    }
 
     // Named `forwardTask` because `URLProtocol` already declares a `task` property.
     private var forwardTask: URLSessionDataTask?
@@ -225,6 +253,10 @@ final class RecordingURLProtocol: URLProtocol {
         forwardTask = RecordingURLProtocol.passthrough.dataTask(with: request) {
             [weak self] data, response, error in
             guard let self = self else { return }
+            if let url = self.request.url?.absoluteString {
+                RecordingURLProtocol.recordAnswer(
+                    url, (response as? HTTPURLResponse)?.statusCode ?? -1)
+            }
             if let error = error {
                 self.client?.urlProtocol(self, didFailWithError: error)
                 return
