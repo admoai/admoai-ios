@@ -163,6 +163,26 @@ swiftformat Sources Tests Tools     # fix
 swiftformat Sources Tests Tools --lint   # what CI runs
 ```
 
+## When the API check fails
+
+`api/AdMoai.api.txt` is the module's public API, one symbol per line (path, kind, declaration),
+and CI (`Public API check`) fails when the code no longer matches it. That is deliberate: a
+removed or changed public symbol breaks every integrator's build on their next package update,
+so the change has to appear as a diff in the PR, where a reviewer who does not read Swift can
+still see it.
+
+1. Run `Tools/api.sh` and commit `api/AdMoai.api.txt`. The declarations are spelled by the
+   compiler, so the baseline is generated with the Xcode CI pins (`XCODE_API_VERSION` in
+   `.github/workflows/ci.yml`). With a different local Xcode, download the `api-baseline`
+   artifact from the failing run and commit that file instead.
+2. Read the diff; the CI log and job summary also list what
+   `swift package diagnose-api-breaking-changes` calls breaking. Only `+` lines is a `feat:`.
+   Any `-` or changed line is a **breaking change**: mark the PR `feat!:` (or add a
+   `BREAKING CHANGE:` footer) so release-please bumps the major, and say what integrators must
+   change.
+3. If the surface changed by accident (something that should be `internal`), fix the access
+   level instead of updating the baseline.
+
 ## Swift Package Manager
 
 This SDK uses Swift Package Manager:

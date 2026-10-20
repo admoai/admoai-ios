@@ -70,3 +70,35 @@ jobs:
 
       - name: Build the E2E runner for Linux
         run: swift build --product journey-e2e
+
+  # Public API baseline (api/AdMoai.api.txt). Red = the API changed and the baseline was not
+  # regenerated; the log and job summary classify the change against the merge base, and the
+  # regenerated file is attached as the `api-baseline` artifact. Xcode is pinned because the
+  # compiler spells the declarations: bump XCODE_API_VERSION on purpose and regenerate.
+  api:
+    name: Public API check
+    runs-on: macos-15
+    env:
+      XCODE_API_VERSION: '26.3'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the classification needs the merge base with origin/main
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_API_VERSION }}
+
+      - name: Public API check
+        run: Tools/api.sh --check
+
+      - name: Upload the regenerated baseline
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-baseline
+          path: build/api/AdMoai.api.txt
+          if-no-files-found: ignore
+          retention-days: 14
