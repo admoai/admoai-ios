@@ -1,0 +1,55 @@
+# CodeQL (Swift) on every PR, on main, and weekly — the weekly run picks up new queries
+# against unchanged code. Advanced setup (this file) rather than the Security-tab default
+# setup so the build command is reviewed and versioned: it compiles for an iOS destination,
+# the same build the "iOS build" CI job uses, so UIKit-only paths are analysed too.
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (swift)
+    runs-on: macos-15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Build AdMoai for iOS
+        run: >-
+          xcodebuild build
+          -scheme AdMoai
+          -destination 'generic/platform=iOS'
+          -skipPackagePluginValidation
+          CODE_SIGNING_ALLOWED=NO
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:swift

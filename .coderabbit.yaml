@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit review configuration — the SDK-relevant subset of adhub's
+# .coderabbit.yaml (see that file for the reasoning behind each key). Every key
+# was checked by hand against https://docs.coderabbit.ai/reference/yaml-template:
+# CodeRabbit ignores unknown keys silently, so a typo fails open.
+#
+# After changing this file, confirm the next walkthrough says
+# "Configuration used: Repository YAML".
+
+language: en-US
+
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    # Lower than adhub's 5: SDK PRs are small, and a long re-review tail is cost
+    # without signal. Resume with `@coderabbitai resume`.
+    auto_pause_after_reviewed_commits: 3
+    # Drafts are skipped by default (do not set `drafts: false` — it is already the default).
+
+  # Generated, vendored or lock files: reviewing them costs a review and finds nothing.
+  path_filters:
+    - "!**/Package.resolved"
+    - "!.build/**"
+    - "!**/*.xcodeproj/project.xcworkspace/**"
+    # Shared scenario manifest + its generated Gherkin (admoai/adhub#4158, #4348).
+    - "!Tools/JourneyE2E/scenarios.feature"
+    # Public API baselines (admoai/adhub#4347) are regenerated, not hand-written.
+    - "!api/**"
