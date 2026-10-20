@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1](https://github.com/admoai/admoai-ios/compare/v1.7.0...v1.7.1) (2026-10-20)
+
+
+### Fixed
+
+* a re-rendered pin no longer re-sends its view beacon; reported pin_view counts are unchanged ([#49](https://github.com/admoai/admoai-ios/issues/49)) ([6b538f4](https://github.com/admoai/admoai-ios/commit/6b538f4d195878152b65f971cbd14ffa8a6e3156))
+
 ## [1.7.0](https://github.com/admoai/admoai-ios/compare/v1.6.1...v1.7.0) (2026-10-13)
 
 
