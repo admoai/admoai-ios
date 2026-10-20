@@ -1,5 +1,7 @@
 import Foundation
-import OSLog
+#if canImport(OSLog)
+    import OSLog
+#endif
 
 /// Errors thrown by the SDK before a network request is made.
 public enum SDKError: Error, CustomStringConvertible, Equatable {

@@ -1,5 +1,8 @@
 import AdMoai
 import Foundation
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 // MARK: - Shared manifest interpreter
 
