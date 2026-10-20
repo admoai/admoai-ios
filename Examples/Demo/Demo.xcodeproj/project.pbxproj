@@ -110,7 +110,7 @@
 			mainGroup = 828CE7BF2D0B464100C10F6C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../../../admoai-ios" */,
+				8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../.." */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 828CE7C92D0B464100C10F6C /* Products */;
@@ -352,9 +352,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../../../admoai-ios" */ = {
+		8220D5C52D282EF200618809 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../../admoai-ios";
+			relativePath = "../..";
 		};
 /* End XCLocalSwiftPackageReference section */
 
