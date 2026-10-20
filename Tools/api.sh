@@ -18,17 +18,27 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# CommandLineTools has no symbol-graph support for packages; the full Xcode does.
-if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
+# CommandLineTools has no symbol-graph support for packages; a full Xcode does. Fall back
+# to /Applications/Xcode.app only when CommandLineTools is what is selected — never over an
+# Xcode someone chose (CI selects XCODE_API_VERSION with xcode-select).
+if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p 2>/dev/null)" == *CommandLineTools* \
+      && -d /Applications/Xcode.app/Contents/Developer ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
+echo "toolchain: $(xcrun swift --version 2>/dev/null | head -1)"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-swift package dump-symbol-graph --minimum-access-level public --skip-synthesized-members > "$tmp/dump.log" 2>&1 \
-  || { cat "$tmp/dump.log"; exit 2; }
+# The command also tries the package's test module and can fail on it (Xcode 16.4 does);
+# only the AdMoai module's graph is read, so only its absence is an error.
+swift package dump-symbol-graph --minimum-access-level public --skip-synthesized-members > "$tmp/dump.log" 2>&1 || true
 graphs="$(sed -n 's/^Files written to //p' "$tmp/dump.log" | tail -1)"
+if [[ -z "$graphs" || ! -f "$graphs/AdMoai.symbols.json" ]]; then
+  cat "$tmp/dump.log"
+  echo "✗ no symbol graph for the AdMoai module" >&2
+  exit 2
+fi
 python3 Tools/api_render.py "$graphs" "$tmp/AdMoai.api.txt"
 count="$(grep -vc '^#' "$tmp/AdMoai.api.txt")"
 
