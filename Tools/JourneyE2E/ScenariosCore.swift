@@ -17,14 +17,16 @@ func selfCheckGroup() async {
             .setUserId(userId)
             .addGeoTargeting(nycGeonameId)
             .build()
-        let body = String(data: try driver.sdk.getHttpRequest(request).body ?? Data(), encoding: .utf8) ?? ""
+        let body = try String(data: driver.sdk.getHttpRequest(request).body ?? Data(), encoding: .utf8) ?? ""
 
         try check(
             body.contains("\"id\":\"\(userId)\""),
-            "the request body carries the user id set by the caller")
+            "the request body carries the user id set by the caller"
+        )
         try check(
             body.contains("\(nycGeonameId)"),
-            "the request body carries the geo target set by the caller")
+            "the request body carries the geo target set by the caller"
+        )
         notes.append("config forwarding proven on the wire")
     }
 }
@@ -48,18 +50,21 @@ private func requireWizardServe(
     _ driver: Driver, _ sessionId: String, _ placement: String
 ) async throws -> Creative {
     let served = try await decide(
-        driver, placements: [placement], sessionId: sessionId, opt: .optIn)
+        driver, placements: [placement], sessionId: sessionId, opt: .optIn
+    )
     guard let creative = served.creative(for: placement), creative.isJourneyAd else {
         throw SkipScenario(
             "no journey served on \"\(placement)\" — the hand-built \"\(wizardDefinition)\" "
                 + "fixture is absent (destroyed by `make db-reset`?). Rebuild it from "
                 + "Tests/AdMoaiTests/E2E/Fixtures/README.md, or the platform→engine seam is "
-                + "unverified.")
+                + "unverified."
+        )
     }
     guard creative.journeyDefinitionKey == wizardDefinition else {
         throw SkipScenario(
             "\"\(placement)\" is owned by \"\(creative.journeyDefinitionKey ?? "nil")\", not "
-                + "the wizard fixture \"\(wizardDefinition)\" — another journey deal is masking it")
+                + "the wizard fixture \"\(wizardDefinition)\" — another journey deal is masking it"
+        )
     }
     return creative
 }
@@ -76,27 +81,35 @@ func wizardParityGroup() async {
 
         try check(
             creative.journeyDefinitionKey == wizardDefinition,
-            "definitionKey is \"\(wizardDefinition)\"")
+            "definitionKey is \"\(wizardDefinition)\""
+        )
         try check(
             (creative.journeyDealId ?? "").hasPrefix(wizardDealPrefix),
-            "dealId is a \(wizardDealPrefix) public id (got \(creative.journeyDealId ?? "nil"))")
+            "dealId is a \(wizardDealPrefix) public id (got \(creative.journeyDealId ?? "nil"))"
+        )
         try check(
             creative.journeyStageKey == wizardStage1,
-            "stageKey is \"\(wizardStage1)\" (got \(creative.journeyStageKey ?? "nil"))")
+            "stageKey is \"\(wizardStage1)\" (got \(creative.journeyStageKey ?? "nil"))"
+        )
         try check(
-            !(creative.journeyInstanceId ?? "").isEmpty, "an instance id was minted")
+            !(creative.journeyInstanceId ?? "").isEmpty, "an instance id was minted"
+        )
         try check(
             creative.journeyPricingModel == cptPricingModel,
-            "pricingModel is \"\(cptPricingModel)\" (got \(creative.journeyPricingModel ?? "nil"))")
+            "pricingModel is \"\(cptPricingModel)\" (got \(creative.journeyPricingModel ?? "nil"))"
+        )
         try check(
             creative.journeyFallbackBillingMode == cptFinalStageFallback,
             "fallbackBillingMode is \"\(cptFinalStageFallback)\" "
-                + "(got \(creative.journeyFallbackBillingMode ?? "nil"))")
+                + "(got \(creative.journeyFallbackBillingMode ?? "nil"))"
+        )
         try check(
             creative.isJourneyCompletion == false,
-            "stage 1 of a final_stage deal is not a completion")
+            "stage 1 of a final_stage deal is not a completion"
+        )
         try check(
-            creative.journeySessionId == session, "the engine echoes the session id back")
+            creative.journeySessionId == session, "the engine echoes the session id back"
+        )
 
         // The #2483 regression guard. The wizard writes camelCase url fields (urlSlide1..3);
         // if the click resolver ever stops matching them, tracking.clicks silently becomes []
@@ -105,16 +118,20 @@ func wizardParityGroup() async {
         try check(
             isTrackingURL(clickURL),
             "a click tracking URL is exposed and meets the transport contract (absolute, "
-                + "/v1/tracking, opaque ?e=) — got \(clickURL ?? "none")")
+                + "/v1/tracking, opaque ?e=) — got \(clickURL ?? "none")"
+        )
         try check(
             isTrackingURL(creative.tracking.getImpressionUrl(key: "default")),
-            "an impression tracking URL is exposed")
+            "an impression tracking URL is exposed"
+        )
 
         notes.append(
-            "stage=\(creative.journeyStageKey ?? "?") node=\(creative.journeyStageNodeId ?? "?")")
+            "stage=\(creative.journeyStageKey ?? "?") node=\(creative.journeyStageNodeId ?? "?")"
+        )
         notes.append(
             "clicks=\(creative.tracking.clicks?.count ?? 0) "
-                + "impressions=\(creative.tracking.impressions?.count ?? 0)")
+                + "impressions=\(creative.tracking.impressions?.count ?? 0)"
+        )
     }
 
     await scenario("K2", "progression across platform-authored stages holds one instance") {
@@ -124,7 +141,8 @@ func wizardParityGroup() async {
         let first = try await requireWizardServe(driver, session, wizardPlacement1)
 
         let servedSecond = try await decide(
-            driver, placements: [wizardPlacement2], sessionId: session, opt: .optIn)
+            driver, placements: [wizardPlacement2], sessionId: session, opt: .optIn
+        )
         guard let second = servedSecond.creative(for: wizardPlacement2), second.isJourneyAd
         else {
             throw ClaimFailed(claim: "stage 2 serves on \"\(wizardPlacement2)\"")
@@ -133,21 +151,27 @@ func wizardParityGroup() async {
         try check(
             second.journeyInstanceId == first.journeyInstanceId,
             "the instance id is stable across stages "
-                + "(\(first.journeyInstanceId ?? "nil") vs \(second.journeyInstanceId ?? "nil"))")
+                + "(\(first.journeyInstanceId ?? "nil") vs \(second.journeyInstanceId ?? "nil"))"
+        )
         try check(
             second.journeyDealId == first.journeyDealId,
-            "the deal id is constant across the journey")
+            "the deal id is constant across the journey"
+        )
         try check(
             second.journeyStageKey == wizardStage2,
-            "stage advanced to \"\(wizardStage2)\" (got \(second.journeyStageKey ?? "nil"))")
+            "stage advanced to \"\(wizardStage2)\" (got \(second.journeyStageKey ?? "nil"))"
+        )
         try check(
-            second.journeyStageNodeId != first.journeyStageNodeId, "a different node served")
+            second.journeyStageNodeId != first.journeyStageNodeId, "a different node served"
+        )
         try check(
-            second.isJourneyCompletion == false, "the middle stage is not the completion stage")
+            second.isJourneyCompletion == false, "the middle stage is not the completion stage"
+        )
 
         notes.append(
             "instance \(first.journeyInstanceId ?? "?") held across "
-                + "\(wizardStage1) → \(wizardStage2)")
+                + "\(wizardStage1) → \(wizardStage2)"
+        )
     }
 
     await scenario("K3", "the wizard's final_stage completes the journey and emits no beacon") {
@@ -158,29 +182,36 @@ func wizardParityGroup() async {
 
         // Walk the graph to the completion stage.
         _ = try await decide(
-            driver, placements: [wizardPlacement2], sessionId: session, opt: .optIn)
+            driver, placements: [wizardPlacement2], sessionId: session, opt: .optIn
+        )
         let servedFinal = try await decide(
-            driver, placements: [wizardPlacement3], sessionId: session, opt: .optIn)
+            driver, placements: [wizardPlacement3], sessionId: session, opt: .optIn
+        )
         guard let last = servedFinal.creative(for: wizardPlacement3), last.isJourneyAd else {
             throw ClaimFailed(
-                claim: "the completion stage serves on \"\(wizardPlacement3)\"")
+                claim: "the completion stage serves on \"\(wizardPlacement3)\""
+            )
         }
 
         try check(
             last.journeyStageKey == wizardStage3,
-            "the served stage is \"\(wizardStage3)\" (got \(last.journeyStageKey ?? "nil"))")
+            "the served stage is \"\(wizardStage3)\" (got \(last.journeyStageKey ?? "nil"))"
+        )
         try check(
             last.journeyInstanceId == first.journeyInstanceId,
-            "still the same instance at completion")
+            "still the same instance at completion"
+        )
         try check(
-            last.isJourneyCompletion == true, "final_stage flips isCompletion to true")
+            last.isJourneyCompletion == true, "final_stage flips isCompletion to true"
+        )
         // The mirror assertion. final_stage and custom_event are mutually exclusive per deal:
         // completion is marked inline at decision time, so there is nothing for the publisher
         // to fire. A beacon here would mean double counting.
         try check(
             last.hasCompletionUrl == false,
             "a final_stage deal exposes NO completion beacon "
-                + "(got \(last.tracking.completions?.count ?? 0))")
+                + "(got \(last.tracking.completions?.count ?? 0))"
+        )
 
         notes.append("completed on stage \(wizardStage3), no beacon exposed")
     }
@@ -192,14 +223,16 @@ func wizardParityGroup() async {
         let servedNode = first.journeyStageNodeId
 
         let repeated = try await decide(
-            driver, placements: [wizardPlacement1], sessionId: session, opt: .optIn)
+            driver, placements: [wizardPlacement1], sessionId: session, opt: .optIn
+        )
         let repeatCreative = repeated.creative(for: wizardPlacement1)
         let repeatedSameNode =
             repeatCreative?.isJourneyAd == true
-            && repeatCreative?.journeyStageNodeId == servedNode
+                && repeatCreative?.journeyStageNodeId == servedNode
         try check(
             !repeatedSameNode,
-            "the same node does not serve twice (node \(servedNode ?? "?"))")
+            "the same node does not serve twice (node \(servedNode ?? "?"))"
+        )
 
         // Positive control. Without it, "no ad" is indistinguishable from "empty placement"
         // and the assertion above proves nothing. The control sends NO session at all —
@@ -212,21 +245,25 @@ func wizardParityGroup() async {
                 !controlCreative.isJourneyAd,
                 "the control (no session) serves a normal, non-journey ad, proving "
                     + "\"\(wizardPlacement1)\" has inventory and the no-ad above was takeover "
-                    + "suppression rather than no-fill")
+                    + "suppression rather than no-fill"
+            )
             notes.append(
                 "positive control served a normal ad "
-                    + "(advertiser \(controlCreative.advertiser.name ?? "?"))")
+                    + "(advertiser \(controlCreative.advertiser.name ?? "?"))"
+            )
         } else {
             notes.append(
                 "no competing normal ad on \"\(wizardPlacement1)\" — suppression is asserted "
-                    + "without a positive control")
+                    + "without a positive control"
+            )
         }
 
         notes.append(
             repeated.isNoAd(for: wizardPlacement1)
                 ? "repeat request returned no-ad"
                 : "repeat request served a different node "
-                    + "(\(repeatCreative?.journeyStageNodeId ?? "?"))")
+                + "(\(repeatCreative?.journeyStageNodeId ?? "?"))"
+        )
     }
 }
 
@@ -269,17 +306,21 @@ func requestForwardingGroup() async {
         try check(
             http.headers?["X-Decision-Version"] == e2eAPIVersion,
             "X-Decision-Version is \(e2eAPIVersion) — without it the engine SILENTLY ignores "
-                + "journey fields and serves normal ads")
+                + "journey fields and serves normal ads"
+        )
         try check(
             body.contains("\"sessionId\":\"\(session)\""),
-            "sessionId is a top-level camelCase field")
+            "sessionId is a top-level camelCase field"
+        )
         try check(
             body.contains("\"journeyOpt\":\"in\""),
-            "journeyOpt serializes as the wire literal \"in\"")
+            "journeyOpt serializes as the wire literal \"in\""
+        )
         // Not nested under user/targeting — a shape mismatch the engine would ignore without
         // complaining.
         try check(
-            !body.contains("\"user\":{\"sessionId\""), "sessionId is not nested under user")
+            !body.contains("\"user\":{\"sessionId\""), "sessionId is not nested under user"
+        )
         notes.append("wire shape verified without touching the engine")
     }
 
@@ -304,7 +345,8 @@ func requestForwardingGroup() async {
             .addPlacement(key: demoStage1Placement).build()
         try check(third.sessionId == override, "the per-request override applies")
         try check(
-            fourth.sessionId == session, "the override did not leak into the next request")
+            fourth.sessionId == session, "the override did not leak into the next request"
+        )
 
         // And a per-request clear removes it for that request only.
         let cleared = driver.sdk.createRequestBuilder()
@@ -319,7 +361,8 @@ func requestForwardingGroup() async {
 /// Serves the demo journey's first stage.
 private func startJourney(_ driver: Driver, _ session: String) async throws -> Creative {
     let served = try await decide(
-        driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn)
+        driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn
+    )
     guard let creative = served.creative(for: demoStage1Placement), creative.isJourneyAd else {
         throw ClaimFailed(claim: "the journey starts on \"\(demoStage1Placement)\"")
     }
@@ -333,16 +376,21 @@ func progressionGroup() async {
 
         try check(
             creative.journeyDefinitionKey == demoDefinition,
-            "definitionKey is \"\(demoDefinition)\"")
+            "definitionKey is \"\(demoDefinition)\""
+        )
         try check(
             creative.journeyStageKey == demoStage1Key,
-            "the first stage \"\(demoStage1Key)\" serves (got \(creative.journeyStageKey ?? "nil"))")
+            "the first stage \"\(demoStage1Key)\" serves (got \(creative.journeyStageKey ?? "nil"))"
+        )
         try check(
-            !(creative.journeyInstanceId ?? "").isEmpty, "a non-blank instance id was minted")
+            !(creative.journeyInstanceId ?? "").isEmpty, "a non-blank instance id was minted"
+        )
         try check(
-            creative.isJourneyCompletion != true, "the first stage is not a completion")
+            creative.isJourneyCompletion != true, "the first stage is not a completion"
+        )
         notes.append(
-            "instance \(creative.journeyInstanceId ?? "?") stage \(creative.journeyStageKey ?? "?")")
+            "instance \(creative.journeyInstanceId ?? "?") stage \(creative.journeyStageKey ?? "?")"
+        )
     }
 
     await scenario("B2", "a second node in the same stage serves (multi-node)") { notes in
@@ -351,23 +399,29 @@ func progressionGroup() async {
         let first = try await startJourney(driver, session)
 
         let served = try await decide(
-            driver, placements: [demoStage1PlacementB], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage1PlacementB], sessionId: session, opt: .optIn
+        )
         guard let second = served.creative(for: demoStage1PlacementB), second.isJourneyAd else {
             throw ClaimFailed(
-                claim: "the second node serves on \"\(demoStage1PlacementB)\"")
+                claim: "the second node serves on \"\(demoStage1PlacementB)\""
+            )
         }
 
         try check(
             second.journeyStageKey == first.journeyStageKey,
-            "the stage did not advance (still \(first.journeyStageKey ?? "nil"))")
+            "the stage did not advance (still \(first.journeyStageKey ?? "nil"))"
+        )
         try check(
-            second.journeyStageNodeId != first.journeyStageNodeId, "a different node served")
+            second.journeyStageNodeId != first.journeyStageNodeId, "a different node served"
+        )
         try check(
             second.journeyInstanceId == first.journeyInstanceId,
-            "the same instance served both nodes")
+            "the same instance served both nodes"
+        )
         notes.append(
             "nodes \(first.journeyStageNodeId ?? "?") + \(second.journeyStageNodeId ?? "?") "
-                + "in \(first.journeyStageKey ?? "?")")
+                + "in \(first.journeyStageKey ?? "?")"
+        )
     }
 
     await scenario(
@@ -379,11 +433,12 @@ func progressionGroup() async {
         let first = try await startJourney(driver, session)
 
         let repeated = try await decide(
-            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn
+        )
         let repeatCreative = repeated.creative(for: demoStage1Placement)
         let sameNodeAgain =
             repeatCreative?.isJourneyAd == true
-            && repeatCreative?.journeyStageNodeId == first.journeyStageNodeId
+                && repeatCreative?.journeyStageNodeId == first.journeyStageNodeId
         try check(!sameNodeAgain, "the already-served node does not serve again")
 
         // The control sends NO session. Sending a session with journeyOpt omitted is
@@ -393,12 +448,14 @@ func progressionGroup() async {
         guard let controlCreative = control.creative(for: demoStage1Placement) else {
             throw ClaimFailed(
                 claim: "the no-session control serves a competing normal ad on "
-                    + "\"\(demoStage1Placement)\"")
+                    + "\"\(demoStage1Placement)\""
+            )
         }
         try check(
             !controlCreative.isJourneyAd,
             "the no-session control serves a competing normal ad, proving the placement has "
-                + "inventory and the no-ad above was takeover suppression, not a fill failure")
+                + "inventory and the no-ad above was takeover suppression, not a fill failure"
+        )
         notes.append("control advertiser \(controlCreative.advertiser.name ?? "?")")
     }
 
@@ -408,17 +465,20 @@ func progressionGroup() async {
         let first = try await startJourney(driver, session)
 
         let served = try await decide(
-            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn
+        )
         guard let second = served.creative(for: demoStage2Placement), second.isJourneyAd else {
             throw ClaimFailed(claim: "stage 2 serves on \"\(demoStage2Placement)\"")
         }
 
         try check(
             second.journeyStageKey == demoStage2Key,
-            "the stage advanced to \"\(demoStage2Key)\" (got \(second.journeyStageKey ?? "nil"))")
+            "the stage advanced to \"\(demoStage2Key)\" (got \(second.journeyStageKey ?? "nil"))"
+        )
         try check(
             second.journeyInstanceId == first.journeyInstanceId,
-            "the instance id is stable across \(demoStage1Key) → \(demoStage2Key)")
+            "the instance id is stable across \(demoStage1Key) → \(demoStage2Key)"
+        )
         notes.append("instance \(first.journeyInstanceId ?? "?") held across stages")
     }
 
@@ -427,23 +487,29 @@ func progressionGroup() async {
         let session = freshSession("b5")
         let first = try await startJourney(driver, session)
         _ = try await decide(
-            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn
+        )
         let served = try await decide(
-            driver, placements: [demoStage3Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage3Placement], sessionId: session, opt: .optIn
+        )
         guard let last = served.creative(for: demoStage3Placement), last.isJourneyAd else {
             throw ClaimFailed(
-                claim: "the final stage serves on \"\(demoStage3Placement)\"")
+                claim: "the final stage serves on \"\(demoStage3Placement)\""
+            )
         }
 
         try check(
             last.journeyStageKey == demoStage3Key,
-            "the stage advanced to \"\(demoStage3Key)\" (got \(last.journeyStageKey ?? "nil"))")
+            "the stage advanced to \"\(demoStage3Key)\" (got \(last.journeyStageKey ?? "nil"))"
+        )
         try check(
-            last.journeyInstanceId == first.journeyInstanceId, "still the same instance")
+            last.journeyInstanceId == first.journeyInstanceId, "still the same instance"
+        )
         // Recorded rather than over-asserted: whether the last stage completes depends on the
         // deal's completion configuration, which is the engine's business, not the SDK's.
         notes.append(
-            "isCompletion=\(last.isJourneyCompletion) pricing=\(last.journeyPricingModel ?? "nil")")
+            "isCompletion=\(last.isJourneyCompletion) pricing=\(last.journeyPricingModel ?? "nil")"
+        )
     }
 
     await scenario("B6", "three nodes in one stage each serve exactly once") { notes in
@@ -455,24 +521,33 @@ func progressionGroup() async {
 
         for placement in multiNodePlacements {
             let served = try await decide(
-                driver, placements: [placement], sessionId: session, opt: .optIn)
+                driver, placements: [placement], sessionId: session, opt: .optIn
+            )
             guard let creative = served.creative(for: placement), creative.isJourneyAd else {
                 throw SkipScenario(
                     "the seeded multi-node fixture did not serve on \"\(placement)\" — is "
-                        + "`e2e_multinode_journey` present in this database?")
+                        + "`e2e_multinode_journey` present in this database?"
+                )
             }
-            if instance == nil { instance = creative.journeyInstanceId }
-            if stageKey == nil { stageKey = creative.journeyStageKey }
+            if instance == nil {
+                instance = creative.journeyInstanceId
+            }
+            if stageKey == nil {
+                stageKey = creative.journeyStageKey
+            }
 
             try check(
                 creative.journeyInstanceId == instance,
-                "every node served under the same instance")
+                "every node served under the same instance"
+            )
             try check(
                 creative.journeyStageKey == stageKey,
-                "the stage never regresses or advances (still \(stageKey ?? "nil"))")
+                "the stage never regresses or advances (still \(stageKey ?? "nil"))"
+            )
             try check(
                 !seen.contains(creative.journeyStageNodeId ?? ""),
-                "node \(creative.journeyStageNodeId ?? "?") served only once")
+                "node \(creative.journeyStageNodeId ?? "?") served only once"
+            )
             seen.append(creative.journeyStageNodeId ?? "")
         }
 
@@ -490,25 +565,30 @@ func progressionGroup() async {
         // other scenario stays green — this is the scenario that notices.
         try check(
             first.journeySessionId == session,
-            "the engine echoes the session id back (got \(first.journeySessionId ?? "nil"))")
+            "the engine echoes the session id back (got \(first.journeySessionId ?? "nil"))"
+        )
         try check(
             first.journeyOptStatus == .optIn,
-            "optStatus echoes the opt-in (got \(String(describing: first.journeyOptStatus)))")
+            "optStatus echoes the opt-in (got \(String(describing: first.journeyOptStatus)))"
+        )
         try check(!(first.journeyStageId ?? "").isEmpty, "stageId is surfaced")
         try check(!(first.journeyStageNodeId ?? "").isEmpty, "stageNodeId is surfaced")
         try check(!(first.journeyDealId ?? "").isEmpty, "dealId is surfaced")
         try check(!(first.journeyPricingModel ?? "").isEmpty, "pricingModel is surfaced")
 
         let served = try await decide(
-            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage2Placement], sessionId: session, opt: .optIn
+        )
         guard let next = served.creative(for: demoStage2Placement), next.isJourneyAd else {
             throw ClaimFailed(claim: "stage 2 serves")
         }
         try check(
             next.journeyDealId == first.journeyDealId,
-            "dealId is constant across the journey stages")
+            "dealId is constant across the journey stages"
+        )
         try check(
-            next.journeySessionId == session, "the session id is echoed on every serve")
+            next.journeySessionId == session, "the session id is echoed on every serve"
+        )
         notes.append("deal \(first.journeyDealId ?? "?") stable; sessionId echoed")
     }
 }
@@ -520,14 +600,16 @@ func optGroup() async {
         let driver = newDriver()
         let served = try await decide(
             driver, placements: [demoStage1Placement], sessionId: freshSession("c1"),
-            opt: .optOut)
+            opt: .optOut
+        )
         guard let creative = served.creative(for: demoStage1Placement) else {
             throw ClaimFailed(claim: "a normal ad serves instead")
         }
         try check(
             !creative.isJourneyAd,
             "opt-out suppresses the journey entirely — note that OMITTING journeyOpt would be "
-                + "permissive and start one")
+                + "permissive and start one"
+        )
         notes.append("opt-out fell back to a normal ad (\(creative.advertiser.name ?? "?"))")
     }
 
@@ -536,7 +618,8 @@ func optGroup() async {
         let driver = newDriver()
         let session = freshSession("c2")
         let first = try await decide(
-            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn
+        )
         guard let started = first.creative(for: demoStage1Placement), started.isJourneyAd else {
             throw ClaimFailed(claim: "a journey started")
         }
@@ -544,26 +627,31 @@ func optGroup() async {
 
         // Opt-out ENDS the journey rather than pausing it.
         let optedOut = try await decide(
-            driver, placements: [demoStage2Placement], sessionId: session, opt: .optOut)
+            driver, placements: [demoStage2Placement], sessionId: session, opt: .optOut
+        )
         let optedOutCreative = optedOut.creative(for: demoStage2Placement)
         try check(
             optedOutCreative == nil || optedOutCreative?.isJourneyAd == false,
-            "no journey serves while opted out")
+            "no journey serves while opted out"
+        )
 
         // Opting back in cannot resume the closed instance — it starts a new one.
         let rejoined = try await decide(
-            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn)
+            driver, placements: [demoStage1Placement], sessionId: session, opt: .optIn
+        )
         guard let rejoinedCreative = rejoined.creative(for: demoStage1Placement),
-            rejoinedCreative.isJourneyAd
+              rejoinedCreative.isJourneyAd
         else {
             throw ClaimFailed(claim: "a journey serves again after opting back in")
         }
         try check(
             rejoinedCreative.journeyInstanceId != firstInstance,
             "the new instance id differs from the closed one (\(firstInstance ?? "nil") → "
-                + "\(rejoinedCreative.journeyInstanceId ?? "nil"))")
+                + "\(rejoinedCreative.journeyInstanceId ?? "nil"))"
+        )
         notes.append(
             "instance \(firstInstance ?? "?") closed; "
-                + "\(rejoinedCreative.journeyInstanceId ?? "?") minted")
+                + "\(rejoinedCreative.journeyInstanceId ?? "?") minted"
+        )
     }
 }

@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Journey Takeover Ads — read-only response metadata (creative.journey)
 //
@@ -41,7 +40,6 @@ private let journeyCreativeJSON = """
 """
 
 struct JourneyResponseTests {
-
     // Scenario: a Journey serve exposes every engine key on creative.journey
     @Test
     func testExactKeyParse() throws {
@@ -76,7 +74,10 @@ struct JourneyResponseTests {
     // Scenario: optStatus in/out both parse
     @Test
     func testOptStatusInOut() throws {
-        let out = try decodeCreative(journeyCreativeJSON.replacingOccurrences(of: "\"optStatus\": \"in\"", with: "\"optStatus\": \"out\""))
+        let out = try decodeCreative(journeyCreativeJSON.replacingOccurrences(
+            of: "\"optStatus\": \"in\"",
+            with: "\"optStatus\": \"out\""
+        ))
         #expect(out.journey?.optStatus == .optOut)
     }
 
@@ -99,7 +100,10 @@ struct JourneyResponseTests {
     // Scenario: a final_stage completion serve
     @Test
     func testFinalStageCompletion() throws {
-        let json = journeyCreativeJSON.replacingOccurrences(of: "\"isCompletion\": false", with: "\"isCompletion\": true")
+        let json = journeyCreativeJSON.replacingOccurrences(
+            of: "\"isCompletion\": false",
+            with: "\"isCompletion\": true"
+        )
         let creative = try decodeCreative(json)
         #expect(creative.isJourneyCompletion == true)
     }
@@ -127,9 +131,9 @@ struct JourneyResponseTests {
         let creative = try decodeCreative(json)
         let j = try #require(creative.journey)
         #expect(j.dealId == "deal_9")
-        #expect(j.optStatus == nil)               // unknown enum -> nil (open set)
-        #expect(j.pricingModel == "brand_new_model")  // open-set string preserved
-        #expect(j.isCompletion == nil)            // omitted optional
+        #expect(j.optStatus == nil) // unknown enum -> nil (open set)
+        #expect(j.pricingModel == "brand_new_model") // open-set string preserved
+        #expect(j.isCompletion == nil) // omitted optional
     }
 
     // Scenario: retyped Journey fields degrade to nil instead of throwing
@@ -151,10 +155,10 @@ struct JourneyResponseTests {
         """
         let creative = try decodeCreative(json)
         let j = try #require(creative.journey)
-        #expect(j.dealId == nil)          // number where a string was expected -> nil (NOT a throw)
+        #expect(j.dealId == nil) // number where a string was expected -> nil (NOT a throw)
         #expect(j.instanceId == "inst_1") // sibling field still reads
-        #expect(j.isCompletion == nil)    // "yes" is not a Bool -> nil
-        #expect(j.optStatus == nil)       // true is not an opt literal -> nil
+        #expect(j.isCompletion == nil) // "yes" is not a Bool -> nil
+        #expect(j.optStatus == nil) // true is not an opt literal -> nil
     }
 
     // Scenario: a non-object journey value is ignored (whole response still decodes)
@@ -195,8 +199,8 @@ struct JourneyResponseTests {
         // The non-object (42) is dropped; both object entries survive.
         #expect(creative.contents.count == 2)
         let subtitle = creative.contents.getContent(key: "subtitle")
-        #expect(subtitle?.value.value as? String == "Keep me")  // value preserved despite bad type
-        #expect(subtitle?.type == "")                            // retyped type degrades to ""
+        #expect(subtitle?.value.value as? String == "Keep me") // value preserved despite bad type
+        #expect(subtitle?.type == "") // retyped type degrades to ""
         #expect(creative.journey?.dealId == "d1")
     }
 
@@ -216,7 +220,7 @@ struct JourneyResponseTests {
         #expect(creative.contents.count == 1)
         let content = creative.contents.getContent(key: "novalue")
         #expect(content?.type == "")
-        #expect(content?.value.value as? String == nil)  // null value -> nil for any typed cast
+        #expect(content?.value.value as? String == nil) // null value -> nil for any typed cast
     }
 
     // Scenario: a full DecisionResponse array with a Journey creative decodes end-to-end

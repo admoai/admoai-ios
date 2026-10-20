@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Feature: A click beacon records the click and nothing else
 //   As a publisher's app
@@ -19,15 +18,13 @@ private func decodeTracking(_ json: String) throws -> Tracking {
 // Nested under `MockNetworkTests` so it can never run concurrently with another
 // MockURLProtocol-driven suite — see MockNetworkTests for why that matters.
 extension MockNetworkTests {
-    @Suite
     struct ClickBeaconTests {
-
         private let clickURL = "https://api.mock.admoai.com/v1/tracking?e=CLICK"
 
         private func clicks() throws -> Tracking {
             try decodeTracking("""
-                { "clicks": [{"key": "default", "url": "\(clickURL)"}] }
-                """)
+            { "clicks": [{"key": "default", "url": "\(clickURL)"}] }
+            """)
         }
 
         private func makeSDK() -> AdMoai {
@@ -42,12 +39,13 @@ extension MockNetworkTests {
                     statusCode: 302,
                     body: Data(),
                     headers: ["Location": "https://shop.advertiser.example/landing"]
-                ))
-            makeSDK().fireClick(tracking: try clicks())
+                )
+            )
+            try makeSDK().fireClick(tracking: clicks())
 
             #expect(await MockURLProtocol.waitForRequests(1))
             // Give a follow-up (which would be the bug) time to appear, then assert it did not.
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
             #expect(MockURLProtocol.capturedRequests.map { $0.url?.absoluteString } == [clickURL])
         }
 
@@ -55,11 +53,12 @@ extension MockNetworkTests {
         @Test
         func testAcceptedClickIsSentOnce() async throws {
             MockURLProtocol.reset(
-                stub: MockURLProtocol.Stub(statusCode: 202, body: Data(), headers: [:]))
-            makeSDK().fireClick(tracking: try clicks())
+                stub: MockURLProtocol.Stub(statusCode: 202, body: Data(), headers: [:])
+            )
+            try makeSDK().fireClick(tracking: clicks())
 
             #expect(await MockURLProtocol.waitForRequests(1))
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
             #expect(MockURLProtocol.capturedRequests.map { $0.url?.absoluteString } == [clickURL])
         }
 
@@ -67,7 +66,7 @@ extension MockNetworkTests {
         @Test
         func testMissingClickKeySendsNothing() async throws {
             MockURLProtocol.reset()
-            makeSDK().fireClick(tracking: try clicks(), key: "cta_tap")
+            try makeSDK().fireClick(tracking: clicks(), key: "cta_tap")
 
             _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
             #expect(MockURLProtocol.capturedRequests.isEmpty)
@@ -81,16 +80,17 @@ extension MockNetworkTests {
                     statusCode: 302,
                     body: Data(),
                     headers: ["Location": "https://shop.advertiser.example/landing"]
-                ))
+                )
+            )
             var copy: AdMoai?
             do {
                 let original = makeSDK()
                 copy = original
             }
-            copy?.fireClick(tracking: try clicks())
+            try copy?.fireClick(tracking: clicks())
 
             #expect(await MockURLProtocol.waitForRequests(1))
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
         }
     }
 }

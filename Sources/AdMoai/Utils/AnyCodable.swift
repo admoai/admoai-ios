@@ -21,12 +21,13 @@ public struct AnyCodable: Codable {
         } else if let string = try? container.decode(String.self) {
             self.value = string
         } else if let array = try? container.decode([AnyCodable].self) {
-            self.value = array.map { $0.value }
+            self.value = array.map(\.value)
         } else if let dictionary = try? container.decode([String: AnyCodable].self) {
             self.value = dictionary.mapValues { $0.value }
         } else {
             throw DecodingError.dataCorruptedError(
-                in: container, debugDescription: "AnyCodable value cannot be decoded")
+                in: container, debugDescription: "AnyCodable value cannot be decoded"
+            )
         }
     }
 
@@ -53,28 +54,30 @@ public struct AnyCodable: Codable {
                 value,
                 EncodingError.Context(
                     codingPath: container.codingPath,
-                    debugDescription: "AnyCodable value cannot be encoded"))
+                    debugDescription: "AnyCodable value cannot be encoded"
+                )
+            )
         }
     }
 
     public var description: String? {
         switch value {
         case is NSNull:
-            return "null"
+            "null"
         case let bool as Bool:
-            return bool.description
+            bool.description
         case let int as Int:
-            return int.description
+            int.description
         case let double as Double:
-            return double.description
+            double.description
         case let string as String:
-            return string
+            string
         case let array as [Any]:
-            return array.description
+            array.description
         case let dict as [String: Any]:
-            return dict.description
+            dict.description
         default:
-            return nil
+            nil
         }
     }
 }

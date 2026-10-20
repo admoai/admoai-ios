@@ -29,10 +29,9 @@
 /// The real Journey verification is the 37-scenario runner in `Tools/JourneyE2E`, which drives a
 /// locally-seeded engine. That is where the contract is proven.
 
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 private let liveBaseURL = "https://api.mock.admoai.com"
 private let journeyApiVersion = "2025-11-01"
@@ -49,13 +48,13 @@ private var requireDeployed: Bool {
 /// test when the caller has declared the engine should be deployed. Without this, the suite
 /// reports green while asserting nothing — the exact failure mode that let 610 lines of Flutter
 /// "live integration" coverage run for weeks without making a single network call.
-private func recordUnverified(_ what: String, _ sourceLocation: SourceLocation = #_sourceLocation)
-{
+private func recordUnverified(_ what: String, _ sourceLocation: SourceLocation = #_sourceLocation) {
     print("DEPLOYMENT-PENDING: not verified this run — \(what)")
     if requireDeployed {
         Issue.record(
             "ADMOAI_JOURNEY_REQUIRE_DEPLOYED=1 but this could not be verified: \(what)",
-            sourceLocation: sourceLocation)
+            sourceLocation: sourceLocation
+        )
     }
 }
 
@@ -75,7 +74,6 @@ private func isJourneyNotDeployed(_ response: APIResponse<DecisionResponse>) -> 
 
 @Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct JourneyLiveIntegrationTests {
-
     // MARK: - True regardless of Journey deployment
 
     // Scenario (residual risk #1): a normal ad serves AND its impression tracking records
@@ -98,7 +96,8 @@ struct JourneyLiveIntegrationTests {
             // fire, and the tracking half of this scenario went unproven.
             recordUnverified(
                 "no creative served on \"home\", so normal-ad tracking under "
-                    + "X-Tracking-Version was not exercised")
+                    + "X-Tracking-Version was not exercised"
+            )
             return
         }
 
@@ -107,8 +106,9 @@ struct JourneyLiveIntegrationTests {
         let (_, trackingResponse) = try await URLSession.shared.data(for: trackingRequest)
         let statusCode = (trackingResponse as? HTTPURLResponse)?.statusCode ?? 0
         #expect(
-            (200...299).contains(statusCode),
-            "normal-ad tracking under X-Tracking-Version returned \(statusCode), expected 2xx")
+            (200 ... 299).contains(statusCode),
+            "normal-ad tracking under X-Tracking-Version returned \(statusCode), expected 2xx"
+        )
     }
 
     // MARK: - Journey acceptance (deployment-pending until 2025-11-01 is live)
@@ -146,7 +146,8 @@ struct JourneyLiveIntegrationTests {
             if case .clientError(.badRequest) = error {
                 recordUnverified(
                     "the engine rejected journeyOpt=\(opt.rawValue) with HTTP 400, so Journey "
-                        + "field acceptance is unverified (engine predates 2025-11-01)")
+                        + "field acceptance is unverified (engine predates 2025-11-01)"
+                )
                 return
             }
             throw error
@@ -155,7 +156,8 @@ struct JourneyLiveIntegrationTests {
         if isJourneyNotDeployed(response) {
             recordUnverified(
                 "the engine reported an unknown field for journeyOpt=\(opt.rawValue), so "
-                    + "Journey field acceptance is unverified (engine predates 2025-11-01)")
+                    + "Journey field acceptance is unverified (engine predates 2025-11-01)"
+            )
             return
         }
 

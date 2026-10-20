@@ -43,26 +43,29 @@ func runPreflight() async {
         let probe: Served
         do {
             probe = try await decide(driver, placements: [demoStage1Placement])
-        } catch APIError.networkError(let underlying) {
+        } catch let APIError.networkError(underlying) {
             // The overwhelmingly most common failure, and the one whose fix is a single
             // command. Distinguished from "reachable but refusing" below because the two need
             // completely different actions.
             throw PreflightAbort(
                 "cannot reach the decision-engine at \(e2eBaseURL) "
                     + "(\(underlying.localizedDescription))",
-                recipe: "from the adhub root: `make start`")
+                recipe: "from the adhub root: `make start`"
+            )
         } catch {
             // Reachable but refusing the request — a different problem entirely, and one that
             // would otherwise read as "engine down".
             throw PreflightAbort(
                 "the engine rejected a plain decision request: \(error)",
                 recipe: "check the engine logs and that the seeded placement "
-                    + "\"\(demoStage1Placement)\" exists in this database")
+                    + "\"\(demoStage1Placement)\" exists in this database"
+            )
         }
         guard probe.statusCode == 200 else {
             throw PreflightAbort(
                 "engine returned HTTP \(probe.statusCode) for a plain decision",
-                recipe: "check the engine logs; `make start` from the adhub root")
+                recipe: "check the engine logs; `make start` from the adhub root"
+            )
         }
 
         // 2. Do journeys serve at all? Catches the Statsig gate being off, Redis being down,
@@ -70,16 +73,18 @@ func runPreflight() async {
         //    ads with no error to notice.
         let journeyProbe = try await decide(
             driver, placements: [demoStage1Placement],
-            sessionId: freshSession("preflight"), opt: .optIn)
+            sessionId: freshSession("preflight"), opt: .optIn
+        )
         guard let creative = journeyProbe.creative(for: demoStage1Placement),
-            creative.isJourneyAd
+              creative.isJourneyAd
         else {
             throw PreflightAbort(
                 "no journey served on \"\(demoStage1Placement)\" with a fresh session and "
                     + "journeyOpt=in — the engine is silently serving normal ads",
                 recipe: "check: Statsig `is_journey_ads_enabled = true` (default OFF), Redis up, "
                     + "mock seeds loaded (they load only into an EMPTY db), and "
-                    + "X-Decision-Version = \(e2eAPIVersion)")
+                    + "X-Decision-Version = \(e2eAPIVersion)"
+            )
         }
 
         // 3. Is the demo placement owned by the definition we expect? A UI-created journey
@@ -92,18 +97,22 @@ func runPreflight() async {
                 recipe: "WARNING: `make db-reset` from the adhub root fixes this but DESTROYS "
                     + "all locally-created platform data, including the hand-built §K wizard "
                     + "fixture. Deactivate the offending journey deal in the Ad Manager instead "
-                    + "if you need §K to keep passing.")
+                    + "if you need §K to keep passing."
+            )
         }
 
         print(
             "preflight OK — journeys serve, \"\(demoStage1Placement)\" owned by "
-                + "\"\(demoDefinition)\"")
+                + "\"\(demoDefinition)\""
+        )
         print("")
     } catch let abort as PreflightAbort {
         report.preflightDiagnosis = abort.diagnosis
         report.preflightRecipe = abort.recipe
         print("PREFLIGHT ABORT: \(abort.diagnosis)")
-        if let recipe = abort.recipe { print("  fix: \(recipe)") }
+        if let recipe = abort.recipe {
+            print("  fix: \(recipe)")
+        }
         print("")
     } catch {
         report.preflightDiagnosis = "preflight itself failed: \(error)"

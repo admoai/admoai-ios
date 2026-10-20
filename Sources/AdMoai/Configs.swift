@@ -47,7 +47,7 @@ public struct SDKConfig {
         configuration.timeoutIntervalForRequest = 10
         configuration.timeoutIntervalForResource = 30
         configuration.httpAdditionalHeaders = [
-            "User-Agent": "AdMoaiSDK/\(SDK_VERSION)"
+            "User-Agent": "AdMoaiSDK/\(SDK_VERSION)",
         ]
         return configuration
     }
@@ -79,7 +79,7 @@ public struct AppConfig: Clearable, Equatable {
     }
 
     public static func clear() -> AppConfig {
-        return AppConfig(
+        AppConfig(
             name: nil,
             version: nil,
             buildNumber: nil,
@@ -101,7 +101,7 @@ public struct AppConfig: Clearable, Equatable {
     }
 
     public static func == (lhs: AppConfig, rhs: AppConfig) -> Bool {
-        return lhs.name == rhs.name && lhs.version == rhs.version
+        lhs.name == rhs.name && lhs.version == rhs.version
             && lhs.buildNumber == rhs.buildNumber && lhs.identifier == rhs.identifier
             && lhs.language == rhs.language
     }
@@ -135,7 +135,7 @@ public struct DeviceConfig: Clearable, Equatable {
     }
 
     public static func clear() -> DeviceConfig {
-        return DeviceConfig(
+        DeviceConfig(
             id: nil,
             model: nil,
             manufacturer: nil,
@@ -161,7 +161,7 @@ public struct DeviceConfig: Clearable, Equatable {
     }
 
     public static func == (lhs: DeviceConfig, rhs: DeviceConfig) -> Bool {
-        return lhs.id == rhs.id && lhs.model == rhs.model && lhs.manufacturer == rhs.manufacturer
+        lhs.id == rhs.id && lhs.model == rhs.model && lhs.manufacturer == rhs.manufacturer
             && lhs.os == rhs.os && lhs.osVersion == rhs.osVersion && lhs.timezone == rhs.timezone
             && lhs.language == rhs.language
     }
@@ -186,7 +186,7 @@ public struct UserConfig: Clearable, Equatable {
     }
 
     public static func clear() -> UserConfig {
-        return UserConfig(
+        UserConfig(
             id: nil,
             ip: nil,
             timezone: nil,
@@ -195,7 +195,7 @@ public struct UserConfig: Clearable, Equatable {
     }
 
     public static func == (lhs: UserConfig, rhs: UserConfig) -> Bool {
-        return lhs.id == rhs.id && lhs.ip == rhs.ip && lhs.timezone == rhs.timezone
+        lhs.id == rhs.id && lhs.ip == rhs.ip && lhs.timezone == rhs.timezone
             && lhs.consent == rhs.consent
     }
 }

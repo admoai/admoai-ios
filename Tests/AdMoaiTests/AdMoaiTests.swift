@@ -1,11 +1,11 @@
+@testable import AdMoai
 import OSLog
 import Testing
-
-@testable import AdMoai
 
 private let baseURL = "https://api.mock.admoai.com"
 
 // MARK: - SDK Initialization Tests
+
 @Test
 func testSDKInitialization() {
     let config = SDKConfig(
@@ -55,6 +55,7 @@ func testUserAgentHeaderContainsSDKVersion() {
 }
 
 // MARK: - Configuration Management Tests
+
 @Test
 func testAppConfigManagement() {
     let config = SDKConfig(baseUrl: baseURL)

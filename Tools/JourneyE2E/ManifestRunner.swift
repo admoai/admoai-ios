@@ -2,6 +2,7 @@ import AdMoai
 import Foundation
 
 // MARK: - Shared manifest interpreter
+
 //
 // Executes `scenarios.json`, the cross-SDK scenario manifest. The manifest is the single
 // definition of each declarative scenario; this file is only the Swift interpreter for it.
@@ -158,11 +159,10 @@ func manifestGroup() async {
 
 private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [String]) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
-    let driver: Driver
-    switch entry.request.apiVersion {
-    case .some("none"): driver = newDriver(apiVersion: nil)
-    case .some(let version): driver = newDriver(apiVersion: version)
-    case nil: driver = newDriver()
+    let driver: Driver = switch entry.request.apiVersion {
+    case .some("none"): newDriver(apiVersion: nil)
+    case let .some(version): newDriver(apiVersion: version)
+    case nil: newDriver()
     }
 
     let builder = driver.sdk.createRequestBuilder()
@@ -172,12 +172,15 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
             count: placement.count,
             format: placement.format.flatMap(Format.init(rawValue:)),
             advertiserId: placement.advertiserId,
-            templateId: placement.templateId)
+            templateId: placement.templateId
+        )
     }
     for custom in entry.request.custom ?? [] {
         _ = builder.addCustomTargeting(key: custom.key, value: custom.value)
     }
-    if entry.request.session != nil { _ = builder.setSessionId(freshSession(entry.id.lowercased())) }
+    if entry.request.session != nil {
+        _ = builder.setSessionId(freshSession(entry.id.lowercased()))
+    }
     if let opt = entry.request.journeyOpt {
         _ = builder.setJourneyOpt(opt == "in" ? .optIn : .optOut)
     }
@@ -186,10 +189,12 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
             _ = try builder.setDistanceTargeting(
                 latitude: d.latitude, longitude: d.longitude,
                 bounds: DistanceBounds(north: b.north, south: b.south, east: b.east, west: b.west),
-                limit: d.limit)
+                limit: d.limit
+            )
         } else if let r = d.radius {
             _ = try builder.setDistanceTargeting(
-                latitude: d.latitude, longitude: d.longitude, radius: r, limit: d.limit)
+                latitude: d.latitude, longitude: d.longitude, radius: r, limit: d.limit
+            )
         }
     }
 
@@ -208,19 +213,22 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
         } catch let sdkError as SDKError {
             try check(
                 expected.kind == "local",
-                "a local SDK error is expected for this scenario (got \(sdkError))")
+                "a local SDK error is expected for this scenario (got \(sdkError))"
+            )
             notes.append("rejected locally as \(sdkError), no network call")
             return
         } catch let apiError as APIError {
             try check(expected.kind != "local", "the SDK rejects this before any network call")
-            guard case .validationError(let errors) = apiError else {
+            guard case let .validationError(errors) = apiError else {
                 throw ClaimFailed(
-                    claim: "a validation error is raised (got \(apiError.description))")
+                    claim: "a validation error is raised (got \(apiError.description))"
+                )
             }
             if let code = expected.code {
                 try check(
                     errors.contains { $0.code == code },
-                    "the engine error code is \(code) (got \(errors.map(\.code)))")
+                    "the engine error code is \(code) (got \(errors.map(\.code)))"
+                )
             }
             notes.append("rejected with \(errors.map { "[\($0.code)] \($0.message)" }.joined())")
             return
@@ -233,14 +241,16 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
     if let expected = entry.expect.decisions {
         try check(
             served.decisions.count == expected,
-            "the response carries \(expected) decision(s) (got \(served.decisions.count))")
+            "the response carries \(expected) decision(s) (got \(served.decisions.count))"
+        )
     }
     if entry.expect.decisionsMatchRequest == true {
         let requested = entry.request.placements.map(\.key)
         let returned = served.decisions.map(\.placement)
         try check(
             Set(requested) == Set(returned),
-            "every requested placement is keyed back: \(requested) vs \(returned)")
+            "every requested placement is keyed back: \(requested) vs \(returned)"
+        )
     }
 
     guard let decision = served.decisions.first else {
@@ -260,7 +270,8 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
     if let atMost = entry.expect.creativesAtMost {
         try check(
             creatives.count <= atMost,
-            "at most \(atMost) creatives are returned (got \(creatives.count))")
+            "at most \(atMost) creatives are returned (got \(creatives.count))"
+        )
         notes.append("returned \(creatives.count) creative(s)")
     }
     if entry.expect.creativesDistinct == true, creatives.count > 1 {
@@ -296,7 +307,8 @@ private func assertCreative(
     if let allowed = expect.priorityIn, let metadata = creative.metadata {
         try check(
             allowed.contains(metadata.priority.rawValue),
-            "priority is one of \(allowed) (got \(metadata.priority.rawValue))")
+            "priority is one of \(allowed) (got \(metadata.priority.rawValue))"
+        )
     }
     if expect.requireAdvertiser == true {
         let advertiser = creative.advertiser
@@ -314,17 +326,20 @@ private func assertCreative(
     if let wantsJourney = expect.journey {
         try check(
             creative.isJourneyAd == wantsJourney,
-            "isJourneyAd is \(wantsJourney) (got \(creative.isJourneyAd))")
+            "isJourneyAd is \(wantsJourney) (got \(creative.isJourneyAd))"
+        )
     }
     if let format = expect.formatEquals {
         try check(
             creative.metadata?.format == format,
-            "metadata.format is \"\(format)\" (got \(creative.metadata?.format ?? "nil"))")
+            "metadata.format is \"\(format)\" (got \(creative.metadata?.format ?? "nil"))"
+        )
     }
     if let delivery = expect.deliveryEquals {
         try check(
             creative.delivery == delivery,
-            "delivery is \"\(delivery)\" (got \(creative.delivery ?? "nil"))")
+            "delivery is \"\(delivery)\" (got \(creative.delivery ?? "nil"))"
+        )
     }
 
     // --- Sponsored Pin ------------------------------------------------------------------
@@ -332,19 +347,21 @@ private func assertCreative(
     if let atLeast = expect.matchedPointsAtLeast {
         try check(
             points.count >= atLeast,
-            "the creative carries at least \(atLeast) matched point(s) (got \(points.count))")
+            "the creative carries at least \(atLeast) matched point(s) (got \(points.count))"
+        )
     }
     if let exactly = expect.matchedPointsEquals {
         try check(
             points.count == exactly,
-            "the creative carries exactly \(exactly) matched point(s) (got \(points.count))")
+            "the creative carries exactly \(exactly) matched point(s) (got \(points.count))"
+        )
     }
     if expect.matchedPointsNone == true {
         try check(points.isEmpty, "the creative carries NO matched points (got \(points.count))")
     }
     if expect.matchedPointsNearestFirst == true {
         var ordered = true
-        for i in 1..<max(points.count, 1) where points[i - 1].distance > points[i].distance {
+        for i in 1 ..< max(points.count, 1) where points[i - 1].distance > points[i].distance {
             ordered = false
         }
         try check(ordered, "matched points are ordered nearest first")
@@ -355,7 +372,8 @@ private func assertCreative(
             try check(!p.id.isEmpty, "point id is non-empty")
             try check(
                 p.id.hasPrefix("advertiser_location_"),
-                "point id is an Advertiser Location public id (got \(p.id))")
+                "point id is an Advertiser Location public id (got \(p.id))"
+            )
             try check(!p.name.isEmpty, "point \(p.id) has a name")
             try check(p.distance >= 0, "point \(p.name) has a non-negative distance")
         }
@@ -376,7 +394,8 @@ private func assertCreative(
             for item in t.views ?? [] {
                 try check(
                     seen.insert(item.url).inserted,
-                    "point \(p.name) has its own view beacon, not a shared one")
+                    "point \(p.name) has its own view beacon, not a shared one"
+                )
             }
         }
     }
@@ -384,24 +403,28 @@ private func assertCreative(
         for p in points {
             try check(
                 !(p.clickUrl ?? "").isEmpty,
-                "point \(p.name) carries a resolved destination")
+                "point \(p.name) carries a resolved destination"
+            )
         }
     }
     switch expect.impressions {
     case "required":
         try check(
-            !(creative.tracking.impressions ?? []).isEmpty, "an impression URL is exposed")
+            !(creative.tracking.impressions ?? []).isEmpty, "an impression URL is exposed"
+        )
     case "forbidden":
         try check(
             (creative.tracking.impressions ?? []).isEmpty,
-            "NO engine-side impression URL is exposed (VAST owns it; both would double-count)")
+            "NO engine-side impression URL is exposed (VAST owns it; both would double-count)"
+        )
     default: break
     }
     if let atLeast = expect.clicksAtLeast {
         let clicks = creative.tracking.clicks ?? []
         try check(
             clicks.count >= atLeast,
-            "at least \(atLeast) click URL(s) exposed (got \(clicks.count))")
+            "at least \(atLeast) click URL(s) exposed (got \(clicks.count))"
+        )
     }
     if let count = expect.videoEventCount {
         let events = creative.tracking.videoEvents ?? []
@@ -414,7 +437,8 @@ private func assertCreative(
         let actual = Set((creative.tracking.videoEvents ?? []).map(\.key))
         try check(
             Set(keys).isSubset(of: actual),
-            "video events include \(keys) (got \(actual.sorted()))")
+            "video events include \(keys) (got \(actual.sorted()))"
+        )
     }
     if expect.requireVastTagUrl == true {
         let tag = creative.getVastTagUrl()
@@ -423,7 +447,7 @@ private func assertCreative(
     }
     if expect.requireVastXmlDecodes == true {
         guard let base64 = creative.getVastXmlBase64(), let data = Data(base64Encoded: base64),
-            let xml = String(data: data, encoding: .utf8)
+              let xml = String(data: data, encoding: .utf8)
         else {
             throw ClaimFailed(claim: "vast.xmlBase64 decodes to UTF-8 text")
         }
@@ -447,23 +471,27 @@ private func assertCreative(
         // the Wave 2 fix, which no live scenario exercised until now.
         try check(
             creative.isSkippable() == skippable,
-            "isSkippable() is \(skippable) (got \(creative.isSkippable()))")
+            "isSkippable() is \(skippable) (got \(creative.isSkippable()))"
+        )
     }
     if let offset = expect.helperSkipOffsetEquals {
         try check(
             creative.getSkipOffset() == offset,
-            "getSkipOffset() is \"\(offset)\" (got \(creative.getSkipOffset() ?? "nil"))")
+            "getSkipOffset() is \"\(offset)\" (got \(creative.getSkipOffset() ?? "nil"))"
+        )
     }
     if let mode = expect.endCardModeEquals {
         try check(
             creative.metadata?.endCardMode == mode,
-            "metadata.endCardMode is \"\(mode)\" (got \(creative.metadata?.endCardMode ?? "nil"))")
+            "metadata.endCardMode is \"\(mode)\" (got \(creative.metadata?.endCardMode ?? "nil"))"
+        )
     }
 }
 
 /// Issues a prebuilt request. Mirrors `decide` but takes the request already built, because the
 /// interpreter assembles it from manifest data rather than from named arguments.
 // MARK: Sponsored Pin tracking (adhub#4410)
+
 //
 // `pinTracking` replays what a map does with the pins it was served, through the SDK's real
 // point-tracking calls, and asserts what actually reached the engine. The semantics are the
@@ -512,7 +540,8 @@ struct ManifestPinStep: Decodable {
         if let all = try? c.decode(String.self, forKey: .views) {
             guard all == "all" else {
                 throw DecodingError.dataCorruptedError(
-                    forKey: .views, in: c, debugDescription: "views is \"all\" or {from, to}")
+                    forKey: .views, in: c, debugDescription: "views is \"all\" or {from, to}"
+                )
             }
             views = .all
         } else if let range = try c.decodeIfPresent(Range.self, forKey: .views) {
@@ -560,12 +589,14 @@ private func runPinTracking(
             switch views {
             case .all:
                 slice = pins
-            case .range(let from, let to):
+            case let .range(from, to):
                 try check(to <= pins.count, "the response carries \(to) pins (got \(pins.count))")
-                slice = Array(pins[from..<to])
+                slice = Array(pins[from ..< to])
             }
             driver.sdk.trackPointViews(slice)
-            for p in slice { expectedViews.formUnion((p.tracking?.views ?? []).map(\.url)) }
+            for p in slice {
+                expectedViews.formUnion((p.tracking?.views ?? []).map(\.url))
+            }
         }
         if let i = step.view {
             let p = try pick(i)
@@ -575,12 +606,16 @@ private func runPinTracking(
         if let i = step.tap {
             let p = try pick(i)
             driver.sdk.trackPointTap(p)
-            for item in p.tracking?.taps ?? [] { expectedInteractions[item.url, default: 0] += 1 }
+            for item in p.tracking?.taps ?? [] {
+                expectedInteractions[item.url, default: 0] += 1
+            }
         }
         if let i = step.click {
             let p = try pick(i)
             driver.sdk.trackPointClick(p)
-            for item in p.tracking?.clicks ?? [] { expectedInteractions[item.url, default: 0] += 1 }
+            for item in p.tracking?.clicks ?? [] {
+                expectedInteractions[item.url, default: 0] += 1
+            }
         }
     }
 
@@ -601,12 +636,16 @@ private func runPinTracking(
     }
     if pin.expect.interactionsEveryCall == true {
         for (url, times) in expectedInteractions {
-            try check(counts[url] == times, "a tap/click beacon is sent on every call: \(times) (got \(counts[url] ?? 0))")
+            try check(
+                counts[url] == times,
+                "a tap/click beacon is sent on every call: \(times) (got \(counts[url] ?? 0))"
+            )
         }
     }
     try check(
         sent.count == expectedTotal,
-        "exactly \(expectedTotal) tracking GETs reach the engine, nothing stray (got \(sent.count))")
+        "exactly \(expectedTotal) tracking GETs reach the engine, nothing stray (got \(sent.count))"
+    )
     if pin.expect.newResponseHasNewViewUrls == true {
         try check(responses.count >= 2, "the steps fetched a second response")
         let perResponse = responses.map { Set($0.flatMap { ($0.tracking?.views ?? []).map(\.url) }) }
@@ -614,7 +653,8 @@ private func runPinTracking(
             for j in perResponse.indices where j > i {
                 try check(
                     perResponse[i].isDisjoint(with: perResponse[j]),
-                    "a new response mints new view URLs for the same pins")
+                    "a new response mints new view URLs for the same pins"
+                )
             }
         }
     }
@@ -626,12 +666,13 @@ private func runPinTracking(
             answers = RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
         }
         try check(answers.count == sent.count, "the engine answered every beacon (\(answers.count)/\(sent.count))")
-        let rejected = answers.filter { !(200..<400).contains($0.status) }
+        let rejected = answers.filter { !(200 ..< 400).contains($0.status) }
         try check(rejected.isEmpty, "the engine accepts every beacon (rejected: \(rejected.map(\.status)))")
     }
     notes.append(
         "\(responses.count) response(s), \(responses.map(\.count)) pins: \(expectedViews.count) view GET(s), "
-            + "\(expectedInteractions.values.reduce(0, +)) tap/click GET(s), \(sent.count) sent in total")
+            + "\(expectedInteractions.values.reduce(0, +)) tap/click GET(s), \(sent.count) sent in total"
+    )
 }
 
 private func decideManifest(_ driver: Driver, _ request: DecisionRequest) async throws -> Served {
@@ -639,10 +680,12 @@ private func decideManifest(_ driver: Driver, _ request: DecisionRequest) async 
     return Served(
         decisions: response.body.data ?? [],
         statusCode: response.response.statusCode,
-        rawBody: response.rawBody)
+        rawBody: response.rawBody
+    )
 }
 
 // MARK: - §U wire shape (hand-written: needs the built request, not a served response)
+
 //
 // Procedural rather than manifest-driven: these assert what the SDK PUTS ON THE WIRE, which the
 // declarative interpreter never inspects. `getHttpRequest` builds the body and headers without
@@ -654,7 +697,7 @@ func wireShapeGroup() async {
         let builder = driver.sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setUserId("u-1")
-            .addGeoTargeting(5128581)
+            .addGeoTargeting(5_128_581)
             .addLocationTargeting(latitude: 40.7, longitude: -74.0)
         _ = try builder.addDestinationTargeting(latitude: 41.0, longitude: -73.0, minConfidence: 0.8)
         let body = try bodyString(driver, builder.build())
@@ -678,7 +721,8 @@ func wireShapeGroup() async {
         try check(headers["Accept-Language"] == e2eLanguage, "Accept-Language is \(e2eLanguage)")
         try check(
             (headers["User-Agent"] ?? "").hasPrefix("AdMoaiSDK/"),
-            "a User-Agent identifying the SDK is sent (got \(headers["User-Agent"] ?? "nil"))")
+            "a User-Agent identifying the SDK is sent (got \(headers["User-Agent"] ?? "nil"))"
+        )
         try check(headers["Content-Type"] == "application/json", "Content-Type is application/json")
         notes.append("headers: \(headers.keys.sorted().joined(separator: ", "))")
     }

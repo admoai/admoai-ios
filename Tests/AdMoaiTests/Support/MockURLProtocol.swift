@@ -1,6 +1,5 @@
-import Foundation
-
 @testable import AdMoai
+import Foundation
 
 /// In-process HTTP stub for deterministic SDK tests.
 ///
@@ -11,7 +10,7 @@ import Foundation
 final class MockURLProtocol: URLProtocol {
     struct Stub {
         var statusCode: Int = 200
-        var body: Data = Data("[]".utf8)
+        var body: Data = .init("[]".utf8)
         var headers: [String: String] = ["Content-Type": "application/json"]
         /// Hosts whose requests fail with a connection error instead of a response —
         /// for failure-isolation tests (a refused tracker must not affect siblings).
@@ -36,7 +35,9 @@ final class MockURLProtocol: URLProtocol {
         return _requests
     }
 
-    static var lastRequest: URLRequest? { capturedRequests.last }
+    static var lastRequest: URLRequest? {
+        capturedRequests.last
+    }
 
     /// The body of the request at `index`, as it actually went out.
     ///
@@ -71,8 +72,10 @@ final class MockURLProtocol: URLProtocol {
     static func waitForRequests(_ count: Int, timeout: TimeInterval = 2.0) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if capturedRequests.count >= count { return true }
-            try? await Task.sleep(nanoseconds: 10_000_000)  // 10 ms
+            if capturedRequests.count >= count {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10 ms
         }
         return capturedRequests.count >= count
     }
@@ -81,7 +84,9 @@ final class MockURLProtocol: URLProtocol {
         let body = request.httpBody ?? request.httpBodyStream.map(drain)
         lock.lock(); defer { lock.unlock() }
         _requests.append(request)
-        if let body { _bodies[_requests.count - 1] = body }
+        if let body {
+            _bodies[_requests.count - 1] = body
+        }
     }
 
     private static func drain(_ stream: InputStream) -> Data {
@@ -91,7 +96,9 @@ final class MockURLProtocol: URLProtocol {
         var buffer = [UInt8](repeating: 0, count: 4096)
         while stream.hasBytesAvailable {
             let read = stream.read(&buffer, maxLength: buffer.count)
-            if read <= 0 { break }
+            if read <= 0 {
+                break
+            }
             data.append(buffer, count: read)
         }
         return data
@@ -104,8 +111,13 @@ final class MockURLProtocol: URLProtocol {
 
     // MARK: URLProtocol
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         MockURLProtocol.record(request)
@@ -130,13 +142,14 @@ final class MockURLProtocol: URLProtocol {
         // (the E31 test would pass even with the blocker deleted). A session that
         // follows (no delegate) then issues a new request for the Location target;
         // a blocking delegate receives the 3xx as the final response.
-        if (300...399).contains(stub.statusCode),
-            let location = stub.headers["Location"],
-            let target = URL(string: location, relativeTo: url)
+        if (300 ... 399).contains(stub.statusCode),
+           let location = stub.headers["Location"],
+           let target = URL(string: location, relativeTo: url)
         {
             client?.urlProtocol(
                 self, wasRedirectedTo: URLRequest(url: target.absoluteURL),
-                redirectResponse: response)
+                redirectResponse: response
+            )
         }
 
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

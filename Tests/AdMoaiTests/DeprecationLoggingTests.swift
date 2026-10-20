@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // API deprecation-aware logging
 //
@@ -15,7 +14,6 @@ import Testing
 // not inspect headers (documented limitation).
 
 struct DeprecationLoggingTests {
-
     // Scenario: no deprecation header -> no warning
     @Test
     func testNotDeprecatedWhenHeaderAbsentOrFalse() {

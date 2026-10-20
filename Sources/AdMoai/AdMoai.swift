@@ -24,6 +24,7 @@ internal final class SessionBox: @unchecked Sendable {
 }
 
 // MARK: - AdMoai SDK
+
 public struct AdMoai {
     private let client: AdMoaiClient
     public private(set) var config: SDKConfig
@@ -80,6 +81,7 @@ public struct AdMoai {
     }
 
     // MARK: - App Configuration
+
     public mutating func setAppConfig(
         name: String? = nil,
         version: String? = nil,
@@ -106,6 +108,7 @@ public struct AdMoai {
     }
 
     // MARK: - Device Configuration
+
     public mutating func setDeviceConfig(
         id: String? = nil,
         model: String? = nil,
@@ -136,6 +139,7 @@ public struct AdMoai {
     }
 
     // MARK: - User Configuration
+
     public mutating func setUserConfig(
         id: String? = nil,
         ip: String? = nil,
@@ -156,10 +160,13 @@ public struct AdMoai {
     }
 
     // MARK: - Journey Session
+
     /// The current sticky Journey `sessionId`, normalized to wire form (trimmed; `nil` when blank).
     ///
     /// Shared across copies of this `AdMoai` value — see ``SessionBox``.
-    public var sessionId: String? { _session.sessionId }
+    public var sessionId: String? {
+        _session.sessionId
+    }
 
     /// Rotates the sticky Journey `sessionId` inherited by future request builders.
     /// The value is normalized to wire form (trimmed; blank → `nil`) so the stored value
@@ -186,8 +193,9 @@ public struct AdMoai {
     }
 
     // MARK: - SDK Operations
+
     public func createRequestBuilder() -> DecisionRequestBuilder {
-        return DecisionRequestBuilder(
+        DecisionRequestBuilder(
             appConfig: appConfig,
             deviceConfig: deviceConfig,
             userConfig: userConfig,
@@ -205,8 +213,7 @@ public struct AdMoai {
     ///   it) purely because making `build()` `throws` would force `try` on 80 existing call sites
     ///   for no behavioural gain. What a publisher observes is identical on all three SDKs: a
     ///   typed error, raised before any network activity.
-    public func requestAds(_ request: DecisionRequest) async throws -> APIResponse<DecisionResponse>
-    {
+    public func requestAds(_ request: DecisionRequest) async throws -> APIResponse<DecisionResponse> {
         try Self.validate(request)
         return try await client.requestDecision(request)
     }
@@ -221,6 +228,7 @@ public struct AdMoai {
     }
 
     // MARK: - Tracking
+
     /// Fires a server-provided tracking URL verbatim (fire-and-forget GET).
     ///
     /// The engine's tracking URLs are opaque (`…/v1/tracking?e=<encrypted token>`); the SDK
@@ -233,9 +241,9 @@ public struct AdMoai {
     /// third-party trackers can never fire when the canonical beacon was rejected.
     private static func isAbsoluteHttpURL(_ url: String) -> Bool {
         guard let parsed = URL(string: url),
-            let scheme = parsed.scheme?.lowercased(),
-            scheme == "http" || scheme == "https",
-            parsed.host != nil
+              let scheme = parsed.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              parsed.host != nil
         else { return false }
         return true
     }
@@ -352,7 +360,7 @@ public struct AdMoai {
     }
 
     private func fireAll(_ items: [TrackingItem]?) {
-        guard let items = items else { return }
+        guard let items else { return }
         for item in items {
             fireTracking(url: item.url)
         }

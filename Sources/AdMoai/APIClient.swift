@@ -8,7 +8,7 @@ internal class AdMoaiClient {
     private let session: URLSession
     private let logger: Logger
 
-    public init(
+    init(
         baseURL: String,
         apiVersion: String? = nil,
         defaultLanguage: String? = nil,
@@ -68,56 +68,58 @@ internal class AdMoaiClient {
             #if DEBUG
                 if httpResponse.statusCode >= 400, let raw = String(data: data, encoding: .utf8) {
                     self.logger.debug(
-                        "HTTP \(httpResponse.statusCode) body: \(raw, privacy: .public)")
+                        "HTTP \(httpResponse.statusCode) body: \(raw, privacy: .public)"
+                    )
                 }
             #endif
-                switch httpResponse.statusCode {
-                case 200:
-                    do {
-                        let rawBody = String(data: data, encoding: .utf8)
-                        return APIResponse(
-                            response: httpResponse,
-                            body: try JSONDecoder().decode(APIResponseBody<T>.self, from: data),
-                            rawBody: rawBody
-                        )
-                    } catch {
-                        self.logger.error("Decoding error: \(error.localizedDescription)")
-                        throw APIError.decodingError(error)
-                    }
-                case 422:
-                    do {
-                        let response = try JSONDecoder().decode(
-                            APIResponseBody<[AdMoaiError]>.self, from: data)
-                        throw APIError.validationError(response.errors ?? [])
-                    } catch let error as APIError {
-                        self.logger.error("\(error.description)")
-                        throw error
-                    } catch {
-                        self.logger.error("Validation error decoding failed: \(error)")
-                        throw APIError.validationError([])
-                    }
-                case 400:
-                    self.logger.error("Bad request error")
-                    throw APIError.clientError(.badRequest)
-                case 404:
-                    self.logger.error("Not found error")
-                    throw APIError.clientError(.notFound)
-                case 405:
-                    self.logger.error("Method not allowed error")
-                    throw APIError.clientError(.methodNotAllowed)
-                case 410:
-                    self.logger.error("Gone error")
-                    throw APIError.clientError(.gone)
-                case 429:
-                    self.logger.error("Too many requests error")
-                    throw APIError.clientError(.tooManyRequests)
-                case 500...599:
-                    self.logger.error("Server error: \(httpResponse.statusCode)")
-                    throw APIError.serverError(httpResponse.statusCode)
-                default:
-                    self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
-                    throw APIError.unexpectedStatusCode(httpResponse.statusCode)
+            switch httpResponse.statusCode {
+            case 200:
+                do {
+                    let rawBody = String(data: data, encoding: .utf8)
+                    return try APIResponse(
+                        response: httpResponse,
+                        body: JSONDecoder().decode(APIResponseBody<T>.self, from: data),
+                        rawBody: rawBody
+                    )
+                } catch {
+                    self.logger.error("Decoding error: \(error.localizedDescription)")
+                    throw APIError.decodingError(error)
                 }
+            case 422:
+                do {
+                    let response = try JSONDecoder().decode(
+                        APIResponseBody<[AdMoaiError]>.self, from: data
+                    )
+                    throw APIError.validationError(response.errors ?? [])
+                } catch let error as APIError {
+                    self.logger.error("\(error.description)")
+                    throw error
+                } catch {
+                    self.logger.error("Validation error decoding failed: \(error)")
+                    throw APIError.validationError([])
+                }
+            case 400:
+                self.logger.error("Bad request error")
+                throw APIError.clientError(.badRequest)
+            case 404:
+                self.logger.error("Not found error")
+                throw APIError.clientError(.notFound)
+            case 405:
+                self.logger.error("Method not allowed error")
+                throw APIError.clientError(.methodNotAllowed)
+            case 410:
+                self.logger.error("Gone error")
+                throw APIError.clientError(.gone)
+            case 429:
+                self.logger.error("Too many requests error")
+                throw APIError.clientError(.tooManyRequests)
+            case 500 ... 599:
+                self.logger.error("Server error: \(httpResponse.statusCode)")
+                throw APIError.serverError(httpResponse.statusCode)
+            default:
+                self.logger.error("Unexpected status code: \(httpResponse.statusCode)")
+                throw APIError.unexpectedStatusCode(httpResponse.statusCode)
+            }
         } catch let error as APIError {
             self.logger.error("\(error.description)")
             throw error
@@ -145,13 +147,13 @@ internal class AdMoaiClient {
     /// sunset date when present.
     internal static func deprecationMessage(isDeprecated: String?, sunset: String?) -> String? {
         guard (isDeprecated ?? "").lowercased() == "true" else { return nil }
-        if let sunset = sunset, !sunset.isEmpty {
+        if let sunset, !sunset.isEmpty {
             return "Admoai API version is deprecated (sunset: \(sunset)). Consider updating SDKConfig.apiVersion."
         }
         return "Admoai API version is deprecated. Consider updating SDKConfig.apiVersion."
     }
 
-    public func createDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
+    func createDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
         let body = try JSONEncoder().encode(request)
 
         var headers: [String: String] = [
@@ -162,14 +164,14 @@ internal class AdMoaiClient {
             // User-Agent, which is what identifies SDK traffic in engine logs and analytics.
             "User-Agent": "AdMoaiSDK/\(SDK_VERSION)",
         ]
-        
+
         // Add Accept-Language header if configured
-        if let defaultLanguage = defaultLanguage {
+        if let defaultLanguage {
             headers["Accept-Language"] = defaultLanguage
         }
-        
+
         // Add API version header if configured
-        if let apiVersion = apiVersion {
+        if let apiVersion {
             headers["X-Decision-Version"] = apiVersion
         }
 
@@ -181,7 +183,7 @@ internal class AdMoaiClient {
         )
     }
 
-    public func getDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
+    func getDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
         try createDecisionRequest(request)
     }
 
@@ -232,10 +234,10 @@ extension APIResponseBody {
         }
         self.errors =
             (try? c.decode([SafelyDecodable<AdMoaiError>].self, forKey: .errors))?
-            .compactMap(\.value)
+                .compactMap(\.value)
         self.warnings =
             (try? c.decode([SafelyDecodable<AdMoaiWarning>].self, forKey: .warnings))?
-            .compactMap(\.value)
+                .compactMap(\.value)
     }
 }
 
@@ -264,25 +266,25 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
         switch self {
         case .invalidURL:
             return "Invalid URL"
-        case .networkError(let error):
+        case let .networkError(error):
             return "Network error: \(error.localizedDescription)"
-        case .decodingError(let error):
+        case let .decodingError(error):
             return "Decoding error: \(error.localizedDescription)"
         case .invalidResponse:
             return "Invalid response from server"
-        case .serverError(let code):
+        case let .serverError(code):
             return "Server error with status code: \(code)"
-        case .validationError(let errors):
+        case let .validationError(errors):
             if !errors.isEmpty {
                 let messages = errors.map { "[\($0.code)] \($0.message)" }
                 return "Validation errors:\n" + messages.joined(separator: "\n")
             }
             return "Validation error: Unknown"
-        case .clientError(let status):
+        case let .clientError(status):
             return "Client error: \(status.rawValue) - \(status.description)"
-        case .unexpectedStatusCode(let code):
+        case let .unexpectedStatusCode(code):
             return "Unexpected status code: \(code)"
-        case .encodingError(let message):
+        case let .encodingError(message):
             return "Encoding error: \(message)"
         }
     }
@@ -294,25 +296,25 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
     public static func == (lhs: APIError, rhs: APIError) -> Bool {
         switch (lhs, rhs) {
         case (.invalidURL, .invalidURL):
-            return true
+            true
         case (.invalidResponse, .invalidResponse):
-            return true
-        case (.networkError(let lhsError), .networkError(let rhsError)):
-            return lhsError.localizedDescription == rhsError.localizedDescription
-        case (.decodingError(let lhsError), .decodingError(let rhsError)):
-            return lhsError.localizedDescription == rhsError.localizedDescription
-        case (.serverError(let lhsCode), .serverError(let rhsCode)):
-            return lhsCode == rhsCode
-        case (.validationError(let lhsErrors), .validationError(let rhsErrors)):
-            return lhsErrors == rhsErrors
-        case (.clientError(let lhsStatus), .clientError(let rhsStatus)):
-            return lhsStatus == rhsStatus
-        case (.unexpectedStatusCode(let lhsCode), .unexpectedStatusCode(let rhsCode)):
-            return lhsCode == rhsCode
-        case (.encodingError(let lhsMessage), .encodingError(let rhsMessage)):
-            return lhsMessage == rhsMessage
+            true
+        case let (.networkError(lhsError), .networkError(rhsError)):
+            lhsError.localizedDescription == rhsError.localizedDescription
+        case let (.decodingError(lhsError), .decodingError(rhsError)):
+            lhsError.localizedDescription == rhsError.localizedDescription
+        case let (.serverError(lhsCode), .serverError(rhsCode)):
+            lhsCode == rhsCode
+        case let (.validationError(lhsErrors), .validationError(rhsErrors)):
+            lhsErrors == rhsErrors
+        case let (.clientError(lhsStatus), .clientError(rhsStatus)):
+            lhsStatus == rhsStatus
+        case let (.unexpectedStatusCode(lhsCode), .unexpectedStatusCode(rhsCode)):
+            lhsCode == rhsCode
+        case let (.encodingError(lhsMessage), .encodingError(rhsMessage)):
+            lhsMessage == rhsMessage
         default:
-            return false
+            false
         }
     }
 }
@@ -356,14 +358,14 @@ public enum HTTPStatus: Int {
 
     var description: String {
         switch self {
-        case .ok: return "OK"
-        case .badRequest: return "Bad Request"
-        case .notFound: return "Not Found"
-        case .methodNotAllowed: return "Method Not Allowed"
-        case .gone: return "Gone"
-        case .unprocessableEntity: return "Unprocessable Entity"
-        case .tooManyRequests: return "Too Many Requests"
-        case .internalServerError: return "Internal Server Error"
+        case .ok: "OK"
+        case .badRequest: "Bad Request"
+        case .notFound: "Not Found"
+        case .methodNotAllowed: "Method Not Allowed"
+        case .gone: "Gone"
+        case .unprocessableEntity: "Unprocessable Entity"
+        case .tooManyRequests: "Too Many Requests"
+        case .internalServerError: "Internal Server Error"
         }
     }
 }

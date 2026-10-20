@@ -12,15 +12,14 @@ import Testing
 /// then update this constant in all three. Cross-repo enforcement in CI belongs in adhub, which is
 /// the only place that can see all three at once.
 struct ManifestIntegrityTests {
-
     private static let expectedSHA256 =
         "a55f68eb48a96386f1f2fe653954eaadad58776d48b38fae88b33ac6b0ffed47"
 
     private func manifestURL() -> URL {
         URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()  // AdMoaiTests
-            .deletingLastPathComponent()  // Tests
-            .deletingLastPathComponent()  // repo root
+            .deletingLastPathComponent() // AdMoaiTests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // repo root
             .appendingPathComponent("Tools/JourneyE2E/scenarios.json")
     }
 

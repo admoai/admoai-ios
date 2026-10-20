@@ -11,10 +11,10 @@ import Foundation
 // proves its ownership before anything runs: unrelated engine QA once left a UI-created
 // journey owning `vehicleSelection`, which read as four SDK regressions.
 let demoDefinition = "ride_hailing_journey"
-let demoStage1Placement = "vehicleSelection"  // pre_ride, node 1
-let demoStage1PlacementB = "search"  // pre_ride, node 2 (multi-node)
-let demoStage2Placement = "journey"  // in_ride
-let demoStage3Placement = "rideSummary"  // post_ride
+let demoStage1Placement = "vehicleSelection" // pre_ride, node 1
+let demoStage1PlacementB = "search" // pre_ride, node 2 (multi-node)
+let demoStage2Placement = "journey" // in_ride
+let demoStage3Placement = "rideSummary" // post_ride
 let demoStage1Key = "pre_ride"
 let demoStage2Key = "in_ride"
 let demoStage3Key = "post_ride"
@@ -67,12 +67,12 @@ let targetLocationPlacement = "sdk_e2e_target_location"
 let targetDestinationPlacement = "sdk_e2e_target_destination"
 let nycLatitude = 40.7128
 let nycLongitude = -74.006
-let nycGeonameId = 5128581
+let nycGeonameId = 5_128_581
 
 /// A REAL geoname that simply does not match. `geoname_id = 1` is absent from the engine's
 /// geoname set entirely, which makes the engine ERROR rather than cleanly not-match — so a
 /// negative targeting case must use a real value.
-let londonGeonameId = 2643743
+let londonGeonameId = 2_643_743
 let londonLatitude = 51.5074
 let londonLongitude = -0.1278
 

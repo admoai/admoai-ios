@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 private let baseURL = "https://api.mock.admoai.com"
 private let config = SDKConfig(baseUrl: baseURL)
@@ -13,13 +12,13 @@ struct DecisionRequestTests {
         let builder = sdk.createRequestBuilder()
         let request =
             builder
-            .addPlacement(key: "home", count: 2)
-            .addGeoTargeting(5819)
-            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)  // NYC
-            .addLocationTargeting(51.5074, -0.1278)  // London
-            .setUserId("user123")
-            .setUserIp("192.168.1.1")
-            .build()
+                .addPlacement(key: "home", count: 2)
+                .addGeoTargeting(5819)
+                .addLocationTargeting(latitude: 40.7128, longitude: -74.0060) // NYC
+                .addLocationTargeting(51.5074, -0.1278) // London
+                .setUserId("user123")
+                .setUserIp("192.168.1.1")
+                .build()
 
         // Verify basic request structure
         #expect(request.placements.count == 1)
@@ -42,10 +41,10 @@ struct DecisionRequestTests {
         // Test addLocationTargeting
         var request =
             builder
-            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)  // NYC
-            .addLocationTargeting(latitude: 51.5074, longitude: -0.1278)  // London
-            .addLocationTargeting(48.8566, 2.3522)  // Paris
-            .build()
+                .addLocationTargeting(latitude: 40.7128, longitude: -74.0060) // NYC
+                .addLocationTargeting(latitude: 51.5074, longitude: -0.1278) // London
+                .addLocationTargeting(48.8566, 2.3522) // Paris
+                .build()
 
         // Verify total count
         #expect(request.targeting?.location?.count == 3)
@@ -53,23 +52,26 @@ struct DecisionRequestTests {
         // Verify each location exists
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 40.7128 && coord.longitude == -74.0060  // NYC
-            }) == true)
+                coord.latitude == 40.7128 && coord.longitude == -74.0060 // NYC
+            }) == true
+        )
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 51.5074 && coord.longitude == -0.1278  // London
-            }) == true)
+                coord.latitude == 51.5074 && coord.longitude == -0.1278 // London
+            }) == true
+        )
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 48.8566 && coord.longitude == 2.3522  // Paris
-            }) == true)
+                coord.latitude == 48.8566 && coord.longitude == 2.3522 // Paris
+            }) == true
+        )
 
         // Test setLocationTargeting with fresh builder
         request = sdk.createRequestBuilder()
             .setLocationTargeting([
-                (latitude: 40.7128, longitude: -74.0060),  // NYC
-                (latitude: 51.5074, longitude: -0.1278),  // London
-                (48.8566, 2.3522),  // Paris
+                (latitude: 40.7128, longitude: -74.0060), // NYC
+                (latitude: 51.5074, longitude: -0.1278), // London
+                (48.8566, 2.3522), // Paris
             ])
             .build()
 
@@ -77,16 +79,19 @@ struct DecisionRequestTests {
         #expect(request.targeting?.location?.count == 3)
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 40.7128 && coord.longitude == -74.0060  // NYC
-            }) == true)
+                coord.latitude == 40.7128 && coord.longitude == -74.0060 // NYC
+            }) == true
+        )
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 51.5074 && coord.longitude == -0.1278  // London
-            }) == true)
+                coord.latitude == 51.5074 && coord.longitude == -0.1278 // London
+            }) == true
+        )
         #expect(
             request.targeting?.location?.contains(where: { coord in
-                coord.latitude == 48.8566 && coord.longitude == 2.3522  // Paris
-            }) == true)
+                coord.latitude == 48.8566 && coord.longitude == 2.3522 // Paris
+            }) == true
+        )
     }
 
     @Test
@@ -96,12 +101,12 @@ struct DecisionRequestTests {
         // Test addLocationTargeting with duplicates
         var request =
             builder
-            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)  // NYC
-            .addLocationTargeting(latitude: 51.5074, longitude: -0.1278)  // London
-            .addLocationTargeting(latitude: 40.7128, longitude: -74.0060)  // NYC (duplicate)
-            .addLocationTargeting(latitude: 48.8566, longitude: 2.3522)  // Paris
-            .addLocationTargeting(latitude: 51.5074, longitude: -0.1278)  // London (duplicate)
-            .build()
+                .addLocationTargeting(latitude: 40.7128, longitude: -74.0060) // NYC
+                .addLocationTargeting(latitude: 51.5074, longitude: -0.1278) // London
+                .addLocationTargeting(latitude: 40.7128, longitude: -74.0060) // NYC (duplicate)
+                .addLocationTargeting(latitude: 48.8566, longitude: 2.3522) // Paris
+                .addLocationTargeting(latitude: 51.5074, longitude: -0.1278) // London (duplicate)
+                .build()
 
         // Should only have 3 unique locations
         #expect(request.targeting?.location?.count == 3)
@@ -125,11 +130,11 @@ struct DecisionRequestTests {
         // Test setLocationTargeting with duplicates
         request = sdk.createRequestBuilder()
             .setLocationTargeting([
-                (latitude: 40.7128, longitude: -74.0060),  // NYC
-                (latitude: 51.5074, longitude: -0.1278),  // London
-                (latitude: 40.7128, longitude: -74.0060),  // NYC (duplicate)
-                (latitude: 48.8566, longitude: 2.3522),  // Paris
-                (latitude: 51.5074, longitude: -0.1278),  // London (duplicate)
+                (latitude: 40.7128, longitude: -74.0060), // NYC
+                (latitude: 51.5074, longitude: -0.1278), // London
+                (latitude: 40.7128, longitude: -74.0060), // NYC (duplicate)
+                (latitude: 48.8566, longitude: 2.3522), // Paris
+                (latitude: 51.5074, longitude: -0.1278), // London (duplicate)
             ])
             .build()
 
@@ -139,17 +144,20 @@ struct DecisionRequestTests {
         #expect(
             request.targeting?.location?.filter { coord in
                 coord.latitude == 40.7128 && coord.longitude == -74.0060
-            }.count == 1, "Expected one occurrence of NYC")
+            }.count == 1, "Expected one occurrence of NYC"
+        )
 
         #expect(
             request.targeting?.location?.filter { coord in
                 coord.latitude == 51.5074 && coord.longitude == -0.1278
-            }.count == 1, "Expected one occurrence of London")
+            }.count == 1, "Expected one occurrence of London"
+        )
 
         #expect(
             request.targeting?.location?.filter { coord in
                 coord.latitude == 48.8566 && coord.longitude == 2.3522
-            }.count == 1, "Expected one occurrence of Paris")
+            }.count == 1, "Expected one occurrence of Paris"
+        )
     }
 
     @Test
@@ -157,29 +165,33 @@ struct DecisionRequestTests {
         let builder = sdk.createRequestBuilder()
         let request =
             builder
-            .addCustomTargeting(key: "age", value: 25)  // Int
-            .addCustomTargeting(key: "score", value: 98.6)  // Double
-            .addCustomTargeting(key: "name", value: "John")  // String
-            .addCustomTargeting(key: "premium", value: true)  // Bool
-            .build()
+                .addCustomTargeting(key: "age", value: 25) // Int
+                .addCustomTargeting(key: "score", value: 98.6) // Double
+                .addCustomTargeting(key: "name", value: "John") // String
+                .addCustomTargeting(key: "premium", value: true) // Bool
+                .build()
 
         #expect(request.targeting?.custom?.count == 4)
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "age" && kv.value as? Int == 25
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "score" && kv.value as? Double == 98.6
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "name" && kv.value as? String == "John"
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "premium" && kv.value as? Bool == true
-            }) == true)
+            }) == true
+        )
     }
 
     @Test
@@ -187,46 +199,53 @@ struct DecisionRequestTests {
         let builder = sdk.createRequestBuilder()
         let request =
             builder
-            .addCustomTargeting(key: "category", value: "sports")
-            .addCustomTargeting(key: "hello", value: "bye")
-            .addCustomTargeting(key: "category", value: "news")  // Should override "sports"
-            .addCustomTargeting(key: "score", value: 100)
-            .addCustomTargeting(key: "score", value: 95.5)  // Should override 100
-            .addCustomTargeting(key: "premium", value: false)
-            .addCustomTargeting(key: "premium", value: true)  // Should override false
-            .build()
+                .addCustomTargeting(key: "category", value: "sports")
+                .addCustomTargeting(key: "hello", value: "bye")
+                .addCustomTargeting(key: "category", value: "news") // Should override "sports"
+                .addCustomTargeting(key: "score", value: 100)
+                .addCustomTargeting(key: "score", value: 95.5) // Should override 100
+                .addCustomTargeting(key: "premium", value: false)
+                .addCustomTargeting(key: "premium", value: true) // Should override false
+                .build()
 
         #expect(request.targeting?.custom?.count == 4)
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "category" && kv.value as? String == "news"
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "score" && kv.value as? Double == 95.5
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "premium" && kv.value as? Bool == true
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "hello" && kv.value as? String == "bye"
-            }) == true)
+            }) == true
+        )
 
         // Verify overwritten values don't exist
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "category" && kv.value as? String == "sports"
-            }) == false)
+            }) == false
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "score" && kv.value as? Int == 100
-            }) == false)
+            }) == false
+        )
         #expect(
             request.targeting?.custom?.contains(where: { kv in
                 kv.key == "premium" && kv.value as? Bool == false
-            }) == false)
+            }) == false
+        )
     }
 
     @Test(.tags(.live), .enabled(if: LiveTestGate.enabled))
@@ -283,7 +302,7 @@ struct DecisionRequestTests {
         do {
             _ = try await sdk.requestAds(request)
         } catch let error as APIError {
-            if case .networkError(let underlyingError) = error {
+            if case let .networkError(underlyingError) = error {
                 #expect(underlyingError.localizedDescription.contains("unsupported URL"))
             } else {
                 throw error
@@ -306,11 +325,13 @@ struct DecisionRequestTests {
         #expect(
             request.targeting?.destination?.contains(where: { d in
                 d.latitude == 72.51 && d.longitude == 120.64 && d.minConfidence == 0.5
-            }) == true)
+            }) == true
+        )
         #expect(
             request.targeting?.destination?.contains(where: { d in
                 d.latitude == 48.8566 && d.longitude == 2.3522 && d.minConfidence == 0.8
-            }) == true)
+            }) == true
+        )
     }
 
     @Test
@@ -348,7 +369,7 @@ struct DecisionRequestTests {
             try sdk.createRequestBuilder()
                 .setDestinationTargeting([
                     (latitude: 1.0, longitude: 2.0, minConfidence: 0.5),
-                    (latitude: 3.0, longitude: 4.0, minConfidence: 2.0),  // invalid
+                    (latitude: 3.0, longitude: 4.0, minConfidence: 2.0), // invalid
                 ])
                 .build()
         }
@@ -390,7 +411,7 @@ struct DecisionRequestTests {
             ("sponsorship", .sponsorship),
             ("standard", .standard),
             ("unknown", .unknown),
-            ("HOUSE", .unknown),      // wrong casing → .unknown (graceful fallback)
+            ("HOUSE", .unknown), // wrong casing → .unknown (graceful fallback)
             ("anything_else", .unknown),
         ]
         for (raw, expected) in cases {
@@ -434,11 +455,11 @@ struct DecisionRequestTests {
         // Test clearAll operation
         request =
             builder
-            .addPlacement(key: "home")
-            .addCustomTargeting(key: "weather", value: "sunny")
-            .setUserId("user123")
-            .clearAll()
-            .build()
+                .addPlacement(key: "home")
+                .addCustomTargeting(key: "weather", value: "sunny")
+                .setUserId("user123")
+                .clearAll()
+                .build()
 
         #expect(request.placements.isEmpty)
         #expect(request.targeting == nil)

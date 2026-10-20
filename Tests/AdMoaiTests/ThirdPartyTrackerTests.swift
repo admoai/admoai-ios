@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Third-party Event Trackers — tolerant model + credential-isolated fan-out (mission E06)
 //
@@ -26,19 +25,19 @@ private func tracker(
     url: String = "https://agency.example/imp"
 ) -> ThirdPartyTracker {
     ThirdPartyTracker(
-        trackerId: id, eventType: eventType, matchType: matchType, eventKey: eventKey, url: url)
+        trackerId: id, eventType: eventType, matchType: matchType, eventKey: eventKey, url: url
+    )
 }
 
 // MARK: - §A Model / decoding (pure, parallel-safe)
 
-@Suite
 struct ThirdPartyTrackerDecodingTests {
-
     // A1: absent field → nil; helpers unaffected
     @Test
     func testAbsentFieldDecodesToNil() throws {
         let tracking = try decodeTracking(
-            #"{"impressions": [{"key": "default", "url": "https://t/imp"}]}"#)
+            #"{"impressions": [{"key": "default", "url": "https://t/imp"}]}"#
+        )
         #expect(tracking.thirdPartyTrackers == nil)
         #expect(tracking.getImpressionUrl(key: "default") == "https://t/imp")
     }
@@ -55,11 +54,11 @@ struct ThirdPartyTrackerDecodingTests {
     func testImpressionEntryDecodesVerbatim() throws {
         let rawURL = "https://Agency.example/Track?b=2&a=1&cb=%%CACHEBUSTER%%&x=a%20b"
         let tracking = try decodeTracking("""
-            {"thirdPartyTrackers": [
-                {"trackerId": "tpt_01ARZ3NDEKTSV4RRFFQ69G5FAV", "eventType": "impression",
-                 "url": "\(rawURL)"}
-            ]}
-            """)
+        {"thirdPartyTrackers": [
+            {"trackerId": "tpt_01ARZ3NDEKTSV4RRFFQ69G5FAV", "eventType": "impression",
+             "url": "\(rawURL)"}
+        ]}
+        """)
         let entry = try #require(tracking.thirdPartyTrackers?.first)
         #expect(entry.trackerId == "tpt_01ARZ3NDEKTSV4RRFFQ69G5FAV")
         #expect(entry.eventType == "impression")
@@ -72,11 +71,11 @@ struct ThirdPartyTrackerDecodingTests {
     @Test
     func testAnyClickEntryDecodes() throws {
         let tracking = try decodeTracking("""
-            {"thirdPartyTrackers": [
-                {"trackerId": "tpt_A", "eventType": "click", "matchType": "any",
-                 "url": "https://agency.example/click"}
-            ]}
-            """)
+        {"thirdPartyTrackers": [
+            {"trackerId": "tpt_A", "eventType": "click", "matchType": "any",
+             "url": "https://agency.example/click"}
+        ]}
+        """)
         let entry = try #require(tracking.thirdPartyTrackers?.first)
         #expect(entry.matchType == "any")
         #expect(entry.eventKey == nil)
@@ -86,11 +85,11 @@ struct ThirdPartyTrackerDecodingTests {
     @Test
     func testSpecificClickEntryDecodes() throws {
         let tracking = try decodeTracking("""
-            {"thirdPartyTrackers": [
-                {"trackerId": "tpt_B", "eventType": "click", "matchType": "specific",
-                 "eventKey": "cta_tap", "url": "https://agency.example/cta"}
-            ]}
-            """)
+        {"thirdPartyTrackers": [
+            {"trackerId": "tpt_B", "eventType": "click", "matchType": "specific",
+             "eventKey": "cta_tap", "url": "https://agency.example/cta"}
+        ]}
+        """)
         let entry = try #require(tracking.thirdPartyTrackers?.first)
         #expect(entry.matchType == "specific")
         #expect(entry.eventKey == "cta_tap")
@@ -100,11 +99,11 @@ struct ThirdPartyTrackerDecodingTests {
     @Test
     func testUnknownExtraFieldsAreIgnored() throws {
         let tracking = try decodeTracking("""
-            {"thirdPartyTrackers": [
-                {"trackerId": "tpt_C", "eventType": "impression",
-                 "url": "https://agency.example/imp", "futureField": {"nested": true}}
-            ]}
-            """)
+        {"thirdPartyTrackers": [
+            {"trackerId": "tpt_C", "eventType": "impression",
+             "url": "https://agency.example/imp", "futureField": {"nested": true}}
+        ]}
+        """)
         #expect(tracking.thirdPartyTrackers?.count == 1)
     }
 
@@ -113,13 +112,13 @@ struct ThirdPartyTrackerDecodingTests {
     @Test
     func testStructurallyMalformedEntryIsDroppedSiblingsSurvive() throws {
         let tracking = try decodeTracking("""
-            {"thirdPartyTrackers": [
-                {"trackerId": "tpt_NO_URL", "eventType": "impression"},
-                "not-an-object",
-                {"trackerId": "tpt_OK", "eventType": "impression",
-                 "url": "https://agency.example/imp"}
-            ]}
-            """)
+        {"thirdPartyTrackers": [
+            {"trackerId": "tpt_NO_URL", "eventType": "impression"},
+            "not-an-object",
+            {"trackerId": "tpt_OK", "eventType": "impression",
+             "url": "https://agency.example/imp"}
+        ]}
+        """)
         let entries = try #require(tracking.thirdPartyTrackers)
         #expect(entries.count == 1)
         #expect(entries.first?.trackerId == "tpt_OK")
@@ -138,9 +137,7 @@ struct ThirdPartyTrackerDecodingTests {
 
 // MARK: - §A semantic validation + §F sanitized reasons (pure, parallel-safe)
 
-@Suite
 struct ThirdPartyTrackerValidationTests {
-
     // A8: non-HTTPS urls are rejected
     @Test(arguments: [
         "http://agency.example/imp", "ftp://agency.example/imp",
@@ -168,14 +165,19 @@ struct ThirdPartyTrackerValidationTests {
     @Test
     func testUnknownEventTypeAndMatchTypeAreRejected() {
         #expect(
-            ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType: "conversion")) != nil)
+            ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType: "conversion")) != nil
+        )
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType: "click", matchType: "fuzzy")) != nil)
+                tracker(eventType: "click", matchType: "fuzzy")
+            ) != nil
+        )
         // A click without a matchType is not a shape the engine serves.
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType: "click", matchType: nil)) != nil)
+                tracker(eventType: "click", matchType: nil)
+            ) != nil
+        )
     }
 
     // A10: specific click without eventKey is rejected
@@ -183,10 +185,14 @@ struct ThirdPartyTrackerValidationTests {
     func testSpecificClickWithoutEventKeyIsRejected() {
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType: "click", matchType: "specific", eventKey: nil)) != nil)
+                tracker(eventType: "click", matchType: "specific", eventKey: nil)
+            ) != nil
+        )
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType: "click", matchType: "specific", eventKey: "")) != nil)
+                tracker(eventType: "click", matchType: "specific", eventKey: "")
+            ) != nil
+        )
     }
 
     // Valid shapes pass
@@ -195,11 +201,15 @@ struct ThirdPartyTrackerValidationTests {
         #expect(ThirdPartyTrackerDispatcher.rejectionReason(tracker()) == nil)
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType: "click", matchType: "any", url: "https://a.example/c")) == nil)
+                tracker(eventType: "click", matchType: "any", url: "https://a.example/c")
+            ) == nil
+        )
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
                 tracker(eventType: "click", matchType: "specific", eventKey: "cta_tap",
-                    url: "https://a.example/s")) == nil)
+                        url: "https://a.example/s")
+            ) == nil
+        )
     }
 
     // A12 + E30: a URL the parser cannot round-trip verbatim (raw macro) is rejected —
@@ -209,11 +219,15 @@ struct ThirdPartyTrackerValidationTests {
     func testNonRoundTrippingURLIsRejected() {
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(url: "https://agency.example/imp?cb=%%CACHEBUSTER%%")) != nil)
+                tracker(url: "https://agency.example/imp?cb=%%CACHEBUSTER%%")
+            ) != nil
+        )
         // A clean RFC-3986 URL round-trips and passes.
         #expect(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(url: "https://agency.example/imp?b=2&a=1&ord=12345")) == nil)
+                tracker(url: "https://agency.example/imp?b=2&a=1&ord=12345")
+            ) == nil
+        )
     }
 
     // F35 (static half): rejection reasons are stable strings that never embed the URL,
@@ -237,9 +251,7 @@ struct ThirdPartyTrackerValidationTests {
 
 // MARK: - Matching (pure, parallel-safe)
 
-@Suite
 struct ThirdPartyTrackerMatchingTests {
-
     // B14 / C22 (matching half): impressions never match clicks and vice versa
     @Test
     func testEventTypesNeverCrossMatch() {
@@ -257,7 +269,8 @@ struct ThirdPartyTrackerMatchingTests {
         let anyClick = tracker(eventType: "click", matchType: "any", url: "https://a.example/c")
         let specific = tracker(
             eventType: "click", matchType: "specific", eventKey: "cta_tap",
-            url: "https://a.example/s")
+            url: "https://a.example/s"
+        )
         #expect(ThirdPartyTrackerDispatcher.matches(anyClick, event: .click(key: "cta_tap")))
         #expect(ThirdPartyTrackerDispatcher.matches(anyClick, event: .click(key: "other")))
         #expect(ThirdPartyTrackerDispatcher.matches(specific, event: .click(key: "cta_tap")))
@@ -268,21 +281,19 @@ struct ThirdPartyTrackerMatchingTests {
 // MARK: - §B/§C/§D/§E fan-out through the network (serialized MockURLProtocol suite)
 
 extension MockNetworkTests {
-    @Suite
     struct ThirdPartyTrackerFanOutTests {
-
         /// Canonical impression+click on "default"/"cta_tap" plus the given trackers.
         private func trackingJSON(trackers: String) throws -> Tracking {
             try decodeTracking("""
-                {
-                    "impressions": [{"key": "default", "url": "https://api.mock.admoai.com/v1/t/imp"}],
-                    "clicks": [
-                        {"key": "default", "url": "https://api.mock.admoai.com/v1/t/click"},
-                        {"key": "cta_tap", "url": "https://api.mock.admoai.com/v1/t/click-cta"}
-                    ],
-                    "thirdPartyTrackers": \(trackers)
-                }
-                """)
+            {
+                "impressions": [{"key": "default", "url": "https://api.mock.admoai.com/v1/t/imp"}],
+                "clicks": [
+                    {"key": "default", "url": "https://api.mock.admoai.com/v1/t/click"},
+                    {"key": "cta_tap", "url": "https://api.mock.admoai.com/v1/t/click-cta"}
+                ],
+                "thirdPartyTrackers": \(trackers)
+            }
+            """)
         }
 
         private func makeSDK() -> AdMoai {
@@ -301,8 +312,9 @@ extension MockNetworkTests {
             let rawURL = "https://agency.example/imp?b=2&a=1&ord=12345"
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "\(rawURL)"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "\(rawURL)"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(2))
             let trackerReqs = requests(to: "agency.example")
@@ -319,10 +331,11 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/i1"},
-                     {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/i2"},
-                     {"trackerId": "tpt_3", "eventType": "click", "matchType": "any", "url": "https://agency.example/c1"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/i1"},
+                 {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/i2"},
+                 {"trackerId": "tpt_3", "eventType": "click", "matchType": "any", "url": "https://agency.example/c1"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(3))
             let urls = requests(to: "agency.example").compactMap { $0.url?.absoluteString }
@@ -336,8 +349,9 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(4))
@@ -351,12 +365,13 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"},
-                     {"trackerId": "tpt_2", "eventType": "click", "matchType": "any", "url": "https://agency.example/c"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"},
+                 {"trackerId": "tpt_2", "eventType": "click", "matchType": "any", "url": "https://agency.example/c"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking, key: "nonexistent")
             sdk.fireClick(tracking: tracking, key: "nonexistent")
-            #expect(!(await MockURLProtocol.waitForRequests(1, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(1, timeout: 0.5)))
             #expect(MockURLProtocol.capturedRequests.isEmpty)
         }
 
@@ -370,7 +385,7 @@ extension MockNetworkTests {
             )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(1))
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
         }
 
         // C18–C20: any fires on every valid key; specific only on its key
@@ -380,9 +395,10 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_any", "eventType": "click", "matchType": "any", "url": "https://agency.example/any"},
-                     {"trackerId": "tpt_spec", "eventType": "click", "matchType": "specific", "eventKey": "cta_tap", "url": "https://agency.example/spec"}]
-                    """)
+                [{"trackerId": "tpt_any", "eventType": "click", "matchType": "any", "url": "https://agency.example/any"},
+                 {"trackerId": "tpt_spec", "eventType": "click", "matchType": "specific", "eventKey": "cta_tap", "url": "https://agency.example/spec"}]
+                """
+            )
             // "default" click: any fires, specific does not.
             sdk.fireClick(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(2))
@@ -395,7 +411,8 @@ extension MockNetworkTests {
             #expect(await MockURLProtocol.waitForRequests(3))
             urls = requests(to: "agency.example").compactMap { $0.url?.absoluteString }
             #expect(
-                urls.sorted() == ["https://agency.example/any", "https://agency.example/spec"])
+                urls.sorted() == ["https://agency.example/any", "https://agency.example/spec"]
+            )
         }
 
         // D23: byte-identical URLs dedupe within one invocation
@@ -405,13 +422,14 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/same"},
-                     {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/same"},
-                     {"trackerId": "tpt_3", "eventType": "impression", "url": "https://agency.example/same?x=1"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/same"},
+                 {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/same"},
+                 {"trackerId": "tpt_3", "eventType": "impression", "url": "https://agency.example/same?x=1"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(3))
-            #expect(!(await MockURLProtocol.waitForRequests(4, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(4, timeout: 0.5)))
             let urls = requests(to: "agency.example").compactMap { $0.url?.absoluteString }
             #expect(urls.sorted() == ["https://agency.example/same", "https://agency.example/same?x=1"])
         }
@@ -423,9 +441,10 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/shared"},
-                     {"trackerId": "tpt_2", "eventType": "click", "matchType": "any", "url": "https://agency.example/shared"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/shared"},
+                 {"trackerId": "tpt_2", "eventType": "click", "matchType": "any", "url": "https://agency.example/shared"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             sdk.fireClick(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(4))
@@ -437,10 +456,10 @@ extension MockNetworkTests {
         @Test
         func testLimitCountsValidEntriesOnly() async throws {
             func entries(_ count: Int, invalidExtra: Int = 0) -> String {
-                var list: [String] = (0..<count).map {
+                var list: [String] = (0 ..< count).map {
                     #"{"trackerId": "tpt_\#($0)", "eventType": "impression", "url": "https://agency.example/t\#($0)"}"#
                 }
-                list += (0..<invalidExtra).map { _ in
+                list += (0 ..< invalidExtra).map { _ in
                     #"{"trackerId": "tpt_bad", "eventType": "impression", "url": "http://insecure.example/x"}"#
                 }
                 return "[\(list.joined(separator: ",")) ]"
@@ -459,7 +478,7 @@ extension MockNetworkTests {
             tracking = try trackingJSON(trackers: entries(11))
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(1))
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
             #expect(requests(to: "agency.example").isEmpty)
 
             // 9 valid + 2 invalid (11 raw) → the 9 fire.
@@ -480,13 +499,14 @@ extension MockNetworkTests {
             MockURLProtocol.reset()
             let config = MockURLProtocol.config(apiVersion: "2025-11-01", defaultLanguage: "en")
             config.sessionConfiguration.httpAdditionalHeaders = [
-                "User-Agent": "AdMoaiSDK/test"
+                "User-Agent": "AdMoaiSDK/test",
             ]
             let sdk = AdMoai(config: config)
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/imp"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(2))
 
@@ -515,12 +535,13 @@ extension MockNetworkTests {
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_macro", "eventType": "impression", "url": "https://agency.example/imp?cb=%%CACHEBUSTER%%"},
-                     {"trackerId": "tpt_ok", "eventType": "impression", "url": "https://agency.example/clean"}]
-                    """)
+                [{"trackerId": "tpt_macro", "eventType": "impression", "url": "https://agency.example/imp?cb=%%CACHEBUSTER%%"},
+                 {"trackerId": "tpt_ok", "eventType": "impression", "url": "https://agency.example/clean"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(2))
-            #expect(!(await MockURLProtocol.waitForRequests(3, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(3, timeout: 0.5)))
             let urls = requests(to: "agency.example").compactMap { $0.url?.absoluteString }
             #expect(urls == ["https://agency.example/clean"])
         }
@@ -533,16 +554,19 @@ extension MockNetworkTests {
                     statusCode: 200,
                     body: Data(),
                     headers: ["Set-Cookie": "session=abc123; Path=/"]
-                ))
+                )
+            )
             let dispatcher = ThirdPartyTrackerDispatcher(
                 protocolClasses: [MockURLProtocol.self],
                 logger: MockURLProtocol.config().logger
             )
             dispatcher.dispatch(
-                [tracker(url: "https://agency.example/imp")], event: .impression)
+                [tracker(url: "https://agency.example/imp")], event: .impression
+            )
             #expect(await MockURLProtocol.waitForRequests(1))
             dispatcher.dispatch(
-                [tracker(url: "https://agency.example/imp")], event: .impression)
+                [tracker(url: "https://agency.example/imp")], event: .impression
+            )
             #expect(await MockURLProtocol.waitForRequests(2))
             let second = try #require(MockURLProtocol.capturedRequests.last)
             #expect(second.value(forHTTPHeaderField: "Cookie") == nil)
@@ -552,7 +576,8 @@ extension MockNetworkTests {
         @Test
         func testConnectionErrorIsolatedFromSiblings() async throws {
             MockURLProtocol.reset(
-                stub: MockURLProtocol.Stub(errorHosts: ["refused.example"]))
+                stub: MockURLProtocol.Stub(errorHosts: ["refused.example"])
+            )
             let dispatcher = ThirdPartyTrackerDispatcher(
                 protocolClasses: [MockURLProtocol.self],
                 logger: MockURLProtocol.config().logger
@@ -561,11 +586,12 @@ extension MockNetworkTests {
                 [
                     tracker(id: "tpt_1", url: "https://refused.example/a"),
                     tracker(id: "tpt_2", url: "https://agency.example/b"),
-                ], event: .impression)
+                ], event: .impression
+            )
             // Both attempts happen (the error host is still a completed attempt) and
             // the healthy sibling is unaffected.
             #expect(await MockURLProtocol.waitForRequests(2))
-            #expect(!(await MockURLProtocol.waitForRequests(3, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(3, timeout: 0.5)))
             let hosts = MockURLProtocol.capturedRequests.compactMap { $0.url?.host }.sorted()
             #expect(hosts == ["agency.example", "refused.example"])
         }
@@ -578,16 +604,18 @@ extension MockNetworkTests {
                     statusCode: 302,
                     body: Data(),
                     headers: ["Location": "https://redirect-target.example/next"]
-                ))
+                )
+            )
             let dispatcher = ThirdPartyTrackerDispatcher(
                 protocolClasses: [MockURLProtocol.self],
                 logger: MockURLProtocol.config().logger
             )
             dispatcher.dispatch(
-                [tracker(url: "https://agency.example/imp")], event: .impression)
+                [tracker(url: "https://agency.example/imp")], event: .impression
+            )
             #expect(await MockURLProtocol.waitForRequests(1))
             // Give a follow-up (which would be a bug) time to appear, then assert it did not.
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
             let hosts = MockURLProtocol.capturedRequests.compactMap { $0.url?.host }
             #expect(hosts == ["agency.example"])
         }
@@ -596,15 +624,17 @@ extension MockNetworkTests {
         @Test
         func testTrackerServerErrorIsNeverRetried() async throws {
             MockURLProtocol.reset(
-                stub: MockURLProtocol.Stub(statusCode: 500, body: Data(), headers: [:]))
+                stub: MockURLProtocol.Stub(statusCode: 500, body: Data(), headers: [:])
+            )
             let dispatcher = ThirdPartyTrackerDispatcher(
                 protocolClasses: [MockURLProtocol.self],
                 logger: MockURLProtocol.config().logger
             )
             dispatcher.dispatch(
-                [tracker(url: "https://agency.example/imp")], event: .impression)
+                [tracker(url: "https://agency.example/imp")], event: .impression
+            )
             #expect(await MockURLProtocol.waitForRequests(1))
-            #expect(!(await MockURLProtocol.waitForRequests(2, timeout: 0.5)))
+            #expect(await !(MockURLProtocol.waitForRequests(2, timeout: 0.5)))
         }
 
         // E33: a failing tracker never affects siblings or the canonical beacon
@@ -612,13 +642,15 @@ extension MockNetworkTests {
         func testFailureIsolationAcrossSiblings() async throws {
             // The stub returns 500 for EVERY request: all three dispatches still happen.
             MockURLProtocol.reset(
-                stub: MockURLProtocol.Stub(statusCode: 500, body: Data(), headers: [:]))
+                stub: MockURLProtocol.Stub(statusCode: 500, body: Data(), headers: [:])
+            )
             let sdk = makeSDK()
             let tracking = try trackingJSON(
                 trackers: """
-                    [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/a"},
-                     {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/b"}]
-                    """)
+                [{"trackerId": "tpt_1", "eventType": "impression", "url": "https://agency.example/a"},
+                 {"trackerId": "tpt_2", "eventType": "impression", "url": "https://agency.example/b"}]
+                """
+            )
             sdk.fireImpression(tracking: tracking)
             #expect(await MockURLProtocol.waitForRequests(3))
             #expect(requests(to: "agency.example").count == 2)

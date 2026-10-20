@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 /// Sponsored Pin Locations — distance requests, Matched Point models, point tracking.
 ///
@@ -15,7 +14,7 @@ import Testing
 private let baseURL = "https://api.mock.admoai.com"
 
 private func encodedJSON(_ request: DecisionRequest) throws -> String {
-    String(data: try JSONEncoder().encode(request), encoding: .utf8)!
+    try String(data: JSONEncoder().encode(request), encoding: .utf8)!
 }
 
 private func builder() -> DecisionRequestBuilder {
@@ -25,41 +24,40 @@ private func builder() -> DecisionRequestBuilder {
 /// A creative envelope with whatever `contents` the scenario needs.
 private func decodeCreative(contents: String) throws -> Creative {
     let json = """
-        {
-          "contents": \(contents),
-          "advertiser": { "name": "Cabify" },
-          "tracking": { "impressions": [{ "key": "default", "url": "https://t/imp" }],
-                        "clicks": [{ "key": "default", "url": "https://t/click" }] }
-        }
-        """
+    {
+      "contents": \(contents),
+      "advertiser": { "name": "Cabify" },
+      "tracking": { "impressions": [{ "key": "default", "url": "https://t/imp" }],
+                    "clicks": [{ "key": "default", "url": "https://t/click" }] }
+    }
+    """
     return try JSONDecoder().decode(Creative.self, from: Data(json.utf8))
 }
 
 private let onePoint = """
-    [{
-      "key": "matched_points",
-      "type": "matched_points",
-      "value": [{
-        "id": "advertiser_location_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "name": "Parque Arauco",
-        "address": "Parque Arauco, Santiago",
-        "latitude": -33.4030,
-        "longitude": -70.5680,
-        "distance": 1834,
-        "clickUrl": "https://shop.example/parque-arauco",
-        "tracking": {
-          "views":  [{ "key": "default", "url": "https://t/pin/view" }],
-          "taps":   [{ "key": "default", "url": "https://t/pin/tap" }],
-          "clicks": [{ "key": "default", "url": "https://t/pin/click" }]
-        }
-      }]
-    }]
-    """
+[{
+  "key": "matched_points",
+  "type": "matched_points",
+  "value": [{
+    "id": "advertiser_location_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "name": "Parque Arauco",
+    "address": "Parque Arauco, Santiago",
+    "latitude": -33.4030,
+    "longitude": -70.5680,
+    "distance": 1834,
+    "clickUrl": "https://shop.example/parque-arauco",
+    "tracking": {
+      "views":  [{ "key": "default", "url": "https://t/pin/view" }],
+      "taps":   [{ "key": "default", "url": "https://t/pin/tap" }],
+      "clicks": [{ "key": "default", "url": "https://t/pin/click" }]
+    }
+  }]
+}]
+"""
 
 // MARK: - Request side
 
 struct SponsoredPinRequestTests {
-
     /// AC1 — the radius overload builds a radius search and no bounds.
     @Test func radiusSearchSerializes() throws {
         let request = try builder()
@@ -93,13 +91,15 @@ struct SponsoredPinRequestTests {
     /// AC4 — the limit is emitted when given and absent when not.
     @Test func limitIsEmittedOnlyWhenGiven() throws {
         let withLimit = try encodedJSON(
-            try builder()
+            builder()
                 .setDistanceTargeting(latitude: 0, longitude: 0, radius: 500, limit: 5)
-                .build())
+                .build()
+        )
         let without = try encodedJSON(
-            try builder()
+            builder()
                 .setDistanceTargeting(latitude: 0, longitude: 0, radius: 500)
-                .build())
+                .build()
+        )
 
         #expect(withLimit.contains("\"limit\":5"))
         #expect(!without.contains("\"limit\""))
@@ -107,7 +107,7 @@ struct SponsoredPinRequestTests {
 
     /// AC5 — a request that never asks for pins carries no `distance` at all.
     @Test func noDistanceKeyWhenNeverSet() throws {
-        let json = try encodedJSON(try builder().setGeoTargeting([123]).build())
+        let json = try encodedJSON(builder().setGeoTargeting([123]).build())
 
         #expect(!json.contains("\"distance\""))
     }
@@ -137,7 +137,8 @@ struct SponsoredPinRequestTests {
         #expect(throws: SDKError.self) {
             try builder().setDistanceTargeting(
                 latitude: 0, longitude: 0,
-                bounds: DistanceBounds(north: -33.46, south: -33.38, east: -70.54, west: -70.68))
+                bounds: DistanceBounds(north: -33.46, south: -33.38, east: -70.54, west: -70.68)
+            )
         }
     }
 
@@ -146,7 +147,8 @@ struct SponsoredPinRequestTests {
         #expect(throws: SDKError.self) {
             try builder().setDistanceTargeting(
                 latitude: 0, longitude: 179,
-                bounds: DistanceBounds(north: 10, south: -10, east: -179, west: 179))
+                bounds: DistanceBounds(north: 10, south: -10, east: -179, west: 179)
+            )
         }
     }
 
@@ -161,9 +163,10 @@ struct SponsoredPinRequestTests {
     /// that bakes them in refuses what a newer engine would accept.
     @Test func acceptsRadiusAboveTheServersCurrentCeiling() throws {
         let json = try encodedJSON(
-            try builder()
-                .setDistanceTargeting(latitude: 0, longitude: 0, radius: 80_000)
-                .build())
+            builder()
+                .setDistanceTargeting(latitude: 0, longitude: 0, radius: 80000)
+                .build()
+        )
 
         #expect(json.contains("\"radius\":80000"))
     }
@@ -171,12 +174,13 @@ struct SponsoredPinRequestTests {
     /// AC3 — likewise for a rectangle larger than today's diagonal limit.
     @Test func acceptsBoundsLargerThanTheServersCurrentCeiling() throws {
         let json = try encodedJSON(
-            try builder()
+            builder()
                 .setDistanceTargeting(
                     latitude: 0, longitude: 0,
                     bounds: DistanceBounds(north: 5, south: -5, east: 5, west: -5)
                 )
-                .build())
+                .build()
+        )
 
         #expect(json.contains("\"bounds\""))
     }
@@ -191,11 +195,12 @@ struct SponsoredPinRequestTests {
 
     @Test func clearRemovesTheSearchAndNothingElse() throws {
         let json = try encodedJSON(
-            try builder()
+            builder()
                 .setDistanceTargeting(latitude: 0, longitude: 0, radius: 100)
                 .setGeoTargeting([42])
                 .clearDistanceTargeting()
-                .build())
+                .build()
+        )
 
         #expect(!json.contains("\"distance\""))
         #expect(json.contains("\"geo\":[42]"))
@@ -205,12 +210,13 @@ struct SponsoredPinRequestTests {
     /// builder copies its targeting on every setter, so each copy has to carry it forward.
     @Test func anotherTargetingAxisDoesNotDropTheSearch() throws {
         let json = try encodedJSON(
-            try builder()
+            builder()
                 .setDistanceTargeting(latitude: -33.4175, longitude: -70.6065, radius: 8000)
                 .setGeoTargeting([42])
                 .addLocationTargeting(latitude: 1, longitude: 2)
                 .addCustomTargeting(key: "tier", value: "gold")
-                .build())
+                .build()
+        )
 
         #expect(json.contains("\"radius\":8000"))
         #expect(json.contains("\"geo\":[42]"))
@@ -220,7 +226,6 @@ struct SponsoredPinRequestTests {
 // MARK: - Response side
 
 struct SponsoredPinModelTests {
-
     /// AC4 — every field maps, in the server's order.
     @Test func matchedPointsDecodeWithEveryField() throws {
         let creative = try decodeCreative(contents: onePoint)
@@ -240,7 +245,8 @@ struct SponsoredPinModelTests {
     /// AC5 — a creative with no such entry yields an empty list and no error.
     @Test func creativeWithoutMatchedPointsIsEmpty() throws {
         let creative = try decodeCreative(
-            contents: #"[{ "key": "headline", "type": "text", "value": "Hi" }]"#)
+            contents: #"[{ "key": "headline", "type": "text", "value": "Hi" }]"#
+        )
 
         #expect(creative.matchedPoints.isEmpty)
         #expect(creative.contents.count == 1)
@@ -260,10 +266,11 @@ struct SponsoredPinModelTests {
     @Test func absentAddressAndClickUrlAreNil() throws {
         let creative = try decodeCreative(
             contents: """
-                [{ "key": "matched_points", "type": "matched_points", "value": [
-                   { "id": "loc_1", "name": "Shop", "latitude": 1, "longitude": 2, "distance": 10 }
-                ]}]
-                """)
+            [{ "key": "matched_points", "type": "matched_points", "value": [
+               { "id": "loc_1", "name": "Shop", "latitude": 1, "longitude": 2, "distance": 10 }
+            ]}]
+            """
+        )
         let point = try #require(creative.matchedPoints.first)
 
         #expect(point.address == nil)
@@ -275,11 +282,12 @@ struct SponsoredPinModelTests {
     @Test func unknownPointFieldsAreIgnored() throws {
         let creative = try decodeCreative(
             contents: """
-                [{ "key": "matched_points", "type": "matched_points", "value": [
-                   { "id": "loc_1", "name": "Shop", "latitude": 1, "longitude": 2,
-                     "distance": 10, "openingHours": "9-5" }
-                ]}]
-                """)
+            [{ "key": "matched_points", "type": "matched_points", "value": [
+               { "id": "loc_1", "name": "Shop", "latitude": 1, "longitude": 2,
+                 "distance": 10, "openingHours": "9-5" }
+            ]}]
+            """
+        )
 
         #expect(creative.matchedPoints.count == 1)
     }
@@ -288,12 +296,13 @@ struct SponsoredPinModelTests {
     @Test func malformedPointIsDroppedAndSiblingsSurvive() throws {
         let creative = try decodeCreative(
             contents: """
-                [{ "key": "matched_points", "type": "matched_points", "value": [
-                   { "id": "loc_1", "name": "Good", "latitude": 1, "longitude": 2, "distance": 10 },
-                   { "id": "loc_2" },
-                   { "id": "loc_3", "name": "Also good", "latitude": 3, "longitude": 4, "distance": 20 }
-                ]}]
-                """)
+            [{ "key": "matched_points", "type": "matched_points", "value": [
+               { "id": "loc_1", "name": "Good", "latitude": 1, "longitude": 2, "distance": 10 },
+               { "id": "loc_2" },
+               { "id": "loc_3", "name": "Also good", "latitude": 3, "longitude": 4, "distance": 20 }
+            ]}]
+            """
+        )
 
         #expect(creative.matchedPoints.map(\.id) == ["loc_1", "loc_3"])
     }
@@ -304,10 +313,11 @@ struct SponsoredPinModelTests {
         let a = try decodeCreative(contents: onePoint)
         let b = try decodeCreative(
             contents: """
-                [{ "key": "matched_points", "type": "matched_points", "value": [
-                   { "id": "loc_b", "name": "Other", "latitude": 9, "longitude": 9, "distance": 1 }
-                ]}]
-                """)
+            [{ "key": "matched_points", "type": "matched_points", "value": [
+               { "id": "loc_b", "name": "Other", "latitude": 9, "longitude": 9, "distance": 1 }
+            ]}]
+            """
+        )
 
         #expect(a.matchedPoints.map(\.id) == ["advertiser_location_01ARZ3NDEKTSV4RRFFQ69G5FAV"])
         #expect(b.matchedPoints.map(\.id) == ["loc_b"])
@@ -321,256 +331,260 @@ struct SponsoredPinModelTests {
 /// network suites and see their requests. That failure looks exactly like an SDK bug — a test
 /// asserting "nothing fired" finding somebody else's beacon.
 extension MockNetworkTests {
-    @Suite
     struct SponsoredPinTrackingTests {
+        private func sdk() -> AdMoai {
+            AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01", defaultLanguage: "en"))
+        }
 
-    private func sdk() -> AdMoai {
-        AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01", defaultLanguage: "en"))
-    }
+        private func firedURLs() -> [String] {
+            MockURLProtocol.capturedRequests.compactMap { $0.url?.absoluteString }
+        }
 
-    private func firedURLs() -> [String] {
-        MockURLProtocol.capturedRequests.compactMap { $0.url?.absoluteString }
-    }
+        /// The one that matters: what actually leaves the device.
+        ///
+        /// Every other request-side test in this file inspects the builder's output. Between
+        /// `build()` and the socket the SDK still assembles the final request, and an assembly
+        /// step that forgets an axis drops it on the floor — which is exactly what happened to
+        /// `distance` on Android until the live-engine scenarios caught it
+        /// (admoai/admoai-android#90). The builder was correct and the wire was not.
+        @Test func distanceSearchReachesTheWire() async throws {
+            MockURLProtocol.reset()
 
-    /// The one that matters: what actually leaves the device.
-    ///
-    /// Every other request-side test in this file inspects the builder's output. Between
-    /// `build()` and the socket the SDK still assembles the final request, and an assembly
-    /// step that forgets an axis drops it on the floor — which is exactly what happened to
-    /// `distance` on Android until the live-engine scenarios caught it
-    /// (admoai/admoai-android#90). The builder was correct and the wire was not.
-    @Test func distanceSearchReachesTheWire() async throws {
-        MockURLProtocol.reset()
+            let instance = sdk()
+            let request = try instance.createRequestBuilder()
+                .addPlacement(key: "map")
+                .setDistanceTargeting(latitude: -33.4175, longitude: -70.6065, radius: 8000, limit: 7)
+                .build()
+            // The default stub answers "[]", which does not decode. This test is about the bytes
+            // that went out, not the ones that came back.
+            _ = try? await instance.requestAds(request)
+            await MockURLProtocol.waitForRequests(1)
 
-        let instance = sdk()
-        let request = try instance.createRequestBuilder()
-            .addPlacement(key: "map")
-            .setDistanceTargeting(latitude: -33.4175, longitude: -70.6065, radius: 8000, limit: 7)
-            .build()
-        // The default stub answers "[]", which does not decode. This test is about the bytes
-        // that went out, not the ones that came back.
-        _ = try? await instance.requestAds(request)
-        await MockURLProtocol.waitForRequests(1)
+            let body = try #require(MockURLProtocol.capturedBody(at: 0), "no request body was captured")
+            let json = try #require(
+                try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            )
+            let targeting = try #require(
+                json["targeting"] as? [String: Any],
+                "the wire body carries no targeting: \(String(decoding: body, as: UTF8.self))"
+            )
+            let distance = try #require(
+                targeting["distance"] as? [String: Any],
+                "the wire body carries no distance search: \(String(decoding: body, as: UTF8.self))"
+            )
 
-        let body = try #require(MockURLProtocol.capturedBody(at: 0), "no request body was captured")
-        let json = try #require(
-            try JSONSerialization.jsonObject(with: body) as? [String: Any])
-        let targeting = try #require(
-            json["targeting"] as? [String: Any],
-            "the wire body carries no targeting: \(String(decoding: body, as: UTF8.self))")
-        let distance = try #require(
-            targeting["distance"] as? [String: Any],
-            "the wire body carries no distance search: \(String(decoding: body, as: UTF8.self))")
+            #expect(distance["radius"] as? Double == 8000)
+            #expect(distance["latitude"] as? Double == -33.4175)
+            #expect(distance["limit"] as? Int == 7)
+            #expect(distance["bounds"] == nil)
+        }
 
-        #expect(distance["radius"] as? Double == 8000)
-        #expect(distance["latitude"] as? Double == -33.4175)
-        #expect(distance["limit"] as? Int == 7)
-        #expect(distance["bounds"] == nil)
-    }
+        /// AC7 — parsing a response fires nothing. The SDK draws no map and cannot know what the
+        /// user saw, so it never reports a view on anyone's behalf.
+        @Test func parsingFiresNothing() async throws {
+            MockURLProtocol.reset()
 
-    /// AC7 — parsing a response fires nothing. The SDK draws no map and cannot know what the
-    /// user saw, so it never reports a view on anyone's behalf.
-    @Test func parsingFiresNothing() async throws {
-        MockURLProtocol.reset()
+            let creative = try decodeCreative(contents: onePoint)
+            _ = creative.matchedPoints.map(\.id)
+            try await Task.sleep(nanoseconds: 200_000_000)
 
-        let creative = try decodeCreative(contents: onePoint)
-        _ = creative.matchedPoints.map(\.id)
-        try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(firedURLs().isEmpty)
+        }
 
-        #expect(firedURLs().isEmpty)
-    }
+        /// AC8 — each call fires exactly its own list and nothing else.
+        @Test func eachHelperFiresItsOwnList() async throws {
+            let creative = try decodeCreative(contents: onePoint)
+            let point = try #require(creative.matchedPoints.first)
 
-    /// AC8 — each call fires exactly its own list and nothing else.
-    @Test func eachHelperFiresItsOwnList() async throws {
-        let creative = try decodeCreative(contents: onePoint)
-        let point = try #require(creative.matchedPoints.first)
+            MockURLProtocol.reset()
+            sdk().trackPointView(point)
+            await MockURLProtocol.waitForRequests(1)
+            #expect(firedURLs() == ["https://t/pin/view"])
 
-        MockURLProtocol.reset()
-        sdk().trackPointView(point)
-        await MockURLProtocol.waitForRequests(1)
-        #expect(firedURLs() == ["https://t/pin/view"])
+            MockURLProtocol.reset()
+            sdk().trackPointTap(point)
+            await MockURLProtocol.waitForRequests(1)
+            #expect(firedURLs() == ["https://t/pin/tap"])
 
-        MockURLProtocol.reset()
-        sdk().trackPointTap(point)
-        await MockURLProtocol.waitForRequests(1)
-        #expect(firedURLs() == ["https://t/pin/tap"])
+            MockURLProtocol.reset()
+            sdk().trackPointClick(point)
+            await MockURLProtocol.waitForRequests(1)
+            #expect(firedURLs() == ["https://t/pin/click"])
+        }
 
-        MockURLProtocol.reset()
-        sdk().trackPointClick(point)
-        await MockURLProtocol.waitForRequests(1)
-        #expect(firedURLs() == ["https://t/pin/click"])
-    }
+        /// AC12 — opening a detail card is a tap and never a click. This is the one that costs
+        /// money when it is wrong, so it is asserted rather than documented.
+        @Test func aTapNeverFiresTheClickBeacon() async throws {
+            let creative = try decodeCreative(contents: onePoint)
+            let point = try #require(creative.matchedPoints.first)
 
-    /// AC12 — opening a detail card is a tap and never a click. This is the one that costs
-    /// money when it is wrong, so it is asserted rather than documented.
-    @Test func aTapNeverFiresTheClickBeacon() async throws {
-        let creative = try decodeCreative(contents: onePoint)
-        let point = try #require(creative.matchedPoints.first)
+            MockURLProtocol.reset()
+            sdk().trackPointTap(point)
+            await MockURLProtocol.waitForRequests(1)
 
-        MockURLProtocol.reset()
-        sdk().trackPointTap(point)
-        await MockURLProtocol.waitForRequests(1)
+            #expect(!firedURLs().contains("https://t/pin/click"))
+            #expect(!firedURLs().contains("https://t/click"))
+        }
 
-        #expect(!firedURLs().contains("https://t/pin/click"))
-        #expect(!firedURLs().contains("https://t/click"))
-    }
+        /// AC8 — the point click replaces the creative click; it never also fires it.
+        @Test func pointClickDoesNotFireTheCreativeClick() async throws {
+            let creative = try decodeCreative(contents: onePoint)
+            let point = try #require(creative.matchedPoints.first)
 
-    /// AC8 — the point click replaces the creative click; it never also fires it.
-    @Test func pointClickDoesNotFireTheCreativeClick() async throws {
-        let creative = try decodeCreative(contents: onePoint)
-        let point = try #require(creative.matchedPoints.first)
+            MockURLProtocol.reset()
+            sdk().trackPointClick(point)
+            await MockURLProtocol.waitForRequests(1)
 
-        MockURLProtocol.reset()
-        sdk().trackPointClick(point)
-        await MockURLProtocol.waitForRequests(1)
+            #expect(firedURLs() == ["https://t/pin/click"])
+        }
 
-        #expect(firedURLs() == ["https://t/pin/click"])
-    }
-
-    /// A point with nothing to report reports nothing, and raises nothing.
-    @Test func pointWithoutTrackingFiresNothing() async throws {
-        let creative = try decodeCreative(
-            contents: """
+        /// A point with nothing to report reports nothing, and raises nothing.
+        @Test func pointWithoutTrackingFiresNothing() async throws {
+            let creative = try decodeCreative(
+                contents: """
                 [{ "key": "matched_points", "type": "matched_points", "value": [
                    { "id": "loc_1", "name": "Shop", "latitude": 1, "longitude": 2, "distance": 10 }
                 ]}]
-                """)
-        let point = try #require(creative.matchedPoints.first)
+                """
+            )
+            let point = try #require(creative.matchedPoints.first)
 
-        MockURLProtocol.reset()
-        sdk().trackPointView(point)
-        sdk().trackPointTap(point)
-        sdk().trackPointClick(point)
-        try await Task.sleep(nanoseconds: 200_000_000)
+            MockURLProtocol.reset()
+            sdk().trackPointView(point)
+            sdk().trackPointTap(point)
+            sdk().trackPointClick(point)
+            try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(firedURLs().isEmpty)
-    }
+            #expect(firedURLs().isEmpty)
+        }
 
-    /// AC8b — the bulk form fires one view per point.
-    @Test func bulkFiresOneViewPerPoint() async throws {
-        let points = try threePoints()
+        /// AC8b — the bulk form fires one view per point.
+        @Test func bulkFiresOneViewPerPoint() async throws {
+            let points = try threePoints()
 
-        MockURLProtocol.reset()
-        sdk().trackPointViews(points)
-        await MockURLProtocol.waitForRequests(3)
+            MockURLProtocol.reset()
+            sdk().trackPointViews(points)
+            await MockURLProtocol.waitForRequests(3)
 
-        #expect(Set(firedURLs()) == ["https://t/a", "https://t/b", "https://t/c"])
-    }
+            #expect(Set(firedURLs()) == ["https://t/a", "https://t/b", "https://t/c"])
+        }
 
-    /// AC8b — the same point named twice in one call is one view.
-    @Test func bulkDeduplicatesWithinTheInvocation() async throws {
-        let points = try threePoints()
-        let first = try #require(points.first)
+        /// AC8b — the same point named twice in one call is one view.
+        @Test func bulkDeduplicatesWithinTheInvocation() async throws {
+            let points = try threePoints()
+            let first = try #require(points.first)
 
-        MockURLProtocol.reset()
-        sdk().trackPointViews([first, first, first])
-        try await Task.sleep(nanoseconds: 300_000_000)
+            MockURLProtocol.reset()
+            sdk().trackPointViews([first, first, first])
+            try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(firedURLs() == ["https://t/a"])
-    }
+            #expect(firedURLs() == ["https://t/a"])
+        }
 
-    /// AC8b — a second render of the same response is not a second view. The full rule lives
-    /// in `PointViewLedgerTests`, scenario by scenario.
-    @Test func bulkDeduplicatesAcrossInvocationsOfTheSameResponse() async throws {
-        let points = try threePoints()
-        let first = try #require(points.first)
-        let sdk = self.sdk()
+        /// AC8b — a second render of the same response is not a second view. The full rule lives
+        /// in `PointViewLedgerTests`, scenario by scenario.
+        @Test func bulkDeduplicatesAcrossInvocationsOfTheSameResponse() async throws {
+            let points = try threePoints()
+            let first = try #require(points.first)
+            let sdk = self.sdk()
 
-        MockURLProtocol.reset()
-        sdk.trackPointViews([first])
-        sdk.trackPointViews([first])
-        await MockURLProtocol.waitForRequests(1)
-        try await Task.sleep(nanoseconds: 300_000_000)
+            MockURLProtocol.reset()
+            sdk.trackPointViews([first])
+            sdk.trackPointViews([first])
+            await MockURLProtocol.waitForRequests(1)
+            try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(firedURLs() == ["https://t/a"])
-    }
+            #expect(firedURLs() == ["https://t/a"])
+        }
 
-    /// AC8b — a full screenful at the campaign's ceiling.
-    ///
-    /// A campaign may return up to 50 matched points, and max cardinality is where collection
-    /// bugs live: a truncated list, a set that de-duplicates on the wrong key, a dispatch that
-    /// drops under load. The scenarios above use three, which proves none of that.
-    @Test func bulkFiresFiftyDistinctBeacons() async throws {
-        let points = try fiftyPoints()
-        #expect(points.count == 50, "all 50 points decode")
+        /// AC8b — a full screenful at the campaign's ceiling.
+        ///
+        /// A campaign may return up to 50 matched points, and max cardinality is where collection
+        /// bugs live: a truncated list, a set that de-duplicates on the wrong key, a dispatch that
+        /// drops under load. The scenarios above use three, which proves none of that.
+        @Test func bulkFiresFiftyDistinctBeacons() async throws {
+            let points = try fiftyPoints()
+            #expect(points.count == 50, "all 50 points decode")
 
-        MockURLProtocol.reset()
-        sdk().trackPointViews(points)
-        await MockURLProtocol.waitForRequests(50)
+            MockURLProtocol.reset()
+            sdk().trackPointViews(points)
+            await MockURLProtocol.waitForRequests(50)
 
-        let fired = firedURLs()
-        #expect(fired.count == 50, "one beacon per point, none dropped")
-        #expect(Set(fired).count == 50, "and all of them distinct")
-        #expect(Set(fired) == Set((0..<50).map { "https://t/p\($0)" }))
-    }
+            let fired = firedURLs()
+            #expect(fired.count == 50, "one beacon per point, none dropped")
+            #expect(Set(fired).count == 50, "and all of them distinct")
+            #expect(Set(fired) == Set((0 ..< 50).map { "https://t/p\($0)" }))
+        }
 
-    /// AC8b — de-duplication still holds at the ceiling.
-    @Test func bulkDeduplicatesAtFifty() async throws {
-        let points = try fiftyPoints()
+        /// AC8b — de-duplication still holds at the ceiling.
+        @Test func bulkDeduplicatesAtFifty() async throws {
+            let points = try fiftyPoints()
 
-        MockURLProtocol.reset()
-        sdk().trackPointViews(points + points)
-        await MockURLProtocol.waitForRequests(50)
-        try await Task.sleep(nanoseconds: 300_000_000)
+            MockURLProtocol.reset()
+            sdk().trackPointViews(points + points)
+            await MockURLProtocol.waitForRequests(50)
+            try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(
-            firedURLs().count == 50,
-            "the same screenful listed twice in one call is still one view each")
-    }
+            #expect(
+                firedURLs().count == 50,
+                "the same screenful listed twice in one call is still one view each"
+            )
+        }
 
-    /// AC8b — an empty list is a no-op, not a crash.
-    @Test func bulkWithNoPointsFiresNothing() async throws {
-        MockURLProtocol.reset()
-        sdk().trackPointViews([])
-        try await Task.sleep(nanoseconds: 200_000_000)
+        /// AC8b — an empty list is a no-op, not a crash.
+        @Test func bulkWithNoPointsFiresNothing() async throws {
+            MockURLProtocol.reset()
+            sdk().trackPointViews([])
+            try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(firedURLs().isEmpty)
-    }
+            #expect(firedURLs().isEmpty)
+        }
 
-    /// AC8b — a point with nothing to report is skipped; its siblings still report.
-    @Test func bulkSkipsUntrackablePointsWithoutAffectingSiblings() async throws {
-        let creative = try decodeCreative(
-            contents: """
+        /// AC8b — a point with nothing to report is skipped; its siblings still report.
+        @Test func bulkSkipsUntrackablePointsWithoutAffectingSiblings() async throws {
+            let creative = try decodeCreative(
+                contents: """
                 [{ "key": "matched_points", "type": "matched_points", "value": [
                    { "id": "a", "name": "A", "latitude": 1, "longitude": 1, "distance": 1,
                      "tracking": { "views": [{ "key": "default", "url": "https://t/a" }] } },
                    { "id": "silent", "name": "S", "latitude": 2, "longitude": 2, "distance": 2 }
                 ]}]
-                """)
+                """
+            )
 
-        MockURLProtocol.reset()
-        sdk().trackPointViews(creative.matchedPoints)
-        await MockURLProtocol.waitForRequests(1)
-        try await Task.sleep(nanoseconds: 200_000_000)
+            MockURLProtocol.reset()
+            sdk().trackPointViews(creative.matchedPoints)
+            await MockURLProtocol.waitForRequests(1)
+            try await Task.sleep(nanoseconds: 200_000_000)
 
-        #expect(firedURLs() == ["https://t/a"])
-    }
+            #expect(firedURLs() == ["https://t/a"])
+        }
 
-    /// AC9 — the resolved destination is used verbatim; no SDK re-derives it from the creative.
-    @Test func clickUrlIsUsedVerbatim() throws {
-        let creative = try decodeCreative(contents: onePoint)
-        let point = try #require(creative.matchedPoints.first)
+        /// AC9 — the resolved destination is used verbatim; no SDK re-derives it from the creative.
+        @Test func clickUrlIsUsedVerbatim() throws {
+            let creative = try decodeCreative(contents: onePoint)
+            let point = try #require(creative.matchedPoints.first)
 
-        #expect(point.clickUrl == "https://shop.example/parque-arauco")
-    }
+            #expect(point.clickUrl == "https://shop.example/parque-arauco")
+        }
 
-    private func fiftyPoints() throws -> [MatchedPoint] {
-        let entries = (0..<50).map { i in
-            """
-            { "id": "p\(i)", "name": "P\(i)", "latitude": 1, "longitude": 1, "distance": \(i),
-              "tracking": { "views": [{ "key": "default", "url": "https://t/p\(i)" }] } }
-            """
-        }.joined(separator: ",")
-        return try decodeCreative(
-            contents: """
+        private func fiftyPoints() throws -> [MatchedPoint] {
+            let entries = (0 ..< 50).map { i in
+                """
+                { "id": "p\(i)", "name": "P\(i)", "latitude": 1, "longitude": 1, "distance": \(i),
+                  "tracking": { "views": [{ "key": "default", "url": "https://t/p\(i)" }] } }
+                """
+            }.joined(separator: ",")
+            return try decodeCreative(
+                contents: """
                 [{ "key": "matched_points", "type": "matched_points", "value": [\(entries)]}]
                 """
-        ).matchedPoints
-    }
+            ).matchedPoints
+        }
 
-    private func threePoints() throws -> [MatchedPoint] {
-        try decodeCreative(
-            contents: """
+        private func threePoints() throws -> [MatchedPoint] {
+            try decodeCreative(
+                contents: """
                 [{ "key": "matched_points", "type": "matched_points", "value": [
                    { "id": "a", "name": "A", "latitude": 1, "longitude": 1, "distance": 1,
                      "tracking": { "views": [{ "key": "default", "url": "https://t/a" }] } },
@@ -580,7 +594,7 @@ extension MockNetworkTests {
                      "tracking": { "views": [{ "key": "default", "url": "https://t/c" }] } }
                 ]}]
                 """
-        ).matchedPoints
+            ).matchedPoints
+        }
     }
-}
 }

@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Whole-response Tolerant Reader (PR B)
 //
@@ -18,7 +17,6 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
 }
 
 struct ResponseTolerantTests {
-
     // Scenario: a fully future-version envelope decodes without throwing
     @Test
     func testFutureVersionEnvelopeDoesNotThrow() throws {
@@ -61,7 +59,7 @@ struct ResponseTolerantTests {
             ]
         }
         """)
-        #expect(body.data?.count == 2)  // the bare 42 is dropped; both valid decisions survive
+        #expect(body.data?.count == 2) // the bare 42 is dropped; both valid decisions survive
         #expect(body.data?.first?.placement == "home")
         #expect(body.data?.last?.placement == "menu")
     }
@@ -91,10 +89,10 @@ struct ResponseTolerantTests {
         let meta = try decode(Metadata.self, """
         {"adId": 123, "creativeId": true, "templateId": "t", "placementId": "p", "priority": "brand_new"}
         """)
-        #expect(meta.adId == "")            // number where string expected -> ""
-        #expect(meta.creativeId == "")      // bool where string expected -> ""
-        #expect(meta.templateId == "t")     // valid sibling still reads
-        #expect(meta.priority == .unknown)  // unknown enum -> .unknown
+        #expect(meta.adId == "") // number where string expected -> ""
+        #expect(meta.creativeId == "") // bool where string expected -> ""
+        #expect(meta.templateId == "t") // valid sibling still reads
+        #expect(meta.priority == .unknown) // unknown enum -> .unknown
     }
 
     // Scenario: engine metadata fields impId / skipOffsetSeconds / endCardMode are exposed
@@ -113,7 +111,10 @@ struct ResponseTolerantTests {
         #expect(meta.endCardMode == "auto")
 
         // Absent on a normal ad -> nil (backward compatible, tolerant)
-        let normal = try decode(Metadata.self, #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard"}"#)
+        let normal = try decode(
+            Metadata.self,
+            #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard"}"#
+        )
         #expect(normal.impId == nil)
         #expect(normal.skipOffsetSeconds == nil)
         #expect(normal.endCardMode == nil)
@@ -122,9 +123,15 @@ struct ResponseTolerantTests {
     // Scenario: duration accepts an integer or a JSON number (Double)
     @Test
     func testMetadataDurationAcceptsIntOrDouble() throws {
-        let asInt = try decode(Metadata.self, #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard","duration": 30}"#)
+        let asInt = try decode(
+            Metadata.self,
+            #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard","duration": 30}"#
+        )
         #expect(asInt.duration == 30)
-        let asDouble = try decode(Metadata.self, #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard","duration": 30.0}"#)
+        let asDouble = try decode(
+            Metadata.self,
+            #"{"adId":"a","creativeId":"c","templateId":"t","placementId":"p","priority":"standard","duration": 30.0}"#
+        )
         #expect(asDouble.duration == 30)
     }
 
@@ -161,15 +168,15 @@ struct ResponseTolerantTests {
     @Test
     func testAdvertiserTemplateVastRetypedDegrade() throws {
         let adv = try decode(Advertiser.self, #"{"id": 5, "name": "Acme"}"#)
-        #expect(adv.id == nil)          // number where string expected -> nil
+        #expect(adv.id == nil) // number where string expected -> nil
         #expect(adv.name == "Acme")
 
         let tmpl = try decode(Template.self, #"{"style": "dark"}"#)
-        #expect(tmpl.key == "")         // missing required key -> ""
+        #expect(tmpl.key == "") // missing required key -> ""
         #expect(tmpl.style == "dark")
 
         let vast = try decode(VastData.self, #"{"tagUrl": 123}"#)
-        #expect(vast.tagUrl == nil)     // retyped -> nil, no throw
+        #expect(vast.tagUrl == nil) // retyped -> nil, no throw
     }
 
     // Scenario: OM resource keeps a usable script when only verificationParameters is missing

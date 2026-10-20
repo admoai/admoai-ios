@@ -17,13 +17,13 @@
 /// - §7  `Priority` enum live round-trip (real server response)
 /// - §8  Tracking fire methods — fire-and-forget, no crash, headers present
 
+@testable import AdMoai
 import Foundation
 import Testing
 
-@testable import AdMoai
-
 // ---------------------------------------------------------------------------
 // MARK: - Test Fixtures
+
 // ---------------------------------------------------------------------------
 
 private let mockBaseURL = "https://api.mock.admoai.com"
@@ -76,10 +76,10 @@ private let allPlacementKeys = placementsWithoutVersion + ["vastxml_native_endca
 
 // ---------------------------------------------------------------------------
 // MARK: - §1  Request Serialisation (no network)
+
 // ---------------------------------------------------------------------------
 
 struct LiveIntegrationSerializationTests {
-
     /// `minConfidence` must be camelCase in the JSON body — the engine's canonical key.
     @Test
     func testMinConfidenceKeyIsCanonicalCamelCase() throws {
@@ -94,7 +94,8 @@ struct LiveIntegrationSerializationTests {
         #expect(json.contains("\"minConfidence\""), "Expected the canonical camelCase key")
         #expect(
             !json.contains("\"min_confidence\""),
-            "The legacy snake_case alias must not be emitted by a new SDK version")
+            "The legacy snake_case alias must not be emitted by a new SDK version"
+        )
     }
 
     /// When no `format` is set on a placement, the key must be absent from JSON
@@ -147,10 +148,10 @@ struct LiveIntegrationSerializationTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §2  Header Assertions (no network)
+
 // ---------------------------------------------------------------------------
 
 struct LiveIntegrationHeaderTests {
-
     /// `User-Agent` header must be set to `AdMoaiSDK/{SDK_VERSION}` via the session
     /// configuration (applies to ALL requests — decision AND tracking).
     @Test
@@ -210,11 +211,11 @@ struct LiveIntegrationHeaderTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §3  Live Decision Requests (network required)
+
 // ---------------------------------------------------------------------------
 
 @Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationDecisionTests {
-
     /// Each placement in `placementsWithoutVersion` must return HTTP 200 and `success: true`
     /// when called without an explicit API version.
     @Test
@@ -286,9 +287,9 @@ struct LiveIntegrationDecisionTests {
                     // All known priority values decode to a named case
                     #expect(
                         meta.priority == .house
-                        || meta.priority == .sponsorship
-                        || meta.priority == .standard
-                        || meta.priority == .unknown
+                            || meta.priority == .sponsorship
+                            || meta.priority == .standard
+                            || meta.priority == .unknown
                     )
                 }
             }
@@ -330,11 +331,11 @@ struct LiveIntegrationDecisionTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §4  Live Video Placement (network required)
+
 // ---------------------------------------------------------------------------
 
 @Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationVideoTests {
-
     /// `vastxml_native_endcard` requires the `2025-11-01` API version header but
     /// does NOT need an explicit `format: .video` — the server resolves the format
     /// automatically and returns a VAST XML video creative.
@@ -374,11 +375,11 @@ struct LiveIntegrationVideoTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §5  Destination Targeting Live Round-trip (network required)
+
 // ---------------------------------------------------------------------------
 
 @Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationDestinationTests {
-
     /// A request containing destination targeting with a valid `minConfidence`
     /// must succeed (HTTP 200).
     @Test
@@ -409,10 +410,10 @@ struct LiveIntegrationDestinationTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §6  Typed Error Handling (network required)
+
 // ---------------------------------------------------------------------------
 
 struct LiveIntegrationErrorTests {
-
     /// An unrecognised placement key should return HTTP 422 and `success: false`
     /// (in DEBUG mode the SDK lets 422 through; in RELEASE it throws `.validationError`).
     @Test(.tags(.live), .enabled(if: LiveTestGate.enabled))
@@ -422,20 +423,20 @@ struct LiveIntegrationErrorTests {
             .build()
 
         #if DEBUG
-        let response = try await sdk.requestAds(request)
-        #expect(response.response.statusCode == 422)
-        #expect(response.body.success == false)
+            let response = try await sdk.requestAds(request)
+            #expect(response.response.statusCode == 422)
+            #expect(response.body.success == false)
         #else
-        do {
-            _ = try await sdk.requestAds(request)
-            Issue.record("Expected APIError.validationError to be thrown for invalid placement")
-        } catch let apiError as APIError {
-            if case .validationError(let errors) = apiError {
-                #expect(!errors.isEmpty || errors.isEmpty)  // any validationError is fine
-            } else {
-                throw apiError
+            do {
+                _ = try await sdk.requestAds(request)
+                Issue.record("Expected APIError.validationError to be thrown for invalid placement")
+            } catch let apiError as APIError {
+                if case let .validationError(errors) = apiError {
+                    #expect(!errors.isEmpty || errors.isEmpty) // any validationError is fine
+                } else {
+                    throw apiError
+                }
             }
-        }
         #endif
     }
 
@@ -464,11 +465,11 @@ struct LiveIntegrationErrorTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §7  Priority Enum Live Round-trip (network required)
+
 // ---------------------------------------------------------------------------
 
 @Suite(.tags(.live), .enabled(if: LiveTestGate.enabled))
 struct LiveIntegrationPriorityTests {
-
     /// Decoded `Metadata.priority` from a live response must be a named `Priority`
     /// case (never fails to decode due to unknown raw value).
     @Test
@@ -486,7 +487,7 @@ struct LiveIntegrationPriorityTests {
                 for creative in decision.creatives ?? [] {
                     if let meta = creative.metadata {
                         // Priority is strongly typed — accessing it must not crash
-                        let _ = meta.priority.rawValue
+                        _ = meta.priority.rawValue
                     }
                 }
             }
@@ -496,10 +497,10 @@ struct LiveIntegrationPriorityTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - §8  Tracking Fire Methods (no external assertions possible)
+
 // ---------------------------------------------------------------------------
 
 struct LiveIntegrationTrackingTests {
-
     /// `fireTracking(url:)` must not crash for a valid URL.
     @Test
     func testFireTrackingValidURL() {
@@ -557,6 +558,7 @@ struct LiveIntegrationTrackingTests {
 
 // ---------------------------------------------------------------------------
 // MARK: - Helper Extension
+
 // ---------------------------------------------------------------------------
 
 extension DecisionRequestBuilder {
@@ -564,8 +566,8 @@ extension DecisionRequestBuilder {
     /// representing a representative mobility app scenario.
     @discardableResult
     func withStandardTargeting() -> DecisionRequestBuilder {
-        return self
-            .addGeoTargeting(2643743)
+        self
+            .addGeoTargeting(2_643_743)
             .addLocationTargeting(latitude: 27.92, longitude: -160.32)
             .addCustomTargeting(key: "category", value: "sports")
     }

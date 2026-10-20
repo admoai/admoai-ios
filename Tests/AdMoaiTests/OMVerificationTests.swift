@@ -1,23 +1,21 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // MARK: - OM Verification Serialization Tests
 
 struct OMVerificationTests {
-
     // MARK: - VerificationScriptResource Deserialization
 
     @Test
     func testVerificationScriptResourceDeserialization() throws {
         let json = """
-            {
-                "vendorKey": "iabtechlab.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "param1=value1&param2=value2"
-            }
-            """
+        {
+            "vendorKey": "iabtechlab.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "param1=value1&param2=value2"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -30,12 +28,12 @@ struct OMVerificationTests {
     @Test
     func testVerificationScriptResourceWithEmptyParameters() throws {
         let json = """
-            {
-                "vendorKey": "doubleverify.com-omid",
-                "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
-                "verificationParameters": ""
-            }
-            """
+        {
+            "vendorKey": "doubleverify.com-omid",
+            "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
+            "verificationParameters": ""
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -48,12 +46,12 @@ struct OMVerificationTests {
     @Test
     func testVerificationScriptResourceWithSpecialCharacters() throws {
         let json = """
-            {
-                "vendorKey": "ias.com-omid",
-                "scriptUrl": "https://cdn.ias.com/verification.js?v=1.0",
-                "verificationParameters": "anId=123&advId=456&campId=789&creativeId=abc-def_123"
-            }
-            """
+        {
+            "vendorKey": "ias.com-omid",
+            "scriptUrl": "https://cdn.ias.com/verification.js?v=1.0",
+            "verificationParameters": "anId=123&advId=456&campId=789&creativeId=abc-def_123"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -69,11 +67,11 @@ struct OMVerificationTests {
         // resource with a usable vendorKey + scriptUrl but no parameters must decode (with
         // an empty string), NOT be discarded — dropping it would lose a valid OM script.
         let json = """
-            {
-                "vendorKey": "iabtechlab.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js"
-            }
-            """
+        {
+            "vendorKey": "iabtechlab.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -89,12 +87,12 @@ struct OMVerificationTests {
         // is the part IAS or DoubleVerify needs to attribute a measurement. Now re-encoded to
         // compact JSON text, matching Android, so nothing is lost.
         let json = """
-            {
-                "vendorKey": "doubleverify.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": {"ctx": 12345, "tag": "abc"}
-            }
-            """
+        {
+            "vendorKey": "doubleverify.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": {"ctx": 12345, "tag": "abc"}
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -107,12 +105,12 @@ struct OMVerificationTests {
     @Test
     func testVerificationParametersArrayIsPreservedAsJSON() throws {
         let json = """
-            {
-                "vendorKey": "ias.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": ["a", "b"]
-            }
-            """
+        {
+            "vendorKey": "ias.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": ["a", "b"]
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -125,12 +123,12 @@ struct OMVerificationTests {
         // An explicit null carries no payload, so "" remains correct — do not stringify it to
         // the literal "null", which a publisher would forward to the vendor as if it were data.
         let json = """
-            {
-                "vendorKey": "ias.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": null
-            }
-            """
+        {
+            "vendorKey": "ias.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": null
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -142,23 +140,23 @@ struct OMVerificationTests {
     @Test
     func testCreativeWithSingleVerificationResource() throws {
         let json = """
-            {
-                "contents": [
-                    {"key": "headline", "value": "Test Ad", "type": "text"}
-                ],
-                "advertiser": {"id": "adv123", "name": "Test Advertiser"},
-                "tracking": {
-                    "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                },
-                "verificationScriptResources": [
-                    {
-                        "vendorKey": "iabtechlab.com-omid",
-                        "scriptUrl": "https://verification.example.com/omid.js",
-                        "verificationParameters": "sessionId=abc123"
-                    }
-                ]
-            }
-            """
+        {
+            "contents": [
+                {"key": "headline", "value": "Test Ad", "type": "text"}
+            ],
+            "advertiser": {"id": "adv123", "name": "Test Advertiser"},
+            "tracking": {
+                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+            },
+            "verificationScriptResources": [
+                {
+                    "vendorKey": "iabtechlab.com-omid",
+                    "scriptUrl": "https://verification.example.com/omid.js",
+                    "verificationParameters": "sessionId=abc123"
+                }
+            ]
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let creative = try JSONDecoder().decode(Creative.self, from: data)
@@ -175,33 +173,33 @@ struct OMVerificationTests {
     @Test
     func testCreativeWithMultipleVerificationResources() throws {
         let json = """
-            {
-                "contents": [
-                    {"key": "headline", "value": "Test Ad", "type": "text"}
-                ],
-                "advertiser": {"id": "adv123", "name": "Test Advertiser"},
-                "tracking": {
-                    "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+        {
+            "contents": [
+                {"key": "headline", "value": "Test Ad", "type": "text"}
+            ],
+            "advertiser": {"id": "adv123", "name": "Test Advertiser"},
+            "tracking": {
+                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+            },
+            "verificationScriptResources": [
+                {
+                    "vendorKey": "iabtechlab.com-omid",
+                    "scriptUrl": "https://verification.iabtechlab.com/omid.js",
+                    "verificationParameters": "sessionId=abc123"
                 },
-                "verificationScriptResources": [
-                    {
-                        "vendorKey": "iabtechlab.com-omid",
-                        "scriptUrl": "https://verification.iabtechlab.com/omid.js",
-                        "verificationParameters": "sessionId=abc123"
-                    },
-                    {
-                        "vendorKey": "doubleverify.com-omid",
-                        "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
-                        "verificationParameters": "ctx=1234567&cmp=DV123"
-                    },
-                    {
-                        "vendorKey": "integralads.com-omid",
-                        "scriptUrl": "https://cdn.adsafeprotected.com/iasPET.1.js",
-                        "verificationParameters": "anId=929999"
-                    }
-                ]
-            }
-            """
+                {
+                    "vendorKey": "doubleverify.com-omid",
+                    "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
+                    "verificationParameters": "ctx=1234567&cmp=DV123"
+                },
+                {
+                    "vendorKey": "integralads.com-omid",
+                    "scriptUrl": "https://cdn.adsafeprotected.com/iasPET.1.js",
+                    "verificationParameters": "anId=929999"
+                }
+            ]
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let creative = try JSONDecoder().decode(Creative.self, from: data)
@@ -213,7 +211,7 @@ struct OMVerificationTests {
         #expect(resources?.count == 3)
 
         // Verify each vendor is present
-        let vendorKeys = resources?.map { $0.vendorKey } ?? []
+        let vendorKeys = resources?.map(\.vendorKey) ?? []
         #expect(vendorKeys.contains("iabtechlab.com-omid"))
         #expect(vendorKeys.contains("doubleverify.com-omid"))
         #expect(vendorKeys.contains("integralads.com-omid"))
@@ -222,17 +220,17 @@ struct OMVerificationTests {
     @Test
     func testCreativeWithEmptyVerificationResources() throws {
         let json = """
-            {
-                "contents": [
-                    {"key": "headline", "value": "Test Ad", "type": "text"}
-                ],
-                "advertiser": {"id": "adv123", "name": "Test Advertiser"},
-                "tracking": {
-                    "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                },
-                "verificationScriptResources": []
-            }
-            """
+        {
+            "contents": [
+                {"key": "headline", "value": "Test Ad", "type": "text"}
+            ],
+            "advertiser": {"id": "adv123", "name": "Test Advertiser"},
+            "tracking": {
+                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+            },
+            "verificationScriptResources": []
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let creative = try JSONDecoder().decode(Creative.self, from: data)
@@ -245,17 +243,17 @@ struct OMVerificationTests {
     @Test
     func testCreativeWithNullVerificationResources() throws {
         let json = """
-            {
-                "contents": [
-                    {"key": "headline", "value": "Test Ad", "type": "text"}
-                ],
-                "advertiser": {"id": "adv123", "name": "Test Advertiser"},
-                "tracking": {
-                    "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                },
-                "verificationScriptResources": null
-            }
-            """
+        {
+            "contents": [
+                {"key": "headline", "value": "Test Ad", "type": "text"}
+            ],
+            "advertiser": {"id": "adv123", "name": "Test Advertiser"},
+            "tracking": {
+                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+            },
+            "verificationScriptResources": null
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let creative = try JSONDecoder().decode(Creative.self, from: data)
@@ -268,16 +266,16 @@ struct OMVerificationTests {
     @Test
     func testCreativeWithoutVerificationResources() throws {
         let json = """
-            {
-                "contents": [
-                    {"key": "headline", "value": "Test Ad", "type": "text"}
-                ],
-                "advertiser": {"id": "adv123", "name": "Test Advertiser"},
-                "tracking": {
-                    "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                }
+        {
+            "contents": [
+                {"key": "headline", "value": "Test Ad", "type": "text"}
+            ],
+            "advertiser": {"id": "adv123", "name": "Test Advertiser"},
+            "tracking": {
+                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
             }
-            """
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let creative = try JSONDecoder().decode(Creative.self, from: data)
@@ -292,59 +290,59 @@ struct OMVerificationTests {
     @Test
     func testFullDecisionResponseWithOMVerification() throws {
         let json = """
-            [
-                {
-                    "placement": "home",
-                    "creatives": [
-                        {
-                            "contents": [
-                                {"key": "headline", "value": "Premium Ad", "type": "text"},
-                                {"key": "video_asset", "value": "https://cdn.example.com/video.mp4", "type": "video"}
-                            ],
-                            "advertiser": {
-                                "id": "adv123",
-                                "name": "Premium Brand",
-                                "legalName": "Premium Brand Inc.",
-                                "logoUrl": "https://cdn.example.com/logo.png"
-                            },
-                            "template": {"key": "video", "style": "fullscreen"},
-                            "tracking": {
-                                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}],
-                                "clicks": [{"key": "default", "url": "https://track.example.com/click"}],
-                                "videoEvents": [
-                                    {"key": "start", "url": "https://track.example.com/start"},
-                                    {"key": "complete", "url": "https://track.example.com/complete"}
-                                ]
-                            },
-                            "metadata": {
-                                "adId": "ad123",
-                                "creativeId": "cr456",
-                                "advertiserId": "adv123",
-                                "templateId": "tpl789",
-                                "placementId": "pl001",
-                                "priority": "high",
-                                "format": "video",
-                                "duration": 30,
-                                "isSkippable": true
-                            },
-                            "delivery": "json",
-                            "verificationScriptResources": [
-                                {
-                                    "vendorKey": "iabtechlab.com-omid",
-                                    "scriptUrl": "https://verification.iabtechlab.com/omid.js",
-                                    "verificationParameters": "sessionId=abc123&adId=ad123"
-                                },
-                                {
-                                    "vendorKey": "moat.com-omid",
-                                    "scriptUrl": "https://cdn.moat.com/moatad.js",
-                                    "verificationParameters": "moatClientLevel1=12345&moatClientLevel2=67890"
-                                }
+        [
+            {
+                "placement": "home",
+                "creatives": [
+                    {
+                        "contents": [
+                            {"key": "headline", "value": "Premium Ad", "type": "text"},
+                            {"key": "video_asset", "value": "https://cdn.example.com/video.mp4", "type": "video"}
+                        ],
+                        "advertiser": {
+                            "id": "adv123",
+                            "name": "Premium Brand",
+                            "legalName": "Premium Brand Inc.",
+                            "logoUrl": "https://cdn.example.com/logo.png"
+                        },
+                        "template": {"key": "video", "style": "fullscreen"},
+                        "tracking": {
+                            "impressions": [{"key": "default", "url": "https://track.example.com/imp"}],
+                            "clicks": [{"key": "default", "url": "https://track.example.com/click"}],
+                            "videoEvents": [
+                                {"key": "start", "url": "https://track.example.com/start"},
+                                {"key": "complete", "url": "https://track.example.com/complete"}
                             ]
-                        }
-                    ]
-                }
-            ]
-            """
+                        },
+                        "metadata": {
+                            "adId": "ad123",
+                            "creativeId": "cr456",
+                            "advertiserId": "adv123",
+                            "templateId": "tpl789",
+                            "placementId": "pl001",
+                            "priority": "high",
+                            "format": "video",
+                            "duration": 30,
+                            "isSkippable": true
+                        },
+                        "delivery": "json",
+                        "verificationScriptResources": [
+                            {
+                                "vendorKey": "iabtechlab.com-omid",
+                                "scriptUrl": "https://verification.iabtechlab.com/omid.js",
+                                "verificationParameters": "sessionId=abc123&adId=ad123"
+                            },
+                            {
+                                "vendorKey": "moat.com-omid",
+                                "scriptUrl": "https://cdn.moat.com/moatad.js",
+                                "verificationParameters": "moatClientLevel1=12345&moatClientLevel2=67890"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        """
 
         let data = json.data(using: .utf8)!
         let response = try JSONDecoder().decode(DecisionResponse.self, from: data)
@@ -370,32 +368,32 @@ struct OMVerificationTests {
     @Test
     func testDecisionResponseWithVastTagAndOMVerification() throws {
         let json = """
-            [
-                {
-                    "placement": "preroll",
-                    "creatives": [
-                        {
-                            "contents": [],
-                            "advertiser": {"id": "adv123", "name": "Video Advertiser"},
-                            "tracking": {
-                                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                            },
-                            "delivery": "vast_tag",
-                            "vast": {
-                                "tagUrl": "https://ads.example.com/vast?id=12345"
-                            },
-                            "verificationScriptResources": [
-                                {
-                                    "vendorKey": "doubleverify.com-omid",
-                                    "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
-                                    "verificationParameters": "ctx=1234567"
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-            """
+        [
+            {
+                "placement": "preroll",
+                "creatives": [
+                    {
+                        "contents": [],
+                        "advertiser": {"id": "adv123", "name": "Video Advertiser"},
+                        "tracking": {
+                            "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+                        },
+                        "delivery": "vast_tag",
+                        "vast": {
+                            "tagUrl": "https://ads.example.com/vast?id=12345"
+                        },
+                        "verificationScriptResources": [
+                            {
+                                "vendorKey": "doubleverify.com-omid",
+                                "scriptUrl": "https://cdn.doubleverify.com/dvtp_src.js",
+                                "verificationParameters": "ctx=1234567"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        """
 
         let data = json.data(using: .utf8)!
         let response = try JSONDecoder().decode(DecisionResponse.self, from: data)
@@ -410,32 +408,32 @@ struct OMVerificationTests {
     @Test
     func testDecisionResponseWithVastXmlAndOMVerification() throws {
         let json = """
-            [
-                {
-                    "placement": "midroll",
-                    "creatives": [
-                        {
-                            "contents": [],
-                            "advertiser": {"id": "adv456", "name": "XML Advertiser"},
-                            "tracking": {
-                                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
-                            },
-                            "delivery": "vast_xml",
-                            "vast": {
-                                "xmlBase64": "PFZBU1QgdmVyc2lvbj0iNC4yIj48L1ZBU1Q+"
-                            },
-                            "verificationScriptResources": [
-                                {
-                                    "vendorKey": "integralads.com-omid",
-                                    "scriptUrl": "https://cdn.adsafeprotected.com/iasPET.1.js",
-                                    "verificationParameters": "anId=929999&campId=12345"
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-            """
+        [
+            {
+                "placement": "midroll",
+                "creatives": [
+                    {
+                        "contents": [],
+                        "advertiser": {"id": "adv456", "name": "XML Advertiser"},
+                        "tracking": {
+                            "impressions": [{"key": "default", "url": "https://track.example.com/imp"}]
+                        },
+                        "delivery": "vast_xml",
+                        "vast": {
+                            "xmlBase64": "PFZBU1QgdmVyc2lvbj0iNC4yIj48L1ZBU1Q+"
+                        },
+                        "verificationScriptResources": [
+                            {
+                                "vendorKey": "integralads.com-omid",
+                                "scriptUrl": "https://cdn.adsafeprotected.com/iasPET.1.js",
+                                "verificationParameters": "anId=929999&campId=12345"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        """
 
         let data = json.data(using: .utf8)!
         let response = try JSONDecoder().decode(DecisionResponse.self, from: data)
@@ -449,25 +447,25 @@ struct OMVerificationTests {
     @Test
     func testNativeAdWithoutOMVerification() throws {
         let json = """
-            [
-                {
-                    "placement": "banner",
-                    "creatives": [
-                        {
-                            "contents": [
-                                {"key": "headline", "value": "Native Ad", "type": "text"},
-                                {"key": "image", "value": "https://cdn.example.com/banner.jpg", "type": "image"}
-                            ],
-                            "advertiser": {"id": "adv789", "name": "Native Advertiser"},
-                            "tracking": {
-                                "impressions": [{"key": "default", "url": "https://track.example.com/imp"}],
-                                "clicks": [{"key": "default", "url": "https://track.example.com/click"}]
-                            }
+        [
+            {
+                "placement": "banner",
+                "creatives": [
+                    {
+                        "contents": [
+                            {"key": "headline", "value": "Native Ad", "type": "text"},
+                            {"key": "image", "value": "https://cdn.example.com/banner.jpg", "type": "image"}
+                        ],
+                        "advertiser": {"id": "adv789", "name": "Native Advertiser"},
+                        "tracking": {
+                            "impressions": [{"key": "default", "url": "https://track.example.com/imp"}],
+                            "clicks": [{"key": "default", "url": "https://track.example.com/click"}]
                         }
-                    ]
-                }
-            ]
-            """
+                    }
+                ]
+            }
+        ]
+        """
 
         let data = json.data(using: .utf8)!
         let response = try JSONDecoder().decode(DecisionResponse.self, from: data)
@@ -475,7 +473,7 @@ struct OMVerificationTests {
         let creative = response.first?.creatives?.first
         #expect(creative?.hasOMVerification() == false)
         #expect(creative?.verificationScriptResources == nil)
-        #expect(creative?.delivery == nil)  // Native ads may not have delivery field
+        #expect(creative?.delivery == nil) // Native ads may not have delivery field
     }
 
     // MARK: - Edge Cases and Malformed Data
@@ -483,12 +481,12 @@ struct OMVerificationTests {
     @Test
     func testVerificationResourceWithUnicodeCharacters() throws {
         let json = """
-            {
-                "vendorKey": "测试vendor.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js?name=テスト",
-                "verificationParameters": "param=日本語&emoji=🎯"
-            }
-            """
+        {
+            "vendorKey": "测试vendor.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js?name=テスト",
+            "verificationParameters": "param=日本語&emoji=🎯"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -502,12 +500,12 @@ struct OMVerificationTests {
     func testVerificationResourceWithVeryLongParameters() throws {
         let longParams = String(repeating: "x", count: 10000)
         let json = """
-            {
-                "vendorKey": "longparams.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "\(longParams)"
-            }
-            """
+        {
+            "vendorKey": "longparams.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "\(longParams)"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -518,12 +516,12 @@ struct OMVerificationTests {
     @Test
     func testVerificationResourceWithUrlEncodedParameters() throws {
         let json = """
-            {
-                "vendorKey": "encoded.com-omid",
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "key%3Dvalue%26other%3D%E2%9C%93"
-            }
-            """
+        {
+            "vendorKey": "encoded.com-omid",
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "key%3Dvalue%26other%3D%E2%9C%93"
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let resource = try JSONDecoder().decode(VerificationScriptResource.self, from: data)
@@ -534,11 +532,11 @@ struct OMVerificationTests {
     @Test
     func testMalformedJsonMissingScriptUrl() throws {
         let json = """
-            {
-                "vendorKey": "broken.com-omid",
-                "verificationParameters": "param=value"
-            }
-            """
+        {
+            "vendorKey": "broken.com-omid",
+            "verificationParameters": "param=value"
+        }
+        """
 
         let data = json.data(using: .utf8)!
 
@@ -550,11 +548,11 @@ struct OMVerificationTests {
     @Test
     func testMalformedJsonMissingVendorKey() throws {
         let json = """
-            {
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "param=value"
-            }
-            """
+        {
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "param=value"
+        }
+        """
 
         let data = json.data(using: .utf8)!
 
@@ -566,12 +564,12 @@ struct OMVerificationTests {
     @Test
     func testMalformedJsonWrongTypes() throws {
         let json = """
-            {
-                "vendorKey": 12345,
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "param=value"
-            }
-            """
+        {
+            "vendorKey": 12345,
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "param=value"
+        }
+        """
 
         let data = json.data(using: .utf8)!
 
@@ -583,12 +581,12 @@ struct OMVerificationTests {
     @Test
     func testMalformedJsonNullValues() throws {
         let json = """
-            {
-                "vendorKey": null,
-                "scriptUrl": "https://verification.example.com/omid.js",
-                "verificationParameters": "param=value"
-            }
-            """
+        {
+            "vendorKey": null,
+            "scriptUrl": "https://verification.example.com/omid.js",
+            "verificationParameters": "param=value"
+        }
+        """
 
         let data = json.data(using: .utf8)!
 
@@ -602,37 +600,37 @@ struct OMVerificationTests {
     @Test
     func testMultipleCreativesWithMixedOMStatus() throws {
         let json = """
-            [
-                {
-                    "placement": "mixed",
-                    "creatives": [
-                        {
-                            "contents": [{"key": "headline", "value": "Ad 1", "type": "text"}],
-                            "advertiser": {"id": "adv1", "name": "Advertiser 1"},
-                            "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp1"}]},
-                            "verificationScriptResources": [
-                                {
-                                    "vendorKey": "vendor1.com-omid",
-                                    "scriptUrl": "https://vendor1.com/omid.js",
-                                    "verificationParameters": "id=1"
-                                }
-                            ]
-                        },
-                        {
-                            "contents": [{"key": "headline", "value": "Ad 2", "type": "text"}],
-                            "advertiser": {"id": "adv2", "name": "Advertiser 2"},
-                            "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp2"}]}
-                        },
-                        {
-                            "contents": [{"key": "headline", "value": "Ad 3", "type": "text"}],
-                            "advertiser": {"id": "adv3", "name": "Advertiser 3"},
-                            "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp3"}]},
-                            "verificationScriptResources": []
-                        }
-                    ]
-                }
-            ]
-            """
+        [
+            {
+                "placement": "mixed",
+                "creatives": [
+                    {
+                        "contents": [{"key": "headline", "value": "Ad 1", "type": "text"}],
+                        "advertiser": {"id": "adv1", "name": "Advertiser 1"},
+                        "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp1"}]},
+                        "verificationScriptResources": [
+                            {
+                                "vendorKey": "vendor1.com-omid",
+                                "scriptUrl": "https://vendor1.com/omid.js",
+                                "verificationParameters": "id=1"
+                            }
+                        ]
+                    },
+                    {
+                        "contents": [{"key": "headline", "value": "Ad 2", "type": "text"}],
+                        "advertiser": {"id": "adv2", "name": "Advertiser 2"},
+                        "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp2"}]}
+                    },
+                    {
+                        "contents": [{"key": "headline", "value": "Ad 3", "type": "text"}],
+                        "advertiser": {"id": "adv3", "name": "Advertiser 3"},
+                        "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp3"}]},
+                        "verificationScriptResources": []
+                    }
+                ]
+            }
+        ]
+        """
 
         let data = json.data(using: .utf8)!
         let response = try JSONDecoder().decode(DecisionResponse.self, from: data)
@@ -658,35 +656,36 @@ struct OMVerificationTests {
     @Test
     func testAPIResponseBodyWithOMVerification() throws {
         let json = """
-            {
-                "success": true,
-                "data": [
-                    {
-                        "placement": "home",
-                        "creatives": [
-                            {
-                                "contents": [{"key": "headline", "value": "Test", "type": "text"}],
-                                "advertiser": {"id": "adv1", "name": "Test Advertiser"},
-                                "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp"}]},
-                                "verificationScriptResources": [
-                                    {
-                                        "vendorKey": "test.com-omid",
-                                        "scriptUrl": "https://test.com/omid.js",
-                                        "verificationParameters": "test=true"
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ],
-                "errors": null,
-                "warnings": null
-            }
-            """
+        {
+            "success": true,
+            "data": [
+                {
+                    "placement": "home",
+                    "creatives": [
+                        {
+                            "contents": [{"key": "headline", "value": "Test", "type": "text"}],
+                            "advertiser": {"id": "adv1", "name": "Test Advertiser"},
+                            "tracking": {"impressions": [{"key": "default", "url": "https://track.example.com/imp"}]},
+                            "verificationScriptResources": [
+                                {
+                                    "vendorKey": "test.com-omid",
+                                    "scriptUrl": "https://test.com/omid.js",
+                                    "verificationParameters": "test=true"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "errors": null,
+            "warnings": null
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let responseBody = try JSONDecoder().decode(
-            APIResponseBody<DecisionResponse>.self, from: data)
+            APIResponseBody<DecisionResponse>.self, from: data
+        )
 
         #expect(responseBody.success == true)
         #expect(responseBody.data?.count == 1)
@@ -698,19 +697,20 @@ struct OMVerificationTests {
     @Test
     func testAPIResponseBodyWithErrorsNoData() throws {
         let json = """
-            {
-                "success": false,
-                "data": null,
-                "errors": [
-                    {"code": 422, "message": "Invalid placement"}
-                ],
-                "warnings": null
-            }
-            """
+        {
+            "success": false,
+            "data": null,
+            "errors": [
+                {"code": 422, "message": "Invalid placement"}
+            ],
+            "warnings": null
+        }
+        """
 
         let data = json.data(using: .utf8)!
         let responseBody = try JSONDecoder().decode(
-            APIResponseBody<DecisionResponse>.self, from: data)
+            APIResponseBody<DecisionResponse>.self, from: data
+        )
 
         #expect(responseBody.success == false)
         #expect(responseBody.data == nil)
