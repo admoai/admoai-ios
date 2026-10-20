@@ -1,5 +1,8 @@
 import AdMoai
 import Foundation
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 // §D tracking transport, §E frequency cap, §H CPT/completion, §J mandatory/optional +
 // targeting, §F runtime-state TTL, §G video delivery.

@@ -1,4 +1,10 @@
-import OSLog
+import Foundation
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+#if canImport(OSLog)
+    import OSLog
+#endif
 
 public struct SDKConfig {
     public let baseUrl: String

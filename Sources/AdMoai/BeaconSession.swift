@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 /// A `URLSession` for fire-and-forget beacons: a redirect is the final response, never a hop.
 ///
