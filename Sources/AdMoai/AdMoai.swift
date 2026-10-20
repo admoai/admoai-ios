@@ -184,6 +184,9 @@ public struct AdMoai {
         _session.set(AdMoai.normalizedSessionId(sessionId, logger: config.logger))
     }
 
+    /// Red proof (do not merge).
+    public func redProof() {}
+
     public func clearSessionId() {
         _session.set(nil)
     }
