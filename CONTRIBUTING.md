@@ -154,9 +154,13 @@ We follow [Swift API Design Guidelines](https://swift.org/documentation/api-desi
 - **Indentation**: 4 spaces (no tabs)
 - **Access control**: Use explicit access control (`public`, `internal`, `private`)
 
-Use SwiftFormat for consistent formatting:
+Formatting is enforced in CI by [SwiftFormat](https://github.com/nicklockwood/SwiftFormat)
+(the version is pinned in `.github/workflows/ci.yml`; rules, and why some defaults are off,
+in `.swiftformat`). Before pushing:
 ```bash
-swift format --recursive .
+brew install swiftformat            # once
+swiftformat Sources Tests Tools     # fix
+swiftformat Sources Tests Tools --lint   # what CI runs
 ```
 
 ## Swift Package Manager
