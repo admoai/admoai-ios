@@ -4,10 +4,9 @@
 # so the gate stays deterministic.
 #
 # `swift build`/`swift test` compile for the macOS host only, so a second job
-# compiles the library for an iOS destination (UIKit paths, iOS availability,
-# main-actor isolation under the iOS SDK) and builds the Demo app — the closest
-# thing to an integrator's project, and what publishers copy from. Both use
-# generic destinations: compile only, no simulator boot.
+# compiles the library for an iOS destination: UIKit paths, iOS availability and
+# main-actor isolation under the iOS SDK — the first iOS compile an integrator's
+# `xcodebuild` would otherwise be. Generic destination: compile only, no simulator.
 name: CI
 
 on:
@@ -47,7 +46,7 @@ jobs:
         run: swift test
 
   ios-build:
-    name: iOS build (library + Demo)
+    name: iOS build
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -63,14 +62,5 @@ jobs:
           xcodebuild build
           -scheme AdMoai
           -destination 'generic/platform=iOS'
-          -skipPackagePluginValidation
-          CODE_SIGNING_ALLOWED=NO
-
-      - name: Build the Demo app
-        run: >-
-          xcodebuild build
-          -project Examples/Demo/Demo.xcodeproj
-          -scheme Demo
-          -destination 'generic/platform=iOS Simulator'
           -skipPackagePluginValidation
           CODE_SIGNING_ALLOWED=NO

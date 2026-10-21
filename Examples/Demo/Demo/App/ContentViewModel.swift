@@ -34,10 +34,9 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Builds a decision request with current configuration.
-    /// Throws when the targeting is invalid (e.g. a destination `minConfidence` outside 0...1).
-    func buildRequest() throws -> DecisionRequest {
-        let builder = try sdk.createRequestBuilder()
+    /// Builds a decision request with current configuration
+    func buildRequest() -> DecisionRequest {
+        let builder = sdk.createRequestBuilder()
             .addPlacement(placement)
             .setGeoTargeting(targeting.geo)
             .setLocationTargeting(targeting.location)
@@ -60,15 +59,9 @@ final class ContentViewModel: ObservableObject {
         return builder.build()
     }
 
-    /// The request the current configuration would produce, or `nil` while it is invalid.
-    /// Used by views that only display the collected app/device data.
-    var previewRequest: DecisionRequest? {
-        try? buildRequest()
-    }
-
     /// Returns the HTTP request that would be sent to the server
     func getHTTPRequest() throws -> HTTPRequest {
-        let request = try buildRequest()
+        let request = buildRequest()
         return try sdk.getHttpRequest(request)
     }
 
@@ -78,7 +71,7 @@ final class ContentViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let request = try buildRequest()
+        let request = buildRequest()
         response = try await sdk.requestAds(request)
     }
 
