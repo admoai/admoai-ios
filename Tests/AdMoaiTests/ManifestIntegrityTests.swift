@@ -1,35 +1,18 @@
-import CryptoKit
 import Foundation
 import Testing
 
-/// The shared cross-SDK E2E scenario manifest is mirrored byte-identically into all three SDK
-/// repos. This pins its SHA-256 so an edit to one copy fails that repo's build until the constant
-/// is updated — and because the SAME constant appears in all three repos, three matching hashes is
-/// mechanical proof the copies agree. Divergence is otherwise invisible: it was exactly how the
-/// hand-written suites drifted (Android's K1 asserted less than iOS's and Flutter's).
-///
-/// If this fails after you intentionally changed the manifest: update the copy in ALL THREE repos,
-/// then update this constant in all three. Cross-repo enforcement in CI belongs in adhub, which is
-/// the only place that can see all three at once.
+/// The shared cross-SDK scenario manifest is vendored from adhub's `@admoai/sdk-scenarios`
+/// package (admoai/adhub#4158). Which version, and that the bytes are exactly that version, is
+/// CI's *Scenario manifest* job (`.github/scripts/scenarios.sh check`); it replaced the SHA-256
+/// this file used to pin, so there is one pin, `Tools/JourneyE2E/MANIFEST_VERSION`, not two.
+/// What stays here, offline, is the shape the runner relies on.
 struct ManifestIntegrityTests {
-    private static let expectedSHA256 =
-        "a55f68eb48a96386f1f2fe653954eaadad58776d48b38fae88b33ac6b0ffed47"
-
     private func manifestURL() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent() // AdMoaiTests
             .deletingLastPathComponent() // Tests
             .deletingLastPathComponent() // repo root
             .appendingPathComponent("Tools/JourneyE2E/scenarios.json")
-    }
-
-    @Test
-    func testManifestMatchesTheCrossSDKHash() throws {
-        let data = try Data(contentsOf: manifestURL())
-        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        // On failure the digest is printed by the expectation itself; the fix is in this file's
-        // doc comment.
-        #expect(digest == Self.expectedSHA256)
     }
 
     @Test

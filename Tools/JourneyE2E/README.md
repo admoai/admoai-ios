@@ -98,6 +98,14 @@ Each exists because the naive alternative produced a wrong or useless result.
 | §G video | `G1` JSON delivery + beacons · `G2` VAST exposes payload, surfaces NO VAST-owned beacons |
 | §Manifest | the shared cross-SDK scenarios (`scenarios.json`), including Sponsored Pin `SP1`–`SP14`. `SP9`–`SP14` drive the point-tracking calls on real served pins and count the tracking GETs that reach the engine: each view once per decision response, taps and clicks on every call (adhub#4410) |
 
+**The shared scenarios are vendored, not edited here.** `Tools/JourneyE2E/scenarios.json` is a copy of the
+`scenarios.json` in the npm package [`@admoai/sdk-scenarios`](https://www.npmjs.com/package/@admoai/sdk-scenarios),
+whose source is adhub's `sdk/scenarios/`; `MANIFEST_VERSION` beside it names the version. CI's
+*Scenario manifest* job fails when the file differs from that version and warns when a newer one
+is published. To change a scenario, change it in adhub and publish; to take a new version here:
+`.github/scripts/scenarios.sh adopt Tools/JourneyE2E/scenarios.json <version|latest>`, then run this suite against an
+engine. The tests read the vendored file and never touch the network.
+
 ## The §K trap — read before signing off
 
 `§K` is driven by `scooter_journey`, built **by hand in the Ad Manager**. That is the whole
