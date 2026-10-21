@@ -1,5 +1,10 @@
 import Foundation
-import OSLog
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+#if canImport(OSLog)
+    import OSLog
+#endif
 
 /// The event a `fireImpression`/`fireClick` invocation reports, used to select which
 /// third-party trackers fan out. Internal: publishers never address trackers directly.

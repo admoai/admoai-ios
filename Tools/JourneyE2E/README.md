@@ -24,6 +24,13 @@ ADMOAI_JOURNEY_E2E_BASE_URL=http://127.0.0.1:8080 Tools/journey_e2e.sh
 Exit codes: **0** pass (a documented SKIP is allowed) · **1** a scenario FAILED · **2** preflight
 aborted, the environment is unusable. Report: `build/journey-e2e/report.json`.
 
+**Also runs on Linux.** `#if canImport(OSLog)` / `canImport(FoundationNetworking)` and a small
+`Logger` stand-in that writes to standard error (`Sources/AdMoai/Utils/LinuxLogger.swift`, compiled only where
+OSLog does not exist) let `swift run journey-e2e` build and run in a `swift:6.0` container. That
+is how adhub's CI runs it against a mock-seeded engine (admoai/adhub#4346); the
+`Linux build (journey-e2e)` job here keeps it building. From an adhub checkout, all three SDKs'
+runners run with one command: `make sdk-live` (admoai/adhub#4153).
+
 **Engine requirements** (boot is owner-operated — `make start` from the adhub root): reachable
 on `X-Decision-Version: 2025-11-01`, Statsig `is_journey_ads_enabled = true` (**default off**),
 Redis up, a 32-char `TRACKING_KEY`, mock seeds loaded (they load only into an **empty** DB), and

@@ -1,6 +1,11 @@
 import AdMoai
 import Foundation
-import OSLog
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+#if canImport(OSLog)
+    import OSLog
+#endif
 
 // Harness for the Journey Ads live E2E runner.
 //
@@ -288,7 +293,17 @@ final class RecordingURLProtocol: URLProtocol {
         if let url = request.url?.absoluteString {
             RecordingURLProtocol.record(url)
         }
+        #if canImport(FoundationNetworking)
+            // swift-corelibs-foundation (Linux) calls startLoading() on the URLSession work queue,
+            // and creating another session's task from there re-enters that queue synchronously and
+            // traps. Apple's Foundation does not; forwarding from a fresh queue is correct on both.
+            DispatchQueue.global().async { self.forward() }
+        #else
+            forward()
+        #endif
+    }
 
+    private func forward() {
         forwardTask = RecordingURLProtocol.passthrough.dataTask(with: request) {
             [weak self] data, response, error in
             guard let self else { return }

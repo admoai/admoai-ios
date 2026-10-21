@@ -1,5 +1,10 @@
 import Foundation
-import OSLog
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+#if canImport(OSLog)
+    import OSLog
+#endif
 
 internal class AdMoaiClient {
     private let baseURL: String
