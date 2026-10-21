@@ -723,7 +723,14 @@ See [Why a journey can stop serving](#why-a-journey-can-stop-serving).
 
 ## Sample App
 
-For a complete example implementation, check out the [demo app](Examples/Demo/README.md).
+The Demo app was removed on 2026-10-21: it had fallen behind the SDK's features. The code
+snippets in this README are the reference integration. The last version of the Demo is kept
+under the git tag `sample-app-archive`; to bring it back:
+
+```bash
+git fetch origin tag sample-app-archive
+git checkout sample-app-archive -- Examples/Demo
+```
 
 ---
 
