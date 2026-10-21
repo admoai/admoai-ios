@@ -1,8 +1,12 @@
 # Runs on every PR and on pushes to main: builds the AdMoai package and runs the
 # deterministic (offline) test suite (Swift Testing, needs Xcode 16+).
 # Live/real-network tests are gated behind ADMOAI_LIVE_TESTS=1 and excluded here
-# so the gate stays deterministic. A Demo sample-app build step is deferred until
-# the sample compiles again.
+# so the gate stays deterministic.
+#
+# `swift build`/`swift test` compile for the macOS host only, so a second job
+# compiles the library for an iOS destination: UIKit paths, iOS availability and
+# main-actor isolation under the iOS SDK — the first iOS compile an integrator's
+# `xcodebuild` would otherwise be. Generic destination: compile only, no simulator.
 name: CI
 
 on:
@@ -40,3 +44,23 @@ jobs:
       # ADMOAI_LIVE_TESTS=1, so this run is hermetic and stable.
       - name: Test (deterministic — live tests excluded)
         run: swift test
+
+  ios-build:
+    name: iOS build
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build AdMoai for iOS
+        run: >-
+          xcodebuild build
+          -scheme AdMoai
+          -destination 'generic/platform=iOS'
+          -skipPackagePluginValidation
+          CODE_SIGNING_ALLOWED=NO
