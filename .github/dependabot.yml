@@ -1,0 +1,21 @@
+# Weekly dependency + GitHub Actions updates. Minor/patch bumps are grouped into one PR per
+# ecosystem so the review cost stays at one PR a week; majors arrive one PR each, because
+# each one is a decision. Every PR runs the required CI checks before it can merge.
+version: 2
+updates:
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    groups:
+      swift-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
