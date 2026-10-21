@@ -1,14 +1,12 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 /// Wave 3 cross-SDK parity guards (F9–F20).
 ///
 /// Each scenario pins one divergence found by walking the engine contract against all three SDKs.
 /// Reverting the corresponding fix must make its scenario fail.
 struct Wave3ParityTests {
-
     private var config: SDKConfig {
         SDKConfig(baseUrl: "https://mock.api.admoai.com", apiVersion: "2025-11-01")
     }
@@ -67,12 +65,12 @@ struct Wave3ParityTests {
         let sdk = AdMoai(config: config)
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
-            .addGeoTargeting(5128581)
-            .addGeoTargeting(2643743)
-            .addGeoTargeting(5128581)
+            .addGeoTargeting(5_128_581)
+            .addGeoTargeting(2_643_743)
+            .addGeoTargeting(5_128_581)
             .build()
 
-        #expect(request.targeting?.geo == [5128581, 2643743])
+        #expect(request.targeting?.geo == [5_128_581, 2_643_743])
     }
 
     // MARK: - F15: getSkipOffset returns only meaningful scalars
@@ -85,8 +83,9 @@ struct Wave3ParityTests {
         // null here.
         let creative = try decodeCreative(
             contents: """
-                {"key": "skip_offset", "value": null, "type": "text"}
-                """)
+            {"key": "skip_offset", "value": null, "type": "text"}
+            """
+        )
         #expect(creative.getSkipOffset() == nil)
     }
 
@@ -94,8 +93,9 @@ struct Wave3ParityTests {
     func testSkipOffsetStructuredContentYieldsNil() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "skip_offset", "value": {"seconds": 5}, "type": "text"}
-                """)
+            {"key": "skip_offset", "value": {"seconds": 5}, "type": "text"}
+            """
+        )
         #expect(creative.getSkipOffset() == nil)
     }
 
@@ -103,8 +103,9 @@ struct Wave3ParityTests {
     func testSkipOffsetScalarContentStillResolves() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "skip_offset", "value": 5, "type": "integer"}
-                """)
+            {"key": "skip_offset", "value": 5, "type": "integer"}
+            """
+        )
         #expect(creative.getSkipOffset() == "5")
     }
 
@@ -127,9 +128,10 @@ struct Wave3ParityTests {
     func testJourneyOptDecodesToleranltyFromAResponse() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "headline", "value": "hi", "type": "text"}
-                """,
-            journey: #"{"dealId":"jad_1","instanceId":"jinst_1","optStatus":"IN"}"#)
+            {"key": "headline", "value": "hi", "type": "text"}
+            """,
+            journey: #"{"dealId":"jad_1","instanceId":"jinst_1","optStatus":"IN"}"#
+        )
         #expect(creative.journeyOptStatus == .optIn)
     }
 
@@ -137,9 +139,10 @@ struct Wave3ParityTests {
     func testUnknownOptStatusStaysNilAndDoesNotDropTheBlock() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "headline", "value": "hi", "type": "text"}
-                """,
-            journey: #"{"dealId":"jad_1","instanceId":"jinst_1","optStatus":"sideways"}"#)
+            {"key": "headline", "value": "hi", "type": "text"}
+            """,
+            journey: #"{"dealId":"jad_1","instanceId":"jinst_1","optStatus":"sideways"}"#
+        )
         #expect(creative.journeyOptStatus == nil)
         // The surrounding Journey block must survive an unparseable enum.
         #expect(creative.journeyDealId == "jad_1")
@@ -153,12 +156,14 @@ struct Wave3ParityTests {
         // The UA used to live only in defaultSessionConfiguration()'s httpAdditionalHeaders, so a
         // custom configuration silently stripped the header that identifies SDK traffic in engine
         // logs. It is now set per-request.
-        let bare = URLSessionConfiguration.ephemeral  // no httpAdditionalHeaders
+        let bare = URLSessionConfiguration.ephemeral // no httpAdditionalHeaders
         let sdk = AdMoai(
             config: SDKConfig(
                 baseUrl: "https://mock.api.admoai.com",
                 apiVersion: "2025-11-01",
-                sessionConfiguration: bare))
+                sessionConfiguration: bare
+            )
+        )
 
         let request = sdk.createRequestBuilder().addPlacement(key: "home").build()
         let http = try sdk.getHttpRequest(request)
@@ -171,12 +176,12 @@ struct Wave3ParityTests {
 
 private func decodeCreative(contents: String, journey: String? = nil) throws -> Creative {
     let json = """
-        {
-          "contents": [\(contents)],
-          "advertiser": {},
-          "template": {"key": "t"},
-          "tracking": {}\(journey.map { ", \"journey\": \($0)" } ?? "")
-        }
-        """
+    {
+      "contents": [\(contents)],
+      "advertiser": {},
+      "template": {"key": "t"},
+      "tracking": {}\(journey.map { ", \"journey\": \($0)" } ?? "")
+    }
+    """
     return try JSONDecoder().decode(Creative.self, from: json.data(using: .utf8)!)
 }

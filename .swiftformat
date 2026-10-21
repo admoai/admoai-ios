@@ -1,0 +1,23 @@
+# SwiftFormat config. CI runs `swiftformat Sources Tests Tools --lint` with the version
+# pinned in .github/workflows/ci.yml; fix locally with `swiftformat Sources Tests Tools`.
+--swiftversion 5.9
+--indent 4
+--maxwidth 120
+--exclude .build,Examples/Demo/DerivedData
+
+# A formatter must not change behaviour, public API or test identity. These default rules
+# do more than format, so they are off:
+# - redundantThrows: drops `throws` from public functions (source/ABI break for callers).
+# - redundantRawValues: strips explicit raw values from Codable enums — those strings are
+#   the wire contract and stay spelled out.
+# - redundantEquatable: deletes hand-written == implementations.
+# - swiftTestingTestCaseNames: renames every @Test function (test identity in reports).
+# - noForceUnwrapInTests: rewrites test bodies to `try #require`.
+# - unusedArguments: renames parameters to `_`.
+# - docComments: turns `//` into `///`, changing what DocC publishes.
+# - redundantSelf: strips `self.` inside os.Logger interpolations, which are escaping
+#   autoclosures that require it — the result does not compile.
+# - opaqueGenericParameters: rewrites public `<T: P>` generics as `some P`, a generic
+#   signature change flagged by diagnose-api-breaking-changes.
+# - redundantInternal: removes explicit `internal`; CONTRIBUTING asks for explicit access control.
+--disable redundantThrows,redundantRawValues,redundantEquatable,swiftTestingTestCaseNames,noForceUnwrapInTests,unusedArguments,docComments,redundantSelf,opaqueGenericParameters,redundantInternal

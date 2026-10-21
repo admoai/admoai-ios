@@ -27,19 +27,18 @@ public enum SDKError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case .invalidMinConfidence(let value):
-            return "minConfidence must be in [0.0, 1.0], got \(value)"
+        case let .invalidMinConfidence(value):
+            "minConfidence must be in [0.0, 1.0], got \(value)"
         case .noPlacements:
-            return "At least one placement is required"
-        case .invalidDistanceCoordinate(let latitude, let longitude):
-            return
-                "distance latitude must be in [-90, 90] and longitude in [-180, 180], got (\(latitude), \(longitude))"
-        case .invalidDistanceRadius(let value):
-            return "distance radius must be greater than 0 metres, got \(value)"
-        case .invalidDistanceBounds(let reason):
-            return "distance bounds \(reason)"
-        case .invalidDistanceLimit(let value):
-            return "distance limit must be greater than 0, got \(value)"
+            "At least one placement is required"
+        case let .invalidDistanceCoordinate(latitude, longitude):
+            "distance latitude must be in [-90, 90] and longitude in [-180, 180], got (\(latitude), \(longitude))"
+        case let .invalidDistanceRadius(value):
+            "distance radius must be greater than 0 metres, got \(value)"
+        case let .invalidDistanceBounds(reason):
+            "distance bounds \(reason)"
+        case let .invalidDistanceLimit(value):
+            "distance limit must be greater than 0, got \(value)"
         }
     }
 }
@@ -159,7 +158,7 @@ public class DecisionRequestBuilder {
     /// dedupes) than on iOS. Geo is evaluated as ANY, so duplicates never changed the decision —
     /// but an SDK should not send a payload that differs by platform for identical input.
     private static func dedupedGeo(_ ids: [Int]?) -> [Int]? {
-        guard let ids = ids else { return nil }
+        guard let ids else { return nil }
         var seen = Set<Int>()
         return ids.filter { seen.insert($0).inserted }
     }
@@ -213,9 +212,9 @@ public class DecisionRequestBuilder {
     public func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) throws
         -> DecisionRequestBuilder
     {
-        if let destinations = destinations {
+        if let destinations {
             for coord in destinations {
-                guard (0.0...1.0).contains(coord.minConfidence) else {
+                guard (0.0 ... 1.0).contains(coord.minConfidence) else {
                     throw SDKError.invalidMinConfidence(coord.minConfidence)
                 }
             }
@@ -247,8 +246,7 @@ public class DecisionRequestBuilder {
         return self
     }
 
-    public func addLocationTargeting(latitude: Double, longitude: Double) -> DecisionRequestBuilder
-    {
+    public func addLocationTargeting(latitude: Double, longitude: Double) -> DecisionRequestBuilder {
         var currentLocations = targeting?.location ?? []
         currentLocations.append((latitude: latitude, longitude: longitude))
         return setLocationTargeting(currentLocations)
@@ -269,7 +267,8 @@ public class DecisionRequestBuilder {
     {
         var currentDestinations = targeting?.destination ?? []
         currentDestinations.append(
-            (latitude: latitude, longitude: longitude, minConfidence: minConfidence))
+            (latitude: latitude, longitude: longitude, minConfidence: minConfidence)
+        )
         return try setDestinationTargeting(currentDestinations)
     }
 
@@ -281,7 +280,8 @@ public class DecisionRequestBuilder {
         throws -> DecisionRequestBuilder
     {
         try addDestinationTargeting(
-            latitude: latitude, longitude: longitude, minConfidence: minConfidence)
+            latitude: latitude, longitude: longitude, minConfidence: minConfidence
+        )
     }
 
     public func clearLocationTargeting() -> DecisionRequestBuilder {
@@ -333,7 +333,9 @@ public class DecisionRequestBuilder {
         try Self.validateDistanceLimit(limit)
         return applyDistance(
             Distance(
-                latitude: latitude, longitude: longitude, radius: radius, bounds: nil, limit: limit))
+                latitude: latitude, longitude: longitude, radius: radius, bounds: nil, limit: limit
+            )
+        )
     }
 
     /// Asks for the campaign's pins inside a rectangle, measured from a point.
@@ -356,7 +358,9 @@ public class DecisionRequestBuilder {
         try Self.validateDistanceLimit(limit)
         return applyDistance(
             Distance(
-                latitude: latitude, longitude: longitude, radius: nil, bounds: bounds, limit: limit))
+                latitude: latitude, longitude: longitude, radius: nil, bounds: bounds, limit: limit
+            )
+        )
     }
 
     /// Removes a previously set Sponsored Pin search, leaving every other targeting axis alone.
@@ -390,17 +394,18 @@ public class DecisionRequestBuilder {
     }
 
     private static func validateDistanceOrigin(latitude: Double, longitude: Double) throws {
-        guard (-90.0...90.0).contains(latitude), (-180.0...180.0).contains(longitude) else {
+        guard (-90.0 ... 90.0).contains(latitude), (-180.0 ... 180.0).contains(longitude) else {
             throw SDKError.invalidDistanceCoordinate(latitude: latitude, longitude: longitude)
         }
     }
 
     private static func validateDistanceBounds(_ b: DistanceBounds) throws {
-        guard (-90.0...90.0).contains(b.north), (-90.0...90.0).contains(b.south),
-            (-180.0...180.0).contains(b.east), (-180.0...180.0).contains(b.west)
+        guard (-90.0 ... 90.0).contains(b.north), (-90.0 ... 90.0).contains(b.south),
+              (-180.0 ... 180.0).contains(b.east), (-180.0 ... 180.0).contains(b.west)
         else {
             throw SDKError.invalidDistanceBounds(
-                "latitudes must be in [-90, 90] and longitudes in [-180, 180]")
+                "latitudes must be in [-90, 90] and longitudes in [-180, 180]"
+            )
         }
         guard b.north > b.south else {
             throw SDKError.invalidDistanceBounds("require north greater than south")
@@ -408,16 +413,18 @@ public class DecisionRequestBuilder {
         // The engine refuses a rectangle crossing the antimeridian, so west < east is flat.
         guard b.west < b.east else {
             throw SDKError.invalidDistanceBounds(
-                "must not cross the antimeridian: west must be less than east")
+                "must not cross the antimeridian: west must be less than east"
+            )
         }
     }
 
     private static func validateDistanceLimit(_ limit: Int?) throws {
-        if let limit = limit, limit <= 0 { throw SDKError.invalidDistanceLimit(limit) }
+        if let limit, limit <= 0 {
+            throw SDKError.invalidDistanceLimit(limit)
+        }
     }
 
-    public func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
-    {
+    public func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder {
         let uniqueCustom = custom?.reduce(into: [Targeting.CustomKeyValue]()) { result, keyValue in
             result.removeAll { $0.key == keyValue.key }
             result.append(keyValue)
@@ -526,6 +533,7 @@ public class DecisionRequestBuilder {
     }
 
     // MARK: - Journey Takeover Ads
+
     /// Sets the Journey `sessionId` for this request, overriding the sticky default seeded
     /// from the `AdMoai` instance. The value is forwarded verbatim (trimmed, blank omitted)
     /// at encode time. Emits a PII-safe warning if the value would be rejected by the engine.
@@ -599,7 +607,7 @@ public class DecisionRequestBuilder {
         // Misconfiguration guard: Journey context requires the Journey engine version.
         // Without apiVersion the engine ignores Journey (or, pre-deployment, rejects the
         // additive fields), so surface it rather than failing silently.
-        if (sessionId != nil || journeyOpt != nil) && apiVersion == nil {
+        if sessionId != nil || journeyOpt != nil, apiVersion == nil {
             logger?.warning(
                 "Journey context (sessionId/journeyOpt) was set but SDKConfig.apiVersion is nil; the engine will not process Journey. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
             )

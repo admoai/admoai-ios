@@ -32,7 +32,8 @@ internal final class BeaconSession {
 
     init(configuration: URLSessionConfiguration) {
         self.session = URLSession(
-            configuration: configuration, delegate: RedirectBlocker(), delegateQueue: nil)
+            configuration: configuration, delegate: RedirectBlocker(), delegateQueue: nil
+        )
     }
 
     deinit {

@@ -1,16 +1,13 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 /// Wave 3 (F20): DEBUG and release builds must share one HTTP status contract.
 
 // MARK: - F20: DEBUG and release share one status contract
 
 extension MockNetworkTests {
-    @Suite
     struct DebugReleaseStatusParityTests {
-
         // Scenario: the engine rejects a request with a validation error, in a DEBUG build.
         @Test
         func testValidationErrorRaisesInDebugToo() async throws {
@@ -20,12 +17,13 @@ extension MockNetworkTests {
             // worst possible split, since the environment where you debug is the one that hides
             // the error. This test necessarily runs in DEBUG, which is exactly the point.
             let envelope = """
-                {"success":false,"data":null,
-                 "errors":[{"code":10004,"message":"placement key home was not found"}],
-                 "warnings":null}
-                """
+            {"success":false,"data":null,
+             "errors":[{"code":10004,"message":"placement key home was not found"}],
+             "warnings":null}
+            """
             MockURLProtocol.reset(
-                stub: .init(statusCode: 422, body: Data(envelope.utf8)))
+                stub: .init(statusCode: 422, body: Data(envelope.utf8))
+            )
 
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
             let request = sdk.createRequestBuilder().addPlacement(key: "home").build()
@@ -34,7 +32,7 @@ extension MockNetworkTests {
                 _ = try await sdk.requestAds(request)
                 Issue.record("a 422 must raise, not decode, in a DEBUG build")
             } catch let error as APIError {
-                guard case .validationError(let errors) = error else {
+                guard case let .validationError(errors) = error else {
                     Issue.record("expected .validationError, got \(error)")
                     return
                 }
@@ -46,7 +44,8 @@ extension MockNetworkTests {
         @Test
         func testBadRequestRaisesInDebugToo() async throws {
             MockURLProtocol.reset(
-                stub: .init(statusCode: 400, body: Data(#"{"success":false}"#.utf8)))
+                stub: .init(statusCode: 400, body: Data(#"{"success":false}"#.utf8))
+            )
 
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
             let request = sdk.createRequestBuilder().addPlacement(key: "home").build()

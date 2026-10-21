@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Journey Takeover Ads — no-ad & single-brand takeover safety
 //
@@ -19,7 +18,6 @@ private func decodeResponse(_ json: String) throws -> DecisionResponse {
 }
 
 struct JourneyNoAdTests {
-
     // Scenario: takeover-protected empty (creatives: []) is a no-ad
     @Test
     func testEmptyCreativesIsNoAd() throws {

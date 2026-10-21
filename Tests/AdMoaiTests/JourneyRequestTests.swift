@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Journey Takeover Ads — request context (sessionId, journeyOpt)
 //
@@ -26,7 +25,6 @@ private func encodedJSON(_ request: DecisionRequest) throws -> String {
 }
 
 struct JourneyRequestTests {
-
     // Scenario: sessionId and journeyOpt serialize as top-level camelCase keys
     //   Given a builder with a sessionId and journeyOpt=in
     //   When the request is encoded
@@ -54,11 +52,13 @@ struct JourneyRequestTests {
         let sdk = AdMoai(config: journeyConfig)
 
         let optIn = try encodedJSON(
-            sdk.createRequestBuilder().addPlacement(key: "home").setJourneyOpt(.optIn).build())
+            sdk.createRequestBuilder().addPlacement(key: "home").setJourneyOpt(.optIn).build()
+        )
         #expect(optIn.contains("\"journeyOpt\":\"in\""))
 
         let optOut = try encodedJSON(
-            sdk.createRequestBuilder().addPlacement(key: "home").setJourneyOpt(.optOut).build())
+            sdk.createRequestBuilder().addPlacement(key: "home").setJourneyOpt(.optOut).build()
+        )
         #expect(optOut.contains("\"journeyOpt\":\"out\""))
 
         #expect(JourneyOpt.optIn.rawValue == "in")
@@ -96,7 +96,7 @@ struct JourneyRequestTests {
     @Test
     func testOverLengthSessionIdSentAsIs() throws {
         let sdk = AdMoai(config: journeyConfig)
-        let longId = String(repeating: "a", count: 300)  // 300 bytes > 256
+        let longId = String(repeating: "a", count: 300) // 300 bytes > 256
         let request = sdk.createRequestBuilder()
             .addPlacement(key: "home")
             .setSessionId(longId)
@@ -135,7 +135,8 @@ struct JourneyRequestTests {
         let exact = String(repeating: "a", count: 256)
         #expect(DecisionRequest.journeySessionIdRejectionReason(exact) == nil)
         // 257 bytes rejected
-        #expect(DecisionRequest.journeySessionIdRejectionReason(String(repeating: "a", count: 257)) == "exceeds_256_bytes")
+        #expect(DecisionRequest
+            .journeySessionIdRejectionReason(String(repeating: "a", count: 257)) == "exceeds_256_bytes")
     }
 
     // MARK: - Sticky sessionId semantics
@@ -169,7 +170,8 @@ struct JourneyRequestTests {
         #expect(copyTakenBeforeRotation.sessionId == "trip-2")
         #expect(
             copyTakenBeforeRotation.createRequestBuilder()
-                .addPlacement(key: "home").build().sessionId == "trip-2")
+                .addPlacement(key: "home").build().sessionId == "trip-2"
+        )
     }
 
     // Scenario: the SDK is held as a `let`, the idiomatic way to store a dependency.
@@ -211,10 +213,10 @@ struct JourneyRequestTests {
     func testBuilderSetSessionIdNormalizesToWireForm() {
         let sdk = AdMoai(config: journeyConfig)
         let padded = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("  abc  ").build()
-        #expect(padded.sessionId == "abc")   // property matches the trimmed wire value
+        #expect(padded.sessionId == "abc") // property matches the trimmed wire value
 
         let blank = sdk.createRequestBuilder().addPlacement(key: "home").setSessionId("   ").build()
-        #expect(blank.sessionId == nil)       // blank collapses to nil, matching omission on the wire
+        #expect(blank.sessionId == nil) // blank collapses to nil, matching omission on the wire
     }
 
     // Scenario: rotating the sticky sessionId affects only subsequently-created builders
@@ -247,8 +249,8 @@ struct JourneyRequestTests {
             .addPlacement(key: "home")
             .build()
 
-        #expect(request.journeyOpt == nil)       // per-request control cleared
-        #expect(request.sessionId == "sticky-keep")  // sticky session preserved
+        #expect(request.journeyOpt == nil) // per-request control cleared
+        #expect(request.sessionId == "sticky-keep") // sticky session preserved
     }
 
     // MARK: - Backward compatibility

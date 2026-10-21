@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 /// Pin views are reported once per decision response — the scenarios of
 /// `Sources/AdMoai/PointViewLedger.feature`, one test per scenario, named after it.
@@ -25,12 +24,12 @@ private func points(_ range: Range<Int>, response: String) throws -> [MatchedPoi
         """
     }.joined(separator: ",")
     let json = """
-        {
-          "contents": [{ "key": "matched_points", "type": "matched_points", "value": [\(entries)] }],
-          "advertiser": { "name": "Cabify" },
-          "tracking": {}
-        }
-        """
+    {
+      "contents": [{ "key": "matched_points", "type": "matched_points", "value": [\(entries)] }],
+      "advertiser": { "name": "Cabify" },
+      "tracking": {}
+    }
+    """
     return try JSONDecoder().decode(Creative.self, from: Data(json.utf8)).matchedPoints
 }
 
@@ -39,9 +38,7 @@ private func viewURLs(_ range: Range<Int>, response: String) -> Set<String> {
 }
 
 extension MockNetworkTests {
-    @Suite
     struct PointViewLedgerTests {
-
         private func sdk() -> AdMoai {
             AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
         }
@@ -80,7 +77,7 @@ extension MockNetworkTests {
 
         @Test("the first render fires every pin's view URLs")
         func firstRenderFiresEveryView() async throws {
-            let r = try points(0..<50, response: "r")
+            let r = try points(0 ..< 50, response: "r")
 
             MockURLProtocol.reset()
             sdk().trackPointViews(r)
@@ -88,12 +85,12 @@ extension MockNetworkTests {
             try await settle()
 
             #expect(firedURLs().count == 50, "exactly one GET per view URL")
-            #expect(Set(firedURLs()) == viewURLs(0..<50, response: "r"))
+            #expect(Set(firedURLs()) == viewURLs(0 ..< 50, response: "r"))
         }
 
         @Test("a re-render of the same response fires nothing")
         func reRenderFiresNothing() async throws {
-            let r = try points(0..<50, response: "r")
+            let r = try points(0 ..< 50, response: "r")
             let sdk = self.sdk()
             MockURLProtocol.reset()
             sdk.trackPointViews(r)
@@ -110,7 +107,7 @@ extension MockNetworkTests {
         /// A copy of the SDK value is the same SDK: the record lives in a reference every copy
         /// shares, the way the Journey session does.
         @Test func aCopyOfTheSDKSharesTheRecord() async throws {
-            let r = try points(0..<3, response: "r")
+            let r = try points(0 ..< 3, response: "r")
             let original = sdk()
             let copy = original
             MockURLProtocol.reset()
@@ -128,26 +125,26 @@ extension MockNetworkTests {
         @Test("a re-render with new pins fires only the new ones")
         func reRenderWithNewPinsFiresOnlyThoseNew() async throws {
             // A..J is 0..<10, F..T is 5..<20, K..T is 10..<20.
-            let r = try points(0..<20, response: "r")
+            let r = try points(0 ..< 20, response: "r")
             let sdk = self.sdk()
             MockURLProtocol.reset()
-            sdk.trackPointViews(Array(r[0..<10]))
+            sdk.trackPointViews(Array(r[0 ..< 10]))
             await MockURLProtocol.waitForRequests(10)
             try await settle()
 
             MockURLProtocol.reset()
-            sdk.trackPointViews(Array(r[5..<20]))
+            sdk.trackPointViews(Array(r[5 ..< 20]))
             await MockURLProtocol.waitForRequests(10)
             try await settle()
 
             #expect(firedURLs().count == 10)
-            #expect(Set(firedURLs()) == viewURLs(10..<20, response: "r"))
+            #expect(Set(firedURLs()) == viewURLs(10 ..< 20, response: "r"))
         }
 
         @Test("a new decision response starts fresh")
         func newResponseStartsFresh() async throws {
-            let r1 = try points(0..<1, response: "r1")
-            let r2 = try points(0..<1, response: "r2")
+            let r1 = try points(0 ..< 1, response: "r1")
+            let r2 = try points(0 ..< 1, response: "r2")
             #expect(r1[0].id == r2[0].id, "the same location in both responses")
             let sdk = self.sdk()
             MockURLProtocol.reset()
@@ -168,8 +165,8 @@ extension MockNetworkTests {
             let ledger = PointViewLedger()
             #expect(ledger.capacity == 500)
 
-            for response in 0..<100 {
-                for pin in 0..<50 {
+            for response in 0 ..< 100 {
+                for pin in 0 ..< 50 {
                     _ = ledger.claim("https://t/r\(response)/view/p\(pin)")
                 }
             }
@@ -197,12 +194,12 @@ extension MockNetworkTests {
         /// Map callbacks arrive on any thread. Two renders racing over the same screenful must
         /// still send each view once.
         @Test func concurrentRendersFireEachViewOnce() async throws {
-            let r = try points(0..<50, response: "r")
+            let r = try points(0 ..< 50, response: "r")
             let sdk = self.sdk()
             MockURLProtocol.reset()
 
             await withTaskGroup(of: Void.self) { group in
-                for _ in 0..<8 {
+                for _ in 0 ..< 8 {
                     group.addTask { sdk.trackPointViews(r) }
                 }
             }
@@ -210,12 +207,12 @@ extension MockNetworkTests {
             try await settle()
 
             #expect(firedURLs().count == 50)
-            #expect(Set(firedURLs()) == viewURLs(0..<50, response: "r"))
+            #expect(Set(firedURLs()) == viewURLs(0 ..< 50, response: "r"))
         }
 
         @Test("single-point tracking follows the same rule")
         func singlePointFollowsTheSameRule() async throws {
-            let point = try #require(try points(0..<1, response: "r").first)
+            let point = try #require(try points(0 ..< 1, response: "r").first)
             let sdk = self.sdk()
             MockURLProtocol.reset()
             sdk.trackPointView(point)
@@ -232,7 +229,7 @@ extension MockNetworkTests {
 
         @Test("taps and clicks are not deduplicated by this mechanism")
         func tapsAndClicksAreNotDeduplicated() async throws {
-            let point = try #require(try points(0..<1, response: "r").first)
+            let point = try #require(try points(0 ..< 1, response: "r").first)
             let sdk = self.sdk()
             MockURLProtocol.reset()
             sdk.trackPointView(point)

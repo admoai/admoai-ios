@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Documented-API compile check
 //
@@ -30,7 +29,6 @@ private func docConfig(apiVersion: String? = "2025-11-01") -> SDKConfig {
 }
 
 struct DocumentedAPITests {
-
     // MARK: - Quick Start
 
     // Scenario: README "Initialize the SDK" / "Configure User Settings" / "Clean Up on Logout"
@@ -92,7 +90,7 @@ struct DocumentedAPITests {
     // Scenario: README "Event Tracking → Available Methods". All are documented as
     //   fire-and-forget returning Void — if any returned a value or threw, this would not compile
     //   as written.
-    @available(*, deprecated)  // `fireCustom` is exercised deliberately as a documented alias.
+    @available(*, deprecated) // `fireCustom` is exercised deliberately as a documented alias.
     @Test
     func testDocumentedTrackingMethodsExistAndReturnVoid() throws {
         let sdk = AdMoai(config: docConfig())
@@ -170,13 +168,14 @@ struct DocumentedAPITests {
     func testDocumentedJourneyAccessorsExist() throws {
         let creative = try docCreative(
             journey: """
-                {
-                    "dealId": "deal_1", "instanceId": "inst_1", "definitionKey": "ride",
-                    "stageId": "s1", "stageKey": "pre_ride", "stageNodeId": "n1",
-                    "sessionId": "trip-1", "optStatus": "in", "isCompletion": false,
-                    "pricingModel": "cpt", "fallbackBillingMode": "bill_per_stage"
-                }
-                """)
+            {
+                "dealId": "deal_1", "instanceId": "inst_1", "definitionKey": "ride",
+                "stageId": "s1", "stageKey": "pre_ride", "stageNodeId": "n1",
+                "sessionId": "trip-1", "optStatus": "in", "isCompletion": false,
+                "pricingModel": "cpt", "fallbackBillingMode": "bill_per_stage"
+            }
+            """
+        )
 
         #expect(creative.isJourneyAd)
         #expect(creative.journeyDealId == "deal_1")
@@ -197,7 +196,8 @@ struct DocumentedAPITests {
     @Test
     func testDocumentedNoAdSurfaceExists() throws {
         let decision = try JSONDecoder().decode(
-            Decision.self, from: Data(#"{"placement":"home","creatives":[]}"#.utf8))
+            Decision.self, from: Data(#"{"placement":"home","creatives":[]}"#.utf8)
+        )
         #expect(decision.isNoAd)
         #expect(!decision.hasCreative)
     }
@@ -256,16 +256,16 @@ struct DocumentedAPITests {
 private func docCreative(journey: String?) throws -> Creative {
     let journeyFragment = journey.map { ",\n    \"journey\": \($0)" } ?? ""
     let json = """
-        {
-            "contents": [{"key": "headline", "value": "Hi", "type": "text"}],
-            "advertiser": {"id": "adv1", "name": "Acme"},
-            "template": {"key": "standard", "style": "default"},
-            "tracking": {"impressions": [{"key": "default", "url": "https://h/v1/tracking?e=a"}]},
-            "metadata": {
-                "adId": "a", "creativeId": "c", "templateId": "t", "placementId": "p",
-                "priority": "standard"
-            }\(journeyFragment)
-        }
-        """
+    {
+        "contents": [{"key": "headline", "value": "Hi", "type": "text"}],
+        "advertiser": {"id": "adv1", "name": "Acme"},
+        "template": {"key": "standard", "style": "default"},
+        "tracking": {"impressions": [{"key": "default", "url": "https://h/v1/tracking?e=a"}]},
+        "metadata": {
+            "adId": "a", "creativeId": "c", "templateId": "t", "placementId": "p",
+            "priority": "standard"
+        }\(journeyFragment)
+    }
+    """
     return try JSONDecoder().decode(Creative.self, from: Data(json.utf8))
 }

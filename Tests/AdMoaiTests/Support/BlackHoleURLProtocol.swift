@@ -1,6 +1,5 @@
-import Foundation
-
 @testable import AdMoai
+import Foundation
 
 /// Stateless HTTP stub: answers every request with `200 []` and records nothing.
 ///
@@ -27,14 +26,20 @@ final class BlackHoleURLProtocol: URLProtocol {
         )
     }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         let url = request.url ?? URL(string: "https://mock.invalid")!
         let response = HTTPURLResponse(
             url: url, statusCode: 200, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/json"])!
+            headerFields: ["Content-Type": "application/json"]
+        )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data("[]".utf8))
         client?.urlProtocolDidFinishLoading(self)

@@ -46,7 +46,7 @@ public struct DecisionRequest: Encodable {
         // Mirror that here — send the trimmed value, omit entirely when blank.
         // Over-length values are sent as-is (the engine silently disables Journey,
         // the request still succeeds as a normal ad).
-        if let sessionId = sessionId {
+        if let sessionId {
             let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 try container.encode(trimmed, forKey: .sessionId)
@@ -54,7 +54,7 @@ public struct DecisionRequest: Encodable {
         }
         // `journeyOpt` is strict on the engine ("in"/"out" or HTTP 400); the typed enum
         // guarantees only valid literals are ever emitted, and only when set.
-        if let journeyOpt = journeyOpt {
+        if let journeyOpt {
             try container.encode(journeyOpt.rawValue, forKey: .journeyOpt)
         }
     }
@@ -67,10 +67,14 @@ public struct DecisionRequest: Encodable {
     /// diagnostic parity and deliberately differs from the engine's internal constant name.
     /// It never contains the `sessionId` value itself (which is PII).
     public static func journeySessionIdRejectionReason(_ sessionId: String?) -> String? {
-        guard let sessionId = sessionId else { return nil }
+        guard let sessionId else { return nil }
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "blank_after_trim" }
-        if trimmed.utf8.count > 256 { return "exceeds_256_bytes" }
+        if trimmed.isEmpty {
+            return "blank_after_trim"
+        }
+        if trimmed.utf8.count > 256 {
+            return "exceeds_256_bytes"
+        }
         return nil
     }
 
@@ -78,7 +82,7 @@ public struct DecisionRequest: Encodable {
     /// `nil`. Used so a stored/forwarded `sessionId` matches exactly what is sent, avoiding a
     /// field-vs-wire mismatch.
     public static func normalizedSessionId(_ sessionId: String?) -> String? {
-        guard let sessionId = sessionId else { return nil }
+        guard let sessionId else { return nil }
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -128,9 +132,10 @@ public enum JourneyOpt: String, Codable {
     /// this is defensive — but a read path that accepts `"In"` on one platform and `nil` on
     /// another is a parity seam regardless of whether today's producer can trigger it.
     public static func fromWire(_ raw: String?) -> JourneyOpt? {
-        guard let raw = raw else { return nil }
+        guard let raw else { return nil }
         return JourneyOpt(
-            rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+            rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        )
     }
 
     /// Decodes tolerantly via ``fromWire(_:)`` so response parsing shares one normalization path
@@ -139,9 +144,10 @@ public enum JourneyOpt: String, Codable {
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard let parsed = JourneyOpt.fromWire(raw) else {
-            throw DecodingError.dataCorruptedError(
-                in: try decoder.singleValueContainer(),
-                debugDescription: "unrecognized JourneyOpt \"\(raw)\"")
+            throw try DecodingError.dataCorruptedError(
+                in: decoder.singleValueContainer(),
+                debugDescription: "unrecognized JourneyOpt \"\(raw)\""
+            )
         }
         self = parsed
     }
@@ -182,14 +188,6 @@ public struct Distance: Encodable, Equatable {
     public let bounds: DistanceBounds?
     /// Narrows the campaign's own cap on how many points come back; it can never widen it.
     public let limit: Int?
-
-    init(latitude: Double, longitude: Double, radius: Double?, bounds: DistanceBounds?, limit: Int?) {
-        self.latitude = latitude
-        self.longitude = longitude
-        self.radius = radius
-        self.bounds = bounds
-        self.limit = limit
-    }
 }
 
 public struct Targeting: Encodable {
@@ -233,7 +231,8 @@ public struct Targeting: Encodable {
             try container.encode(
                 locations.map { coord in
                     ["latitude": coord.latitude, "longitude": coord.longitude]
-                }, forKey: .location)
+                }, forKey: .location
+            )
         }
 
         if let destinations = destination {
@@ -243,7 +242,8 @@ public struct Targeting: Encodable {
             try container.encode(
                 destinations.map { coord in
                     ["latitude": coord.latitude, "longitude": coord.longitude, "minConfidence": coord.minConfidence]
-                }, forKey: .destination)
+                }, forKey: .destination
+            )
         }
 
         if let customs = custom {

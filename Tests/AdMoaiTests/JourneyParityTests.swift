@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Journey Ads — cross-SDK parity guards
 //
@@ -51,7 +50,6 @@ private func creativeJSON(journey: String) -> String {
 // `try?`. A normal ad would then report `isJourneyAd == true` while all thirteen accessors
 // returned nil, and a publisher branching on it would render Journey UI for a normal ad.
 struct JourneyIsJourneyAdGuardTests {
-
     // Scenario: an empty journey block is NOT a Journey ad
     @Test
     func testEmptyJourneyBlockIsNotAJourneyAd() throws {
@@ -75,7 +73,8 @@ struct JourneyIsJourneyAdGuardTests {
                 "isCompletion": "yes",
                 "optStatus": true
             }
-            """)
+            """
+        )
         let creative = try decodeCreative(json)
         #expect(creative.journey != nil)
         #expect(creative.isJourneyAd == false)
@@ -116,7 +115,8 @@ struct JourneyIsJourneyAdGuardTests {
                 "pricingModel": "cpt",
                 "fallbackBillingMode": "bill_per_stage"
             }
-            """)
+            """
+        )
         let creative = try decodeCreative(json)
         #expect(creative.isJourneyAd == true)
         #expect(creative.journeyDealId == "deal_123")
@@ -174,7 +174,6 @@ extension MockNetworkTests {
     // guard exists so a future refactor to `URLComponents` (which re-encodes) is caught here
     // rather than by a publisher losing attribution.
     struct JourneyVerbatimFiringGuardTests {
-
         // Scenario: a percent-escape-hostile URL is fired byte-identical
         @Test
         func testEscapeHostileUrlFiredByteIdentical() async throws {
@@ -234,8 +233,8 @@ extension MockNetworkTests {
                 "mailto:ops@example.com",
                 "file:///etc/passwd",
                 "ftp://example.com/x",
-                "https://",             // scheme but no host
-                "/v1/tracking?e=abc",   // relative
+                "https://", // scheme but no host
+                "/v1/tracking?e=abc", // relative
                 "not a url at all",
             ] {
                 sdk.fireTracking(url: bad)
@@ -253,12 +252,12 @@ extension MockNetworkTests {
     // previously asserted only in the live suite (gated off by default) and only on a plain
     // request, so nothing hermetic tied it to a request that actually carries Journey context.
     struct JourneyVersionHeaderGuardTests {
-
         // Scenario: the header and the Journey fields reach the wire together
         @Test
         func testJourneyRequestCarriesVersionHeaderOnTheWire() async throws {
             MockURLProtocol.reset(
-                stub: .init(statusCode: 200, body: Data(#"{"success":true,"data":[]}"#.utf8)))
+                stub: .init(statusCode: 200, body: Data(#"{"success":true,"data":[]}"#.utf8))
+            )
             let sdk = AdMoai(
                 config: MockURLProtocol.config(apiVersion: journeyVersion),
                 sessionId: "trip-header-1"
@@ -276,7 +275,7 @@ extension MockNetworkTests {
             // The body is asserted through `getHttpRequest` because `URLProtocol` does not expose
             // a streamed `httpBody`; it is the same encoder the client uses.
             let http = try sdk.getHttpRequest(request)
-            let body = String(data: try #require(http.body), encoding: .utf8) ?? ""
+            let body = try String(data: #require(http.body), encoding: .utf8) ?? ""
             #expect(body.contains("\"sessionId\":\"trip-header-1\""))
             #expect(body.contains("\"journeyOpt\":\"in\""))
             #expect(http.headers?["X-Decision-Version"] == journeyVersion)
@@ -292,7 +291,7 @@ extension MockNetworkTests {
             let http = try sdk.getHttpRequest(request)
             #expect(http.headers?["X-Decision-Version"] == nil)
             // The Journey context is still forwarded — the engine, not the SDK, decides to ignore it.
-            let body = String(data: try #require(http.body), encoding: .utf8) ?? ""
+            let body = try String(data: #require(http.body), encoding: .utf8) ?? ""
             #expect(body.contains("\"sessionId\":\"trip-header-2\""))
         }
     }
@@ -303,7 +302,6 @@ extension MockNetworkTests {
     // `fireCustomEvent` canonical with a deprecated alias; this does the same so all three SDKs
     // converge without breaking an existing integration on upgrade.
     struct FireCustomEventParityTests {
-
         // Scenario: both names fire the same URL
         // Calls the deprecated alias deliberately; the attribute keeps that from warning.
         @available(*, deprecated)

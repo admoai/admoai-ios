@@ -105,7 +105,9 @@ internal final class ThirdPartyTrackerDispatcher {
     /// Why an entry cannot be served, or `nil` when it is valid. Reasons are stable,
     /// URL-free strings — they go straight into logs.
     internal static func rejectionReason(_ tracker: ThirdPartyTracker) -> String? {
-        if tracker.trackerId.isEmpty { return "empty trackerId" }
+        if tracker.trackerId.isEmpty {
+            return "empty trackerId"
+        }
         switch tracker.eventType {
         case "impression":
             break
@@ -124,8 +126,8 @@ internal final class ThirdPartyTrackerDispatcher {
             return "unknown eventType"
         }
         guard let url = URL(string: tracker.url),
-            url.scheme?.lowercased() == "https",
-            url.host != nil
+              url.scheme?.lowercased() == "https",
+              url.host != nil
         else {
             return "url is not an absolute https URL"
         }
@@ -157,7 +159,7 @@ internal final class ThirdPartyTrackerDispatcher {
         switch event {
         case .impression:
             return tracker.eventType == "impression"
-        case .click(let key):
+        case let .click(key):
             guard tracker.eventType == "click" else { return false }
             return tracker.matchType == "any"
                 || (tracker.matchType == "specific" && tracker.eventKey == key)

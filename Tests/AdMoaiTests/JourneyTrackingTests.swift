@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Journey Takeover Ads — tracking (completions, fireCompletion, X-Tracking-Version)
 //
@@ -22,9 +21,7 @@ private func decodeTracking(_ json: String) throws -> Tracking {
 // Nested under `MockNetworkTests` so it can never run concurrently with another
 // MockURLProtocol-driven suite — see MockNetworkTests for why that matters.
 extension MockNetworkTests {
-    @Suite
     struct JourneyTrackingTests {
-
         // MARK: - Parsing
 
         // Scenario: completions parse and resolve by key
@@ -100,9 +97,9 @@ extension MockNetworkTests {
         func testRelativeTrackingUrlIsSkippedNotCrashed() async throws {
             MockURLProtocol.reset()
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
-            sdk.fireTracking(url: "/v1/tracking?e=abc")   // relative — URL(string:) accepts it
+            sdk.fireTracking(url: "/v1/tracking?e=abc") // relative — URL(string:) accepts it
             sdk.fireTracking(url: "not a url at all")
-            sdk.fireTracking(url: "ftp://example.com/x")  // non-http scheme
+            sdk.fireTracking(url: "ftp://example.com/x") // non-http scheme
 
             // Give any (erroneous) task a chance to land, then assert nothing was fired.
             _ = await MockURLProtocol.waitForRequests(1, timeout: 0.4)
@@ -123,7 +120,8 @@ extension MockNetworkTests {
 
             #expect(await MockURLProtocol.waitForRequests(1))
             #expect(MockURLProtocol.capturedRequests.count == 1)
-            #expect(MockURLProtocol.lastRequest?.url?.absoluteString == "https://api.mock.admoai.com/v1/tracking?e=DONE")
+            #expect(MockURLProtocol.lastRequest?.url?
+                .absoluteString == "https://api.mock.admoai.com/v1/tracking?e=DONE")
         }
 
         // Scenario: final_stage completion (no completions list) fires nothing extra

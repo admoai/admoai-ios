@@ -1,7 +1,6 @@
+@testable import AdMoai
 import Foundation
 import Testing
-
-@testable import AdMoai
 
 // Video skippability — cross-SDK parity
 //
@@ -28,14 +27,14 @@ import Testing
 
 private func decodeCreative(contents: String, metadata: String? = nil) throws -> Creative {
     let json = """
-        {
-          "contents": [\(contents)],
-          "advertiser": {},
-          "template": {"key": "normal_video"},
-          "tracking": {},
-          "delivery": "json"\(metadata.map { ", \"metadata\": \($0)" } ?? "")
-        }
-        """
+    {
+      "contents": [\(contents)],
+      "advertiser": {},
+      "template": {"key": "normal_video"},
+      "tracking": {},
+      "delivery": "json"\(metadata.map { ", \"metadata\": \($0)" } ?? "")
+    }
+    """
     return try JSONDecoder().decode(Creative.self, from: json.data(using: .utf8)!)
 }
 
@@ -52,7 +51,6 @@ private func metadataJSON(_ extra: String = "") -> String {
 }
 
 struct VideoSkippabilityTests {
-
     // MARK: - snake_case content keys: the shape a live serve actually returns
 
     // Scenario: is_skippable arrives as integer 1
@@ -60,9 +58,10 @@ struct VideoSkippabilityTests {
     func testSnakeCaseIntegerOneIsSkippable() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": 1, "type": "integer"},
-                {"key": "skip_offset", "value": "5", "type": "text"}
-                """)
+            {"key": "is_skippable", "value": 1, "type": "integer"},
+            {"key": "skip_offset", "value": "5", "type": "text"}
+            """
+        )
 
         #expect(creative.isSkippable())
         #expect(creative.getSkipOffset() == "5")
@@ -73,8 +72,9 @@ struct VideoSkippabilityTests {
     func testSnakeCaseIntegerZeroIsNotSkippable() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": 0, "type": "integer"}
-                """)
+            {"key": "is_skippable", "value": 0, "type": "integer"}
+            """
+        )
 
         #expect(creative.isSkippable() == false)
     }
@@ -84,8 +84,9 @@ struct VideoSkippabilityTests {
     func testSnakeCaseStringTrueIsSkippable() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": "true", "type": "integer"}
-                """)
+            {"key": "is_skippable", "value": "true", "type": "integer"}
+            """
+        )
 
         #expect(creative.isSkippable())
     }
@@ -97,8 +98,9 @@ struct VideoSkippabilityTests {
         // correctly-keyed boolean reported not-skippable.
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": true, "type": "integer"}
-                """)
+            {"key": "is_skippable", "value": true, "type": "integer"}
+            """
+        )
 
         #expect(creative.isSkippable())
     }
@@ -109,9 +111,10 @@ struct VideoSkippabilityTests {
         // The mock seed fills these fields with placeholder text.
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": "is_skippable (demo)", "type": "integer"},
-                {"key": "skip_offset", "value": "Journey Ad demo", "type": "text"}
-                """)
+            {"key": "is_skippable", "value": "is_skippable (demo)", "type": "integer"},
+            {"key": "skip_offset", "value": "Journey Ad demo", "type": "text"}
+            """
+        )
 
         #expect(creative.isSkippable() == false)
         #expect(creative.getSkipOffset() == "Journey Ad demo")
@@ -124,9 +127,10 @@ struct VideoSkippabilityTests {
     func testCamelCaseKeysStillSupported() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "isSkippable", "value": true, "type": "integer"},
-                {"key": "skipOffset", "value": "00:00:05", "type": "text"}
-                """)
+            {"key": "isSkippable", "value": true, "type": "integer"},
+            {"key": "skipOffset", "value": "00:00:05", "type": "text"}
+            """
+        )
 
         #expect(creative.isSkippable())
         #expect(creative.getSkipOffset() == "00:00:05")
@@ -139,9 +143,10 @@ struct VideoSkippabilityTests {
     func testMetadataIsSkippableWins() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": 0, "type": "integer"}
-                """,
-            metadata: metadataJSON("\"isSkippable\": true"))
+            {"key": "is_skippable", "value": 0, "type": "integer"}
+            """,
+            metadata: metadataJSON("\"isSkippable\": true")
+        )
 
         #expect(creative.isSkippable())
     }
@@ -151,9 +156,10 @@ struct VideoSkippabilityTests {
     func testMetadataSkipOffsetSecondsWins() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "skip_offset", "value": "99", "type": "text"}
-                """,
-            metadata: metadataJSON("\"skipOffsetSeconds\": 5"))
+            {"key": "skip_offset", "value": "99", "type": "text"}
+            """,
+            metadata: metadataJSON("\"skipOffsetSeconds\": 5")
+        )
 
         #expect(creative.getSkipOffset() == "5")
     }
@@ -163,10 +169,11 @@ struct VideoSkippabilityTests {
     func testContentUsedWhenMetadataOmitsFields() throws {
         let creative = try decodeCreative(
             contents: """
-                {"key": "is_skippable", "value": 1, "type": "integer"},
-                {"key": "skip_offset", "value": "7", "type": "text"}
-                """,
-            metadata: metadataJSON())
+            {"key": "is_skippable", "value": 1, "type": "integer"},
+            {"key": "skip_offset", "value": "7", "type": "text"}
+            """,
+            metadata: metadataJSON()
+        )
 
         #expect(creative.isSkippable())
         #expect(creative.getSkipOffset() == "7")

@@ -7,9 +7,11 @@ public struct Decision: Decodable {
     public let creatives: [Creative]?
 }
 
-extension Decision {
+public extension Decision {
     /// `true` when this decision carries at least one creative to render.
-    public var hasCreative: Bool { creatives?.isEmpty == false }
+    var hasCreative: Bool {
+        creatives?.isEmpty == false
+    }
 
     /// `true` for a no-ad response.
     ///
@@ -18,7 +20,9 @@ extension Decision {
     /// lives only in server logs). The SDK deliberately exposes no "protected no-ad" signal
     /// and performs no local ad substitution: a no-ad response yields nothing to render and
     /// nothing to track.
-    public var isNoAd: Bool { !hasCreative }
+    var isNoAd: Bool {
+        !hasCreative
+    }
 }
 
 public struct Creative: Decodable {
@@ -60,7 +64,7 @@ extension Creative {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.contents =
             ((try? c.decode([SafelyDecodable<Content>].self, forKey: .contents)) ?? [])
-            .compactMap(\.value)
+                .compactMap(\.value)
         self.metadata = try? c.decode(Metadata.self, forKey: .metadata)
         self.advertiser = (try? c.decode(Advertiser.self, forKey: .advertiser)) ?? Advertiser()
         self.template = try? c.decode(Template.self, forKey: .template)
@@ -78,9 +82,9 @@ extension Creative {
         // and neither can fail the creative.
         self.matchedPoints =
             ((try? c.decode([SafelyDecodable<MatchedPointsEntry>].self, forKey: .contents)) ?? [])
-            .compactMap(\.value)
-            .first { $0.key == MatchedPointsEntry.contentKey }
-            .map { $0.value.compactMap(\.value) } ?? []
+                .compactMap(\.value)
+                .first { $0.key == MatchedPointsEntry.contentKey }
+                .map { $0.value.compactMap(\.value) } ?? []
     }
 }
 
@@ -190,16 +194,16 @@ public struct Content: Decodable {
     public let type: String
 }
 
-extension Array where Element == Content {
-    public func getContent(key: String) -> Content? {
+public extension [Content] {
+    func getContent(key: String) -> Content? {
         first { $0.key == key }
     }
 
-    public func hasContents() -> Bool {
+    func hasContents() -> Bool {
         !isEmpty
     }
 
-    public func isType(key: String, type: String) -> Bool {
+    func isType(key: String, type: String) -> Bool {
         contains { $0.key == key && $0.type == type }
     }
 }
@@ -251,9 +255,9 @@ public struct Advertiser: Decodable {
     public let logoUrl: String?
 }
 
-extension Advertiser {
+public extension Advertiser {
     /// Empty advertiser, used as a tolerant fallback when the block is missing/malformed.
-    public init() {
+    init() {
         self.init(id: nil, name: nil, legalName: nil, logoUrl: nil)
     }
 }
@@ -286,30 +290,30 @@ public struct Tracking: Decodable {
     public func hasTrackingFor(type: TrackingType, key: String) -> Bool {
         switch type {
         case .impression:
-            return impressions?.contains { $0.key == key } ?? false
+            impressions?.contains { $0.key == key } ?? false
         case .click:
-            return clicks?.contains { $0.key == key } ?? false
+            clicks?.contains { $0.key == key } ?? false
         case .custom:
-            return custom?.contains { $0.key == key } ?? false
+            custom?.contains { $0.key == key } ?? false
         case .videoEvent:
-            return videoEvents?.contains { $0.key == key } ?? false
+            videoEvents?.contains { $0.key == key } ?? false
         case .completion:
-            return completions?.contains { $0.key == key } ?? false
+            completions?.contains { $0.key == key } ?? false
         }
     }
 
     public func getTrackingUrl(type: TrackingType, key: String) -> String? {
         switch type {
         case .impression:
-            return getImpressionUrl(key: key)
+            getImpressionUrl(key: key)
         case .click:
-            return getClickUrl(key: key)
+            getClickUrl(key: key)
         case .custom:
-            return getCustomUrl(key: key)
+            getCustomUrl(key: key)
         case .videoEvent:
-            return getVideoEventUrl(key: key)
+            getVideoEventUrl(key: key)
         case .completion:
-            return getCompletionUrl(key: key)
+            getCompletionUrl(key: key)
         }
     }
 
@@ -324,7 +328,7 @@ public struct Tracking: Decodable {
     public func getCustomUrl(key: String) -> String? {
         custom?.first { $0.key == key }?.url
     }
-    
+
     public func getVideoEventUrl(key: String) -> String? {
         videoEvents?.first { $0.key == key }?.url
     }
@@ -334,12 +338,13 @@ public struct Tracking: Decodable {
     }
 }
 
-extension Tracking {
+public extension Tracking {
     /// Empty tracking block, used as a tolerant fallback when the block is missing/malformed.
-    public init() {
+    init() {
         self.init(
             impressions: nil, clicks: nil, custom: nil, videoEvents: nil, completions: nil,
-            thirdPartyTrackers: nil)
+            thirdPartyTrackers: nil
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -349,7 +354,7 @@ extension Tracking {
     /// Tolerant decoder: every category drops malformed entries (via `SafelyDecodable`) so a
     /// single bad `{key,url}` never fails the whole response. Covers the new `completions`
     /// and `thirdPartyTrackers`.
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         func list(_ key: CodingKeys) -> [TrackingItem]? {
             (try? c.decode([SafelyDecodable<TrackingItem>].self, forKey: key))?.compactMap(\.value)
@@ -361,7 +366,8 @@ extension Tracking {
             videoEvents: list(.videoEvents),
             completions: list(.completions),
             thirdPartyTrackers: (try? c.decode(
-                [SafelyDecodable<ThirdPartyTracker>].self, forKey: .thirdPartyTrackers))?
+                [SafelyDecodable<ThirdPartyTracker>].self, forKey: .thirdPartyTrackers
+            ))?
                 .compactMap(\.value)
         )
     }
@@ -408,6 +414,7 @@ public struct VerificationScriptResource: Decodable {
 
 // ---------------------------------------------------------------------------
 // MARK: - Tolerant Reader (whole-response) — PR B
+
 //
 // Extends the Tolerant Reader posture from the Journey types (PR A) to the rest of the
 // response tree so a future-version or partially-malformed response never throws. Rules:
@@ -428,7 +435,7 @@ extension Decision {
         self.placement = (try? c.decode(String.self, forKey: .placement)) ?? ""
         self.creatives =
             (try? c.decode([SafelyDecodable<Creative>].self, forKey: .creatives))?
-            .compactMap(\.value)
+                .compactMap(\.value)
     }
 }
 
@@ -470,12 +477,12 @@ extension Metadata {
         // Accept an integer or a JSON number that decodes as Double.
         self.duration =
             (try? c.decode(Int.self, forKey: .duration))
-            ?? (try? c.decode(Double.self, forKey: .duration)).map { Int($0) }
+                ?? (try? c.decode(Double.self, forKey: .duration)).map { Int($0) }
         self.aspectRatio = try? c.decode(String.self, forKey: .aspectRatio)
         self.isSkippable = try? c.decode(Bool.self, forKey: .isSkippable)
         self.skipOffsetSeconds =
             (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
-            ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
+                ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
         self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
     }
 }
@@ -531,9 +538,9 @@ extension VerificationScriptResource {
         if let text = try? c.decode(String.self, forKey: .verificationParameters) {
             self.verificationParameters = text
         } else if let structured = try? c.decode(AnyCodable.self, forKey: .verificationParameters),
-            !(structured.value is NSNull),
-            let data = try? JSONEncoder().encode(structured),
-            let json = String(data: data, encoding: .utf8)
+                  !(structured.value is NSNull),
+                  let data = try? JSONEncoder().encode(structured),
+                  let json = String(data: data, encoding: .utf8)
         {
             self.verificationParameters = json
         } else {

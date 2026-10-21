@@ -20,7 +20,9 @@ let e2eBaseURL: String = {
     let raw = ProcessInfo.processInfo.environment["ADMOAI_JOURNEY_E2E_BASE_URL"]
         ?? "http://127.0.0.1:8080"
     var trimmed = raw
-    while trimmed.hasSuffix("/") { trimmed.removeLast() }
+    while trimmed.hasSuffix("/") {
+        trimmed.removeLast()
+    }
     return trimmed
 }()
 
@@ -55,8 +57,12 @@ struct ScenarioResult {
 
     var json: [String: Any] {
         var out: [String: Any] = ["id": id, "title": title, "outcome": outcome.rawValue]
-        if let detail = detail { out["detail"] = detail }
-        if !notes.isEmpty { out["notes"] = notes }
+        if let detail {
+            out["detail"] = detail
+        }
+        if !notes.isEmpty {
+            out["notes"] = notes
+        }
         return out
     }
 }
@@ -67,7 +73,9 @@ struct ScenarioResult {
 /// otherwise a `db-reset` reads as a regression.
 struct SkipScenario: Error {
     let reason: String
-    init(_ reason: String) { self.reason = reason }
+    init(_ reason: String) {
+        self.reason = reason
+    }
 }
 
 /// Aborts the whole run: the environment is unusable, so every scenario would fail for the
@@ -88,7 +96,9 @@ struct ClaimFailed: Error {
 
 /// Asserts a claim about observable behaviour.
 func check(_ condition: Bool, _ claim: String) throws {
-    if !condition { throw ClaimFailed(claim: claim) }
+    if !condition {
+        throw ClaimFailed(claim: claim)
+    }
 }
 
 // MARK: - Report
@@ -98,24 +108,38 @@ final class E2eReport {
     var preflightDiagnosis: String?
     var preflightRecipe: String?
 
-    var passed: Int { results.filter { $0.outcome == .pass }.count }
-    var failed: Int { results.filter { $0.outcome == .fail }.count }
-    var skipped: Int { results.filter { $0.outcome == .skip }.count }
+    var passed: Int {
+        results.filter { $0.outcome == .pass }.count
+    }
+
+    var failed: Int {
+        results.filter { $0.outcome == .fail }.count
+    }
+
+    var skipped: Int {
+        results.filter { $0.outcome == .skip }.count
+    }
 
     func add(_ result: ScenarioResult) {
         results.append(result)
         let label = result.outcome.rawValue.padding(toLength: 4, withPad: " ", startingAt: 0)
         let id = result.id.padding(toLength: 7, withPad: " ", startingAt: 0)
         print("\(label) \(id) \(result.title)")
-        for note in result.notes { print("          · \(note)") }
-        if let detail = result.detail { print("          → \(detail)") }
+        for note in result.notes {
+            print("          · \(note)")
+        }
+        if let detail = result.detail {
+            print("          → \(detail)")
+        }
     }
 
     /// Exit-code contract, matching the Android runner:
     /// 0 = pass (a documented SKIP is allowed), 1 = a scenario FAILED,
     /// 2 = preflight aborted / environment unusable.
     var exitCode: Int32 {
-        if preflightDiagnosis != nil { return 2 }
+        if preflightDiagnosis != nil {
+            return 2
+        }
         return failed > 0 ? 1 : 0
     }
 
@@ -123,7 +147,9 @@ final class E2eReport {
         var preflight: [String: Any] = ["aborted": preflightDiagnosis != nil]
         if let diagnosis = preflightDiagnosis {
             preflight["diagnosis"] = diagnosis
-            if let recipe = preflightRecipe { preflight["recipe"] = recipe }
+            if let recipe = preflightRecipe {
+                preflight["recipe"] = recipe
+            }
         }
         let payload: [String: Any] = [
             "baseUrl": e2eBaseURL,
@@ -138,10 +164,12 @@ final class E2eReport {
 
         let url = URL(fileURLWithPath: e2eReportPath)
         try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
         guard
             let data = try? JSONSerialization.data(
-                withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+                withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]
+            )
         else {
             print("WARNING: could not serialize the report")
             return
@@ -154,17 +182,21 @@ final class E2eReport {
         if let diagnosis = preflightDiagnosis {
             print("PREFLIGHT ABORTED — the environment is unusable, not the SDK.")
             print("  \(diagnosis)")
-            if let recipe = preflightRecipe { print("  fix: \(recipe)") }
+            if let recipe = preflightRecipe {
+                print("  fix: \(recipe)")
+            }
         }
         print(
             "Journey E2E: \(passed) passed, \(failed) failed, \(skipped) skipped "
-                + "(\(results.count) total)")
+                + "(\(results.count) total)"
+        )
         print("Report: \(e2eReportPath)   (exit \(exitCode))")
         if skipped > 0 {
             print("")
             print(
                 "SKIPPED scenarios are NOT failures, but they are also NOT coverage. "
-                    + "Before signing off, confirm every SKIP is deliberate:")
+                    + "Before signing off, confirm every SKIP is deliberate:"
+            )
             for result in results where result.outcome == .skip {
                 print("  \(result.id): \(result.detail ?? "no reason recorded")")
             }
@@ -244,28 +276,39 @@ final class RecordingURLProtocol: URLProtocol {
     // Named `forwardTask` because `URLProtocol` already declares a `task` property.
     private var forwardTask: URLSessionDataTask?
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
-        if let url = request.url?.absoluteString { RecordingURLProtocol.record(url) }
+        if let url = request.url?.absoluteString {
+            RecordingURLProtocol.record(url)
+        }
 
         forwardTask = RecordingURLProtocol.passthrough.dataTask(with: request) {
             [weak self] data, response, error in
-            guard let self = self else { return }
+            guard let self else { return }
             if let url = self.request.url?.absoluteString {
                 RecordingURLProtocol.recordAnswer(
-                    url, (response as? HTTPURLResponse)?.statusCode ?? -1)
+                    url, (response as? HTTPURLResponse)?.statusCode ?? -1
+                )
             }
-            if let error = error {
+            if let error {
                 self.client?.urlProtocol(self, didFailWithError: error)
                 return
             }
-            if let response = response {
+            if let response {
                 self.client?.urlProtocol(
-                    self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                    self, didReceive: response, cacheStoragePolicy: .notAllowed
+                )
             }
-            if let data = data { self.client?.urlProtocol(self, didLoad: data) }
+            if let data {
+                self.client?.urlProtocol(self, didLoad: data)
+            }
             self.client?.urlProtocolDidFinishLoading(self)
         }
         forwardTask?.resume()
@@ -371,9 +414,15 @@ func decide(
     configure: ((DecisionRequestBuilder) throws -> Void)? = nil
 ) async throws -> Served {
     let builder = driver.sdk.createRequestBuilder()
-    for placement in placements { _ = builder.addPlacement(key: placement) }
-    if let sessionId = sessionId { _ = builder.setSessionId(sessionId) }
-    if let opt = opt { _ = builder.setJourneyOpt(opt) }
+    for placement in placements {
+        _ = builder.addPlacement(key: placement)
+    }
+    if let sessionId {
+        _ = builder.setSessionId(sessionId)
+    }
+    if let opt {
+        _ = builder.setJourneyOpt(opt)
+    }
     try configure?(builder)
 
     let response = try await driver.sdk.requestAds(builder.build())
@@ -389,11 +438,9 @@ func decide(
 /// `true` when `url` meets the tracking transport contract: absolute, path `/v1/tracking`,
 /// carrying a non-empty opaque `?e=` token.
 func isTrackingURL(_ url: String?) -> Bool {
-    guard let url = url, let parsed = URL(string: url) else { return false }
-    guard let scheme = parsed.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
-        return false
-    }
-    guard parsed.host != nil, parsed.path.hasPrefix("/v1/tracking") else { return false }
+    guard let url, let parsed = URL(string: url), let scheme = parsed.scheme?.lowercased(),
+          scheme == "http" || scheme == "https", parsed.host != nil,
+          parsed.path.hasPrefix("/v1/tracking") else { return false }
     return !(trackingToken(url) ?? "").isEmpty
 }
 
@@ -418,9 +465,13 @@ func trackingToken(_ url: String) -> String? {
 func normalizeForLocalIngestion(_ url: String) -> String {
     guard let minted = URL(string: url), let target = URL(string: e2eBaseURL) else { return url }
     var rebuilt = "\(target.scheme ?? "http")://\(target.host ?? "127.0.0.1")"
-    if let port = target.port { rebuilt += ":\(port)" }
+    if let port = target.port {
+        rebuilt += ":\(port)"
+    }
     rebuilt += minted.path
-    if let query = minted.query { rebuilt += "?\(query)" }
+    if let query = minted.query {
+        rebuilt += "?\(query)"
+    }
     return rebuilt
 }
 
@@ -432,7 +483,9 @@ func waitForFires(_ count: Int, timeout: TimeInterval = 5.0) async -> [String] {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         let fired = RecordingURLProtocol.sent.filter { $0.contains("/v1/tracking") }
-        if fired.count >= count { return fired }
+        if fired.count >= count {
+            return fired
+        }
         try? await Task.sleep(nanoseconds: 50_000_000)
     }
     return RecordingURLProtocol.sent.filter { $0.contains("/v1/tracking") }
@@ -458,7 +511,9 @@ func scenario(
         report.add(
             ScenarioResult(
                 id: id, title: title, outcome: .skip,
-                detail: "preflight aborted: \(diagnosis)", notes: []))
+                detail: "preflight aborted: \(diagnosis)", notes: []
+            )
+        )
         return
     }
 
@@ -469,16 +524,22 @@ func scenario(
     } catch let skip as SkipScenario {
         report.add(
             ScenarioResult(
-                id: id, title: title, outcome: .skip, detail: skip.reason, notes: notes))
+                id: id, title: title, outcome: .skip, detail: skip.reason, notes: notes
+            )
+        )
     } catch let claim as ClaimFailed {
         report.add(
             ScenarioResult(
                 id: id, title: title, outcome: .fail,
-                detail: "expected: \(claim.claim)", notes: notes))
+                detail: "expected: \(claim.claim)", notes: notes
+            )
+        )
     } catch {
         report.add(
             ScenarioResult(
                 id: id, title: title, outcome: .fail,
-                detail: "\(error)", notes: notes))
+                detail: "\(error)", notes: notes
+            )
+        )
     }
 }

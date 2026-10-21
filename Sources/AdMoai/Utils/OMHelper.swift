@@ -2,9 +2,9 @@ import Foundation
 
 public extension Creative {
     func getVerificationResources() -> [VerificationScriptResource]? {
-        return verificationScriptResources
+        verificationScriptResources
     }
-    
+
     func hasOMVerification() -> Bool {
         guard let resources = verificationScriptResources else {
             return false
@@ -12,4 +12,3 @@ public extension Creative {
         return !resources.isEmpty
     }
 }
-
