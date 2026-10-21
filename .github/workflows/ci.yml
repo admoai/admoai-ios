@@ -126,3 +126,18 @@ jobs:
           path: build/api/AdMoai.api.txt
           if-no-files-found: ignore
           retention-days: 14
+
+  # The shared scenario manifest is vendored from adhub's @admoai/sdk-scenarios package
+  # (admoai/adhub#4158): the bytes must be exactly the version MANIFEST_VERSION names, so a
+  # scenario edited here instead of in adhub fails this repo's own PR. A newer published
+  # version is a warning. The only CI step that reads the registry; the tests never do.
+  scenarios:
+    name: Scenario manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: The check script's own tests
+        run: .github/scripts/scenarios_test.sh
+      - name: Tools/JourneyE2E/scenarios.json is the published version it names
+        run: .github/scripts/scenarios.sh check Tools/JourneyE2E/scenarios.json
