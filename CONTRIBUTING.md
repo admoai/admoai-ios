@@ -83,14 +83,7 @@ Before submitting a PR:
    swift test
    ```
 
-2. **Run the demo app:**
-   ```bash
-   cd Examples/Demo
-   open Demo.xcodeproj
-   # Build and run in Xcode
-   ```
-
-3. **Verify code formatting:**
+2. **Verify code formatting:**
    ```bash
    swift format lint --recursive .
    ```
@@ -127,7 +120,6 @@ Include:
 - **Why**: Motivation and context
 - **How**: Technical approach (if non-trivial)
 - **Testing**: How you tested the changes
-- **Screenshots**: If UI changes (from demo app)
 - **Breaking Changes**: If applicable
 
 ### Checklist
