@@ -280,6 +280,18 @@ final class RecordingURLProtocol: URLProtocol {
 
     // Named `forwardTask` because `URLProtocol` already declares a `task` property.
     private var forwardTask: URLSessionDataTask?
+    // Set by stopLoading(). Once Foundation has stopped this load, the client must not hear from
+    // it again: swift-corelibs-foundation (Linux) has torn the outer task down by then, and a late
+    // urlProtocolDidFinishLoading dereferences it and crashes the runner (SIGSEGV in
+    // URLSession.behaviour(for:)). On Linux, forward() also runs on another queue, so stopLoading()
+    // can come before forwardTask exists and cancel nothing; the flag covers that too.
+    private var stopped = false
+    private let stateLock = NSLock()
+
+    private var isStopped: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return stopped
+    }
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -304,13 +316,16 @@ final class RecordingURLProtocol: URLProtocol {
     }
 
     private func forward() {
-        forwardTask = RecordingURLProtocol.passthrough.dataTask(with: request) {
+        let task = RecordingURLProtocol.passthrough.dataTask(with: request) {
             [weak self] data, response, error in
             guard let self else { return }
             if let url = self.request.url?.absoluteString {
                 RecordingURLProtocol.recordAnswer(
                     url, (response as? HTTPURLResponse)?.statusCode ?? -1
                 )
+            }
+            if self.isStopped {
+                return
             }
             if let error {
                 self.client?.urlProtocol(self, didFailWithError: error)
@@ -326,12 +341,23 @@ final class RecordingURLProtocol: URLProtocol {
             }
             self.client?.urlProtocolDidFinishLoading(self)
         }
-        forwardTask?.resume()
+        stateLock.lock()
+        if stopped {
+            stateLock.unlock()
+            return
+        }
+        forwardTask = task
+        stateLock.unlock()
+        task.resume()
     }
 
     override func stopLoading() {
-        forwardTask?.cancel()
+        stateLock.lock()
+        stopped = true
+        let task = forwardTask
         forwardTask = nil
+        stateLock.unlock()
+        task?.cancel()
     }
 }
 
