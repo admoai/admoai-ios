@@ -12,8 +12,16 @@ language: en-US
 
 reviews:
   profile: chill
+  # ON DEMAND, as in admoai/adhub (#3805): no PR is reviewed unless someone asks, with a
+  # `@coderabbitai review` / `@coderabbitai full review` comment, or with the `coderabbit` label,
+  # which reviews that PR automatically on every push again (admoai/adhub#4661).
   auto_review:
-    enabled: true
+    enabled: false
+    labels: ["coderabbit"]
+    # The automation bot's PRs (scenario adoptions) are never reviewed: CodeRabbit refuses a bot
+    # without its own paid seat and posted a "Review skipped" notice on each one. They change one
+    # line that the required "Scenario manifest" check already proves (admoai/adhub#4661).
+    ignore_usernames: ["adhub-automation[bot]"]
     auto_incremental_review: true
     # Lower than adhub's 5: SDK PRs are small, and a long re-review tail is cost
     # without signal. Resume with `@coderabbitai resume`.
