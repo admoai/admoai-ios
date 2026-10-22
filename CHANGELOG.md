@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/admoai/admoai-ios/compare/v1.7.1...v1.8.0) (2026-10-22)
+
+
+### Added
+
+* the journey-e2e runner builds and runs on Linux ([#57](https://github.com/admoai/admoai-ios/issues/57)) ([f4c6f3a](https://github.com/admoai/admoai-ios/commit/f4c6f3a9aa7905b9b3be50fb9dcc6acb95eee75c))
+
+
+### Fixed
+
+* **e2e:** the Linux harness never calls the URL client after stopLoading ([#66](https://github.com/admoai/admoai-ios/issues/66)) ([21fbea6](https://github.com/admoai/admoai-ios/commit/21fbea6796765e8b79ef71d790a94617b7e63c3b))
+
+
+### Changed
+
+* remove the Demo app; it is archived under the tag sample-app-archive ([#63](https://github.com/admoai/admoai-ios/issues/63)) ([4136c07](https://github.com/admoai/admoai-ios/commit/4136c07ef76be00adaf84b0774c1a187f7867049))
+* review each PR once with CodeRabbit, not on every push ([#71](https://github.com/admoai/admoai-ios/issues/71)) ([77ff076](https://github.com/admoai/admoai-ios/commit/77ff076e3c9aceb7f45cc3dffbcc484100ff842a))
+* review on demand with CodeRabbit, and skip the automation bot's PRs ([#70](https://github.com/admoai/admoai-ios/issues/70)) ([552f897](https://github.com/admoai/admoai-ios/commit/552f8975ccb8d006470815e1b2660c425eb3d747))
+
 ## [1.7.1](https://github.com/admoai/admoai-ios/compare/v1.7.0...v1.7.1) (2026-10-20)
 
 
