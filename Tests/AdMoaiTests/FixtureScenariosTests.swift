@@ -2,7 +2,7 @@
 import Foundation
 import Testing
 
-// Shared fixture scenarios (@admoai/sdk-scenarios schemaVersion 2, admoai/adhub#4734)
+// Shared fixture scenarios (@admoai/sdk-scenarios schemaVersion 3, admoai/adhub#4734)
 //
 // Feature: A publisher's app reads the standard native formats from a decision response
 //   As a publisher's tech team
