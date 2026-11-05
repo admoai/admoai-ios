@@ -28,6 +28,8 @@ publish() { # version content [golden-file-name golden-content]...
 publish 1.0.0 '{"v":1}'
 publish 1.1.0 '{"v":11}'
 publish 1.2.0 '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' a.json '{"a":1}' b.json '{"b":2}'
+# An inconsistent package: it declares fixture scenarios but ships no golden files.
+publish 1.9.0 '{"v":19,"fixtureScenarios":[{"id":"F1"}]}'
 printf '{"dist-tags":{"latest":"1.2.0"}}' > "$reg/index"
 
 mkdir -p "$tmp/bin"
@@ -99,13 +101,17 @@ echo "v1" > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
 if [ $s1 -eq 1 ] && [ $status -eq 1 ] && has "not a MAJOR.MINOR.PATCH"; then pass; else fail "status=$s1/$status"; fi
 
 case_name="adopt latest writes the published bytes, the golden files and the version, and check then passes"
-printf 'old' > "$m"; mkdir -p "$fx"; printf 'stale' > "$fx/stale.json"; run adopt "$m" latest
-adopted="$(cat "$m")"; ver="$(cat "$tmp/repo/MANIFEST_VERSION")"; files="$(ls "$fx" | tr '\n' ' ')"; run check "$m"
-if [ "$adopted" = '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' ] && [ "$ver" = 1.2.0 ] && [ "$files" = "a.json b.json " ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted ver=$ver files=$files"; fi
+printf 'old' > "$m"; mkdir -p "$fx"; printf 'stale' > "$fx/stale.json"; printf 'keep' > "$(dirname "$fx")/sibling.txt"; run adopt "$m" latest
+adopted="$(cat "$m")"; ver="$(cat "$tmp/repo/MANIFEST_VERSION")"; files="$(ls "$fx" | tr '\n' ' ')"; kept="$(cat "$(dirname "$fx")/sibling.txt" 2>/dev/null || true)"; run check "$m"
+if [ "$adopted" = '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' ] && [ "$ver" = 1.2.0 ] && [ "$files" = "a.json b.json " ] && [ "$kept" = keep ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted ver=$ver files=$files kept=$kept"; fi
 
-case_name="adopting a version that ships no fixtures removes the fixtures dir, and check passes"
+case_name="adopt refuses a package that declares fixture scenarios but ships no golden files, and changes nothing"
+before="$(cat "$m")"; run adopt "$m" 1.9.0
+if [ $status -eq 1 ] && has "ships no fixtures/golden-wire" && [ "$(cat "$m")" = "$before" ] && [ "$(cat "$tmp/repo/MANIFEST_VERSION")" = 1.2.0 ] && [ -f "$fx/a.json" ]; then pass; else fail "status=$status"; fi
+
+case_name="adopting a version that ships no fixtures removes only the golden files, and check passes"
 run adopt "$m" 1.1.0; adopted="$(cat "$m")"; run check "$m"
-if [ "$adopted" = '{"v":11}' ] && [ ! -d "$tmp/repo/fixtures" ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted status=$status"; fi
+if [ "$adopted" = '{"v":11}' ] && [ ! -d "$fx" ] && [ "$(cat "$(dirname "$fx")/sibling.txt" 2>/dev/null || true)" = keep ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted status=$status"; fi
 
 case_name="a plain-http registry is refused"
 set +e; SCENARIOS_REGISTRY=http://registry.test "$here/scenarios.sh" check "$m" > "$tmp/out" 2>&1; status=$?; set -e

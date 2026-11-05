@@ -109,8 +109,14 @@ case "$cmd" in
     [ "$version" = latest ] && version="$(latest)"
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "'$version' is not a MAJOR.MINOR.PATCH version" >&2; exit 1; }
     download "$version"
+    # Refuse an inconsistent package before touching anything here.
+    if needs_fixtures "$tmp/package/scenarios.json" && [ ! -d "$tmp/package/fixtures/golden-wire" ]; then
+      echo "$package@$version declares fixtureScenarios but ships no fixtures/golden-wire; nothing was changed" >&2
+      exit 1
+    fi
     cp "$tmp/package/scenarios.json" "$manifest"
-    rm -rf "$(dirname "$fixtures_dir")"
+    # Only fixtures/golden-wire belongs to the package; anything beside it is this repo's own.
+    rm -rf "$fixtures_dir"
     if [ -d "$tmp/package/fixtures/golden-wire" ]; then
       mkdir -p "$(dirname "$fixtures_dir")"
       cp -R "$tmp/package/fixtures/golden-wire" "$fixtures_dir"
