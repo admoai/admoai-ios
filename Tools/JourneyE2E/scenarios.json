@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written.",
+  "schemaVersion": 3,
+  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object.",
   "scenarios": [
     {
       "id": "L1",
@@ -939,6 +939,1284 @@
           "viewsOncePerResponse": true,
           "interactionsEveryCall": true,
           "engineAcceptsEveryBeacon": true
+        }
+      }
+    }
+  ],
+  "fixtureScenarios": [
+    {
+      "id": "F1",
+      "title": "a Native Display creative exposes its standard format, version and template source",
+      "fixture": {
+        "golden": "card.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "card",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "card",
+        "contentKeys": [
+          "image",
+          "brand_logo",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "destination_url"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": []
+      }
+    },
+    {
+      "id": "F2",
+      "title": "a Native Display creative leaves every optional field it was served without absent",
+      "fixture": {
+        "golden": "card.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "card",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "card",
+        "contentKeys": [
+          "image",
+          "destination_url"
+        ],
+        "contentKeysAbsent": [
+          "brand_logo",
+          "headline",
+          "supporting_text",
+          "cta_text"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": []
+      }
+    },
+    {
+      "id": "F3",
+      "title": "a template based on a standard keeps the standard's identity and exposes the operator's addition by key",
+      "fixture": {
+        "golden": "card.derived"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "card",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "based_on_standard"
+        },
+        "templateKey": "city_promo_display",
+        "contentKeys": [
+          "image",
+          "headline",
+          "destination_url",
+          "promo_code"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [
+          "save_offer"
+        ]
+      }
+    },
+    {
+      "id": "F4",
+      "title": "a Carousel exposes its slides in server order, each with its id, position, contents and own trackers, and no creative-level click",
+      "fixture": {
+        "golden": "carousel.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "carousel",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "carousel",
+        "contentKeys": [
+          "brand_logo",
+          "disclaimer"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "slides": [
+          {
+            "slideId": "slide_01JDY02N8MA2K2HKQ74989YS99",
+            "position": 1,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JD04H8GY801VF8Y0FHETP6XA",
+            "position": 2,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JDRGMFSTZXQ7ES1QBCF0DR2X",
+            "position": 3,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "F5",
+      "title": "a minimal Carousel still exposes its slides and leaves the optional brand logo and disclaimer absent",
+      "fixture": {
+        "golden": "carousel.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "carousel",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "carousel",
+        "contentKeys": [],
+        "contentKeysAbsent": [
+          "brand_logo",
+          "disclaimer"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "slides": [
+          {
+            "slideId": "slide_01JDZ725G8017BHW9RQJX7Y56S",
+            "position": 1,
+            "contentKeys": [
+              "image",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JD4GNH6TH0XPP5YWCMDKN029",
+            "position": 2,
+            "contentKeys": [
+              "image",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "F6",
+      "title": "a Carousel based on a standard exposes its slides and the operator's addition",
+      "fixture": {
+        "golden": "carousel.derived"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "carousel",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "based_on_standard"
+        },
+        "templateKey": "city_carousel",
+        "contentKeys": [
+          "promo_code"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "slides": [
+          {
+            "slideId": "slide_01JDS1H8VEM0ABE2PQ0JY6S38W",
+            "position": 1,
+            "contentKeys": [
+              "image",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JDDGXJE0JDBY21Y9KEJDD54A",
+            "position": 2,
+            "contentKeys": [
+              "image",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "F7",
+      "title": "a Tap-to-expand creative exposes expand and close as custom events, apart from its click",
+      "fixture": {
+        "golden": "expandable_banner.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "expandable_banner",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "expandable_banner",
+        "contentKeys": [
+          "teaser_image",
+          "teaser_headline",
+          "expanded_image",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "destination_url",
+          "disclaimer"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [
+          "expand",
+          "close"
+        ]
+      }
+    },
+    {
+      "id": "F8",
+      "title": "a minimal Tap-to-expand creative leaves its optional texts absent and keeps expand and close",
+      "fixture": {
+        "golden": "expandable_banner.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "expandable_banner",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "expandable_banner",
+        "contentKeys": [
+          "teaser_image",
+          "expanded_image",
+          "destination_url"
+        ],
+        "contentKeysAbsent": [
+          "teaser_headline",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "disclaimer"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [
+          "expand",
+          "close"
+        ]
+      }
+    },
+    {
+      "id": "F9",
+      "title": "a Branded Assets creative exposes asset tap as a custom event, apart from its click",
+      "fixture": {
+        "golden": "branded_assets.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "branded_assets",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "branded_assets",
+        "contentKeys": [
+          "branded_image",
+          "accessible_label",
+          "destination_url"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [
+          "asset_tap"
+        ]
+      }
+    },
+    {
+      "id": "F10",
+      "title": "a Branded Assets creative without a destination has no click, only the asset tap",
+      "fixture": {
+        "golden": "branded_assets.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "branded_assets",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "branded_assets",
+        "contentKeys": [
+          "branded_image"
+        ],
+        "contentKeysAbsent": [
+          "accessible_label",
+          "destination_url"
+        ],
+        "clickKeys": [],
+        "customKeys": [
+          "asset_tap"
+        ]
+      }
+    },
+    {
+      "id": "F11",
+      "title": "a Standard Video exposes its video events and click, and no skippable setting",
+      "fixture": {
+        "golden": "standard_video.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "standard_video",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "standard_video",
+        "contentKeys": [
+          "video_asset",
+          "poster_image",
+          "brand_logo",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "destination_url",
+          "disclaimer"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [],
+        "videoEventKeys": [
+          "start",
+          "first_quartile",
+          "midpoint",
+          "third_quartile",
+          "complete"
+        ],
+        "noSkippableSetting": true
+      }
+    },
+    {
+      "id": "F12",
+      "title": "a Standard Video without a destination has no click action or click tracker",
+      "fixture": {
+        "golden": "standard_video.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "standard_video",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "standard_video",
+        "contentKeys": [
+          "video_asset",
+          "poster_image"
+        ],
+        "contentKeysAbsent": [
+          "brand_logo",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "destination_url",
+          "disclaimer"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "videoEventKeys": [
+          "start",
+          "first_quartile",
+          "midpoint",
+          "third_quartile",
+          "complete"
+        ],
+        "noSkippableSetting": true
+      }
+    },
+    {
+      "id": "F13",
+      "title": "a Sponsored Pin creative keeps decoding its matched points as it does today",
+      "fixture": {
+        "golden": "sponsored_pin_location.full"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "sponsored_pin_location",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "sponsored_pin_location",
+        "contentKeys": [
+          "pinImage",
+          "image",
+          "headline",
+          "description",
+          "ctaText",
+          "defaultDestinationUrl"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": [],
+        "matchedPoints": 2
+      }
+    },
+    {
+      "id": "F14",
+      "title": "a creative served before the standards (gate off) decodes as today, with the three standard fields absent",
+      "comment": "The engine omits the three standard fields while is_standard_native_formats_enabled is off; this is that wire. Absent means null, never an empty string or a placeholder (BR-SDK-01, BR-SDK-09).",
+      "fixture": {
+        "golden": "card.full",
+        "edits": [
+          {
+            "at": "metadata",
+            "remove": "effectiveStandardFormatKey"
+          },
+          {
+            "at": "metadata",
+            "remove": "effectiveStandardFormatVersion"
+          },
+          {
+            "at": "metadata",
+            "remove": "templateSource"
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": null,
+          "effectiveStandardFormatVersion": null,
+          "templateSource": null
+        },
+        "templateKey": "card",
+        "contentKeys": [
+          "image",
+          "brand_logo",
+          "headline",
+          "supporting_text",
+          "cta_text",
+          "destination_url"
+        ],
+        "clickKeys": [
+          "default"
+        ],
+        "customKeys": []
+      }
+    },
+    {
+      "id": "F15",
+      "title": "fields the SDK does not know yet, at any level, never break decoding",
+      "comment": "An additive field the engine starts sending later must be ignored, not fail the response (BR-SDK-01).",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "response",
+            "add": "futureField",
+            "value": {
+              "addedLater": true
+            }
+          },
+          {
+            "at": "creative",
+            "add": "futureField",
+            "value": {
+              "addedLater": true
+            }
+          },
+          {
+            "at": "metadata",
+            "add": "futureField",
+            "value": {
+              "addedLater": true
+            }
+          },
+          {
+            "at": "content",
+            "add": "futureField",
+            "value": {
+              "addedLater": true
+            }
+          },
+          {
+            "at": "slide",
+            "add": "futureField",
+            "value": {
+              "addedLater": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "carousel",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "carousel",
+        "contentKeys": [
+          "brand_logo",
+          "disclaimer"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "slides": [
+          {
+            "slideId": "slide_01JDY02N8MA2K2HKQ74989YS99",
+            "position": 1,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JD04H8GY801VF8Y0FHETP6XA",
+            "position": 2,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          },
+          {
+            "slideId": "slide_01JDRGMFSTZXQ7ES1QBCF0DR2X",
+            "position": 3,
+            "contentKeys": [
+              "image",
+              "headline",
+              "supporting_text",
+              "cta_text",
+              "destination_url"
+            ],
+            "viewKeys": [
+              "slide_view"
+            ],
+            "clickKeys": [
+              "default"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "F16",
+      "title": "a slide's view beacon is sent once per served response, however often the slide is shown",
+      "comment": "Keyed on the signed view URL, never on the slideId: re-rendering or scrolling back to a slide must not count it again (BR-SDK-04, Q19).",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 1
+          },
+          {
+            "slideView": 1
+          },
+          {
+            "slideView": 2
+          },
+          {
+            "slideView": 1
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 1,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "view": "slide_view"
+            }
+          ],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F17",
+      "title": "the same slide in a new decision response counts again",
+      "comment": "A new response carries new signed URLs for the same slides. The runner simulates it by decoding the same golden file again with every first-party tracker URL suffixed `&response=N` (N = 2, 3, ...); `response` in an expected beacon names which one (default 1).",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 1
+          },
+          {
+            "newResponse": true
+          },
+          {
+            "slideView": 1
+          },
+          {
+            "slideView": 1
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 1,
+              "view": "slide_view"
+            },
+            {
+              "slide": 1,
+              "view": "slide_view",
+              "response": 2
+            }
+          ],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F18",
+      "title": "a slide clicked before its view was sent sends the view, then the click, then the creative's applicable third-party click trackers once",
+      "comment": "Applicable means a click tracker matching any click, or the `default` click specifically; a tracker for another click key and an impression tracker do not fire (BR-SDK-05, Q14, Q18).",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideClick": 2
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            }
+          ],
+          "thirdPartyBeacons": [
+            "tpt_fixture_click_any",
+            "tpt_fixture_click_default"
+          ]
+        }
+      }
+    },
+    {
+      "id": "F19",
+      "title": "a slide clicked after its view sends only the click, on every click",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 2
+          },
+          {
+            "slideClick": 2
+          },
+          {
+            "slideClick": 2
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            }
+          ],
+          "thirdPartyBeacons": [
+            "tpt_fixture_click_any",
+            "tpt_fixture_click_default",
+            "tpt_fixture_click_any",
+            "tpt_fixture_click_default"
+          ]
+        }
+      }
+    },
+    {
+      "id": "F20",
+      "title": "slide views never send third-party click trackers",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 1
+          },
+          {
+            "slideView": 2
+          },
+          {
+            "slideView": 3
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 1,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 3,
+              "view": "slide_view"
+            }
+          ],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F21",
+      "title": "a Carousel has no creative-level click: fireClick sends nothing, so slide clicks go through the slide helper",
+      "comment": "Publishers must not route a slide tap through fireClick (BR-SDK-03, Q9).",
+      "fixture": {
+        "golden": "carousel.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "fireClick": null
+          }
+        ],
+        "expect": {
+          "beacons": [],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F22",
+      "title": "fireClick with no key sends the default click of a standard",
+      "comment": "Every standard seeds its click with key `default`, which is what fireClick sends without a key (BR-SDK-06, Q12).",
+      "fixture": {
+        "golden": "card.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "fireClick": null
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "click": "default"
+            }
+          ],
+          "thirdPartyBeacons": [
+            "tpt_fixture_click_any",
+            "tpt_fixture_click_default"
+          ]
+        }
+      }
+    },
+    {
+      "id": "F23",
+      "title": "expand and close are sent verbatim as custom events and are not clicks",
+      "comment": "The publisher calls them when the banner actually expands or closes; no click is sent and no third-party click tracker fires (BR-SDK-07).",
+      "fixture": {
+        "golden": "expandable_banner.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "custom": "expand"
+          },
+          {
+            "custom": "close"
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "custom": "expand"
+            },
+            {
+              "custom": "close"
+            }
+          ],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F24",
+      "title": "an asset tap is sent verbatim as a custom event and is not a click",
+      "comment": "BR-SDK-07.",
+      "fixture": {
+        "golden": "branded_assets.full",
+        "edits": [
+          {
+            "at": "tracking",
+            "add": "thirdPartyTrackers",
+            "value": [
+              {
+                "trackerId": "tpt_fixture_click_any",
+                "eventType": "click",
+                "matchType": "any",
+                "url": "https://adserver.example/click?c=any"
+              },
+              {
+                "trackerId": "tpt_fixture_click_default",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "default",
+                "url": "https://adserver.example/click?c=default"
+              },
+              {
+                "trackerId": "tpt_fixture_click_other",
+                "eventType": "click",
+                "matchType": "specific",
+                "eventKey": "save_offer",
+                "url": "https://adserver.example/click?c=other"
+              },
+              {
+                "trackerId": "tpt_fixture_impression",
+                "eventType": "impression",
+                "url": "https://adserver.example/imp"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "custom": "asset_tap"
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "custom": "asset_tap"
+            }
+          ],
+          "thirdPartyBeacons": []
+        }
+      }
+    },
+    {
+      "id": "F25",
+      "title": "a Standard Video without a destination sends no click",
+      "comment": "No destination means no click action and no click tracker (BR-SDK-08).",
+      "fixture": {
+        "golden": "standard_video.minimal"
+      },
+      "expect": {
+        "decodes": true
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "fireClick": null
+          }
+        ],
+        "expect": {
+          "beacons": [],
+          "thirdPartyBeacons": []
         }
       }
     }
