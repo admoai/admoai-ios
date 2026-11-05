@@ -95,8 +95,25 @@ extension Creative {
                 .compactMap(\.value)
                 .first { $0.key == MatchedPointsEntry.contentKey }
                 .map { $0.value.compactMap(\.value) } ?? []
-        self.slides = []
+        // Same approach as `matchedPoints`: straight off the wire, server order kept (never
+        // sorted by `position`). A slide that lacks a usable id or position is dropped on its own,
+        // and a malformed entry inside a slide is dropped on its own; neither can fail the
+        // creative. The `slides` entry also stays in `contents`, exactly as before.
+        self.slides =
+            ((try? c.decode([SafelyDecodable<SlidesEntry>].self, forKey: .contents)) ?? [])
+                .compactMap(\.value)
+                .first { $0.key == SlidesEntry.contentKey }
+                .map { $0.value.compactMap(\.value) } ?? []
     }
+}
+
+/// The `contents` entry that carries a Carousel's slides, decoded as itself rather than as an
+/// `AnyCodable` blob. Only the entry whose key matches is kept.
+struct SlidesEntry: Decodable {
+    static let contentKey = "slides"
+
+    let key: String
+    let value: [SafelyDecodable<Slide>]
 }
 
 /// The `contents` entry that carries Matched Points, decoded as itself rather than as an
@@ -163,6 +180,37 @@ public struct Slide: Decodable {
 public struct SlideTracking: Decodable, Equatable {
     public let views: [TrackingItem]?
     public let clicks: [TrackingItem]?
+}
+
+extension Slide {
+    private enum TolerantKeys: String, CodingKey { case slideId, position, contents, tracking }
+
+    /// `slideId` and `position` are structurally required: a slide without them cannot be told
+    /// apart or ordered by a publisher, so it throws here and the array level drops it
+    /// (`SafelyDecodable`). Everything inside a slide is tolerant: contents drop malformed
+    /// entries, a malformed `tracking` becomes `nil`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.slideId = try c.decode(String.self, forKey: .slideId)
+        self.position = try c.decode(Int.self, forKey: .position)
+        self.contents =
+            ((try? c.decode([SafelyDecodable<Content>].self, forKey: .contents)) ?? [])
+                .compactMap(\.value)
+        self.tracking = try? c.decode(SlideTracking.self, forKey: .tracking)
+    }
+}
+
+extension SlideTracking {
+    private enum TolerantKeys: String, CodingKey { case views, clicks }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        func list(_ key: TolerantKeys) -> [TrackingItem]? {
+            (try? c.decode([SafelyDecodable<TrackingItem>].self, forKey: key))?.compactMap(\.value)
+        }
+        self.views = list(.views)
+        self.clicks = list(.clicks)
+    }
 }
 
 /// Tolerant array-element wrapper: a malformed or non-object element decodes to `nil`
@@ -502,6 +550,7 @@ extension Metadata {
         case adId, creativeId, advertiserId, templateId, placementId, priority
         case language, format, style, impId, duration, aspectRatio, isSkippable
         case skipOffsetSeconds, endCardMode
+        case effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource
     }
 
     public init(from decoder: Decoder) throws {
@@ -527,9 +576,13 @@ extension Metadata {
             (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
                 ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
         self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
-        self.effectiveStandardFormatKey = nil
-        self.effectiveStandardFormatVersion = nil
-        self.templateSource = nil
+        // Open-set strings, absent when the engine does not send them (it omits all three while
+        // the standard formats are off). A wrong type is `nil`, never a throw.
+        self.effectiveStandardFormatKey = try? c.decode(String.self, forKey: .effectiveStandardFormatKey)
+        self.effectiveStandardFormatVersion =
+            (try? c.decode(Int.self, forKey: .effectiveStandardFormatVersion))
+                ?? (try? c.decode(Double.self, forKey: .effectiveStandardFormatVersion)).map { Int($0) }
+        self.templateSource = try? c.decode(String.self, forKey: .templateSource)
     }
 }
 
