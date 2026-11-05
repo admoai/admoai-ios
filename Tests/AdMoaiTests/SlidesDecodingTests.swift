@@ -107,6 +107,7 @@ struct SlidesDecodingTests {
         #expect(try version("1") == 1)
         #expect(try version("1.0") == 1)
         #expect(try version(#""1""#) == nil)
+        #expect(try version("1.5") == nil)
         #expect(try version("null") == nil)
     }
 

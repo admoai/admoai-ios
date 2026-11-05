@@ -331,7 +331,8 @@ public struct Metadata: Decodable {
     /// Absent when the engine does not send it, never an empty string. Open-set: keep an
     /// unknown value verbatim.
     public let effectiveStandardFormatKey: String?
-    /// The version of that standard format. Absent when not sent or not a number.
+    /// The version of that standard format. Absent when not sent or not a whole number (a
+    /// fractional value is not a version, so it is `nil`, never truncated).
     public let effectiveStandardFormatVersion: Int?
     /// Where the creative's template comes from: `admoai_standard` (the standard itself) or
     /// `based_on_standard` (an operator's template built on it). Open-set: an unknown value is
@@ -581,7 +582,8 @@ extension Metadata {
         self.effectiveStandardFormatKey = try? c.decode(String.self, forKey: .effectiveStandardFormatKey)
         self.effectiveStandardFormatVersion =
             (try? c.decode(Int.self, forKey: .effectiveStandardFormatVersion))
-                ?? (try? c.decode(Double.self, forKey: .effectiveStandardFormatVersion)).map { Int($0) }
+                ?? (try? c.decode(Double.self, forKey: .effectiveStandardFormatVersion))
+                .flatMap { $0 == $0.rounded() ? Int(exactly: $0) : nil }
         self.templateSource = try? c.decode(String.self, forKey: .templateSource)
     }
 }
