@@ -66,6 +66,10 @@ public struct AdMoai {
     /// Carousel slide view URLs already fired, shared by every copy — see ``trackSlideView(_:)``.
     /// Its own instance so slide capacity never competes with pins'.
     internal let slideViewLedger = ViewBeaconLedger()
+    /// Serializes a slide's view claim + dispatch with slide clicks, so the view is always
+    /// dispatched before a click (BR-SDK-05) even when two threads race. Shared by every copy
+    /// (a reference type, like the ledger); reentrant because a click calls ``trackSlideView(_:)``.
+    internal let slideDispatchLock = NSRecursiveLock()
 
     public init(
         config: SDKConfig,
@@ -388,6 +392,8 @@ public struct AdMoai {
     /// Trackers stay attached to their slide: pass the ``Slide`` you rendered, never the
     /// creative. A slide served without tracking is a no-op.
     public func trackSlideView(_ slide: Slide) {
+        slideDispatchLock.lock()
+        defer { slideDispatchLock.unlock() }
         for item in slide.tracking?.views ?? [] where slideViewLedger.claim(item.url) {
             fireTracking(url: item.url)
         }
@@ -408,6 +414,8 @@ public struct AdMoai {
     /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
     /// creative-level click, so that sends nothing.
     public func trackSlideClick(_ slide: Slide, in creative: Creative) {
+        slideDispatchLock.lock()
+        defer { slideDispatchLock.unlock() }
         // A tap proves the slide was on screen, so its view counts (once) even when the slide
         // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
         trackSlideView(slide)

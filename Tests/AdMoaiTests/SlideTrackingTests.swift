@@ -92,6 +92,46 @@ extension MockNetworkTests {
             #expect(dispatched.urls == ["https://t/slide1/view", "https://t/slide1/click"])
         }
 
+        /// BR-SDK-05 under a race: thread A claims the view and stalls before dispatching it;
+        /// thread B's click must wait for it rather than dispatch first.
+        @Test func aClickRacingAnotherThreadsViewStillDispatchesTheViewFirst() throws {
+            let creative = try creative(slides: [slideJSON(1)])
+            let sdk = sdk()
+            MockURLProtocol.reset()
+            let dispatched = DispatchLog()
+            let aInside = DispatchSemaphore(value: 0)
+            let release = DispatchSemaphore(value: 0)
+            let bDone = DispatchSemaphore(value: 0)
+            let group = DispatchGroup()
+            sdk.beaconSession.observeDispatches { request in
+                let url = request.url?.absoluteString ?? ""
+                if url == "https://t/slide1/view" {
+                    aInside.signal()
+                    _ = release.wait(timeout: .now() + 1)
+                }
+                dispatched.append(url)
+            }
+            defer { sdk.beaconSession.observeDispatches(nil) }
+            let slide = creative.slides[0]
+            group.enter()
+            DispatchQueue.global().async {
+                sdk.trackSlideView(slide)
+                group.leave()
+            }
+            _ = aInside.wait(timeout: .now() + 2)
+            group.enter()
+            DispatchQueue.global().async {
+                sdk.trackSlideClick(slide, in: creative)
+                bDone.signal()
+                group.leave()
+            }
+            _ = bDone.wait(timeout: .now() + 0.3)
+            release.signal()
+            _ = group.wait(timeout: .now() + 3)
+            let first = dispatched.urls.filter { $0.hasPrefix("https://t/") }
+            #expect(first == ["https://t/slide1/view", "https://t/slide1/click"])
+        }
+
         @Test func aTapOnASlideWithoutAClickTrackerStillCountsItsView() async throws {
             let creative = try creative(slides: [slideJSON(1, clicks: false)])
             let sdk = sdk()
