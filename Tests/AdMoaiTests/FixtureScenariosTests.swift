@@ -69,7 +69,7 @@ private struct FixtureEditError: Error, CustomStringConvertible {
 private typealias JSONObject = [String: Any]
 
 /// Applies `fixture.edits` in order. `at` names which object(s) of the decision wire change:
-/// the response root, the first creative, its `metadata`, every element of its `contents`, or
+/// the response root, the first creative, its `metadata`, its `tracking`, every element of its `contents`, or
 /// every element of the `value` array of the content entry keyed `slides`.
 private func applyEdits(_ edits: [JSONObject], to root: inout JSONObject) throws {
     for edit in edits {
@@ -94,6 +94,10 @@ private func applyEdits(_ edits: [JSONObject], to root: inout JSONObject) throws
                     change(&entry)
                     return entry
                 }
+            case "tracking":
+                var tracking = creative["tracking"] as? JSONObject ?? [:]
+                change(&tracking)
+                creative["tracking"] = tracking
             case "slide":
                 var contents = creative["contents"] as? [JSONObject] ?? []
                 guard let index = contents.firstIndex(where: { $0["key"] as? String == "slides" }) else {
@@ -270,5 +274,172 @@ struct FixtureScenariosTests {
 
     private func strings(_ value: Any?) -> [String] {
         value as? [String] ?? []
+    }
+}
+
+// MARK: - Slide tracking scenarios (`slideTracking`, package 1.3.0)
+
+/// The scenarios that carry a `slideTracking` block. Separate from ``FixtureScenario/all`` only
+/// so they can run inside ``MockNetworkTests``: they observe real dispatches, and the request
+/// capture is static state.
+private let slideTrackingScenarios: [FixtureScenario] = FixtureScenario.all.filter { scenario in
+    guard scenario.loadError == nil,
+          let entry = try? JSONSerialization.jsonObject(with: scenario.json) as? [String: Any]
+    else { return scenario.loadError != nil }
+    return entry["slideTracking"] != nil
+}
+
+/// Decodes `wire` as `APIClient` decodes a 200. For response N > 1 every first-party tracker
+/// URL (an object with both `key` and `url`; third-party trackers have `trackerId`/`eventKey`)
+/// is suffixed `&response=N`: a new decision response carries new signed URLs.
+private func decodeCreative(_ wire: JSONObject, response: Int) throws -> Creative {
+    func suffixed(_ value: Any) -> Any {
+        if var object = value as? JSONObject {
+            for (key, inner) in object {
+                object[key] = suffixed(inner)
+            }
+            if response > 1, object["key"] != nil, let url = object["url"] as? String {
+                object["url"] = "\(url)&response=\(response)"
+            }
+            return object
+        }
+        if let array = value as? [Any] {
+            return array.map(suffixed)
+        }
+        return value
+    }
+    let body = try JSONSerialization.data(withJSONObject: suffixed(wire))
+    let envelope = try JSONDecoder().decode(APIResponseBody<DecisionResponse>.self, from: body)
+    guard let creative = envelope.data?.first?.creatives?.first else {
+        throw FixtureEditError(description: "no creative decoded")
+    }
+    return creative
+}
+
+extension MockNetworkTests {
+    struct FixtureSlideTrackingScenarioTests {
+        @Test(arguments: slideTrackingScenarios)
+        func testSlideTrackingScenario(_ scenario: FixtureScenario) async throws {
+            if let loadError = scenario.loadError {
+                Issue.record("\(loadError)")
+                return
+            }
+            let entry = try #require(try JSONSerialization.jsonObject(with: scenario.json) as? JSONObject)
+            let fixture = try #require(entry["fixture"] as? JSONObject)
+            let golden = try #require(fixture["golden"] as? String)
+            let block = try #require(entry["slideTracking"] as? JSONObject)
+            let steps = try #require(block["steps"] as? [JSONObject])
+            let expect = try #require(block["expect"] as? JSONObject)
+
+            let file = toolsDirectory.appendingPathComponent("fixtures/golden-wire/\(golden).json")
+            var wire = try #require(
+                try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? JSONObject
+            )
+            try applyEdits(fixture["edits"] as? [JSONObject] ?? [], to: &wire)
+
+            var responses = try [1: decodeCreative(wire, response: 1)]
+            var current = 1
+            func creative(_ response: Int) throws -> Creative {
+                if let known = responses[response] {
+                    return known
+                }
+                let decoded = try decodeCreative(wire, response: response)
+                responses[response] = decoded
+                return decoded
+            }
+
+            let thirdPartyURLs = Set((responses[1]?.tracking.thirdPartyTrackers ?? []).map(\.url))
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            MockURLProtocol.reset()
+
+            for step in steps {
+                let live = try creative(current)
+                if let n = step["slideView"] as? Int {
+                    sdk.trackSlideView(live.slides[n - 1])
+                } else if let n = step["slideClick"] as? Int {
+                    sdk.trackSlideClick(live.slides[n - 1], in: live)
+                } else if step["newResponse"] != nil {
+                    current += 1
+                    _ = try creative(current)
+                } else if step.keys.contains("fireClick") {
+                    if let key = step["fireClick"] as? String {
+                        sdk.fireClick(tracking: live.tracking, key: key)
+                    } else {
+                        sdk.fireClick(tracking: live.tracking)
+                    }
+                } else if let key = step["custom"] as? String {
+                    sdk.fireCustomEvent(tracking: live.tracking, key: key)
+                } else {
+                    Issue.record("\(scenario.id): unknown step \(step)")
+                    return
+                }
+                await Self.letDispatchSettle()
+            }
+
+            // Expected first-party URLs, in order.
+            var firstParty: [String] = []
+            for beacon in expect["beacons"] as? [JSONObject] ?? [] {
+                let target = try creative(beacon["response"] as? Int ?? 1)
+                guard let url = Self.resolve(beacon, in: target) else {
+                    Issue.record("\(scenario.id): beacon \(beacon) names no tracker of the creative")
+                    return
+                }
+                firstParty.append(url)
+            }
+            // Expected third-party URLs, as a multiset.
+            let trackers = responses[1]?.tracking.thirdPartyTrackers ?? []
+            var thirdParty: [String] = []
+            for id in expect["thirdPartyBeacons"] as? [String] ?? [] {
+                guard let tracker = trackers.first(where: { $0.trackerId == id }) else {
+                    Issue.record("\(scenario.id): thirdPartyBeacons names unknown tracker \(id)")
+                    return
+                }
+                thirdParty.append(tracker.url)
+            }
+
+            await MockURLProtocol.waitForRequests(firstParty.count + thirdParty.count, timeout: 1)
+            _ = await MockURLProtocol.waitForRequests(firstParty.count + thirdParty.count + 1, timeout: 0.2)
+            let sent = MockURLProtocol.capturedRequests.compactMap { $0.url?.absoluteString }
+            #expect(
+                sent.filter { !thirdPartyURLs.contains($0) } == firstParty,
+                "\(scenario.id): first-party beacons, in order"
+            )
+            #expect(
+                sent.filter { thirdPartyURLs.contains($0) }.sorted() == thirdParty.sorted(),
+                "\(scenario.id): third-party beacons"
+            )
+        }
+
+        /// Fire-and-forget gives nothing to await between steps; a step's beacons are in flight
+        /// until the count of captured requests stops moving, which keeps the order of beacons
+        /// from different steps deterministic.
+        private static func letDispatchSettle() async {
+            var last = -1
+            while MockURLProtocol.capturedRequests.count != last {
+                last = MockURLProtocol.capturedRequests.count
+                try? await Task.sleep(nanoseconds: 25_000_000)
+            }
+        }
+
+        private static func resolve(_ beacon: JSONObject, in creative: Creative) -> String? {
+            if let n = beacon["slide"] as? Int {
+                guard creative.slides.indices.contains(n - 1) else { return nil }
+                let tracking = creative.slides[n - 1].tracking
+                if let key = beacon["view"] as? String {
+                    return tracking?.views?.first { $0.key == key }?.url
+                }
+                if let key = beacon["click"] as? String {
+                    return tracking?.clicks?.first { $0.key == key }?.url
+                }
+                return nil
+            }
+            if let key = beacon["click"] as? String {
+                return creative.tracking.getClickUrl(key: key)
+            }
+            if let key = beacon["custom"] as? String {
+                return creative.tracking.getCustomUrl(key: key)
+            }
+            return nil
+        }
     }
 }

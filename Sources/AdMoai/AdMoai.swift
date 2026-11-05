@@ -364,6 +364,56 @@ public struct AdMoai {
         points.forEach(trackPointView)
     }
 
+    // MARK: - Carousel slide tracking
+
+    /// Reports that one slide became **visible to the user** (`slide_view`). Free.
+    ///
+    /// **Returning a slide is not showing it.** You decide when a slide counts as viewed — the
+    /// platform's rule is 50 % of it visible for one continuous second — and call this then.
+    /// The SDK draws nothing and never fires on its own.
+    ///
+    /// **Once per served instance.** A slide is reported the first time it is shown for the
+    /// decision response that returned it; scrolling back to it or re-rendering sends nothing.
+    /// A new response carries new signed view URLs and is reported again. A view is never
+    /// retried.
+    ///
+    /// Trackers stay attached to their slide: pass the ``Slide`` you rendered, never the
+    /// creative. A slide served without tracking is a no-op.
+    public func trackSlideView(_ slide: Slide) {}
+
+    /// Reports several slides becoming visible at once — the bulk form of
+    /// ``trackSlideView(_:)``, with the same once-per-response rule.
+    public func trackSlideViews(_ slides: [Slide]) {}
+
+    /// Reports that the user **activated a slide** (`click`). Billable.
+    ///
+    /// A click on a slide that was not reported as viewed yet sends the slide's view first, then
+    /// the click. Every click then also fans out the creative's applicable third-party click
+    /// trackers once.
+    ///
+    /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
+    /// creative-level click, so that sends nothing.
+    public func trackSlideClick(_ slide: Slide, in creative: Creative) {}
+
+    // MARK: - Standard format custom events
+
+    /// Reports that a Tap-to-expand creative actually expanded (custom event `expand`). Not a
+    /// click: no click is sent and no third-party click tracker fires.
+    public func fireExpand(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "expand")
+    }
+
+    /// Reports that an expanded creative was closed (custom event `close`). Not a click.
+    public func fireClose(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "close")
+    }
+
+    /// Reports that the user tapped a Branded Assets asset (custom event `asset_tap`). Not a
+    /// click: use ``fireClick(tracking:key:)`` for the creative's destination.
+    public func fireAssetTap(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "asset_tap")
+    }
+
     private func fireAll(_ items: [TrackingItem]?) {
         guard let items else { return }
         for item in items {
