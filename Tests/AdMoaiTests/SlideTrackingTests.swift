@@ -83,10 +83,23 @@ extension MockNetworkTests {
             let creative = try creative(slides: [slideJSON(1)])
             let sdk = sdk()
             MockURLProtocol.reset()
+            let dispatched = DispatchLog()
+            sdk.beaconSession.observeDispatches { dispatched.append($0.url?.absoluteString ?? "") }
+            defer { sdk.beaconSession.observeDispatches(nil) }
             sdk.trackSlideClick(creative.slides[0], in: creative)
             await expectRequests(4)
-            let first = sent().filter { $0.hasPrefix("https://t/") }
-            #expect(first == ["https://t/slide1/view", "https://t/slide1/click"])
+            // Dispatch order is the contract; arrival order at the mock is the session's.
+            #expect(dispatched.urls == ["https://t/slide1/view", "https://t/slide1/click"])
+        }
+
+        @Test func aTapOnASlideWithoutAClickTrackerStillCountsItsView() async throws {
+            let creative = try creative(slides: [slideJSON(1, clicks: false)])
+            let sdk = sdk()
+            MockURLProtocol.reset()
+            sdk.trackSlideClick(creative.slides[0], in: creative)
+            sdk.trackSlideClick(creative.slides[0], in: creative)
+            await expectRequests(1)
+            #expect(sent() == ["https://t/slide1/view"], "the tap proves the slide was seen; no click, no fan-out")
         }
 
         @Test func aClickAfterTheViewSendsOnlyTheClick() async throws {
@@ -136,7 +149,7 @@ extension MockNetworkTests {
             sdk.trackSlideClick(creative.slides[0], in: creative)
             sdk.trackSlideClick(creative.slides[1], in: creative)
             await expectRequests(0)
-            #expect(sent().isEmpty, "a click the slide cannot record did not happen: no fan-out either")
+            #expect(sent().isEmpty, "no tracker at all: nothing to send, and no fan-out")
         }
 
         @Test func slideAndPinViewsKeepIndependentLedgers() async throws {

@@ -351,6 +351,12 @@ extension MockNetworkTests {
             let thirdPartyURLs = Set((responses[1]?.tracking.thirdPartyTrackers ?? []).map(\.url))
             let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
             MockURLProtocol.reset()
+            // First-party order is asserted on dispatch, not on arrival at the mock: the SDK
+            // promises the order it hands beacons to the network; the session may deliver
+            // concurrent requests in any order.
+            let dispatched = DispatchLog()
+            sdk.beaconSession.observeDispatches { dispatched.append($0.url?.absoluteString ?? "") }
+            defer { sdk.beaconSession.observeDispatches(nil) }
 
             for step in steps {
                 let live = try creative(current)
@@ -400,9 +406,10 @@ extension MockNetworkTests {
             await MockURLProtocol.waitForRequests(firstParty.count + thirdParty.count, timeout: 1)
             _ = await MockURLProtocol.waitForRequests(firstParty.count + thirdParty.count + 1, timeout: 0.2)
             let sent = MockURLProtocol.capturedRequests.compactMap { $0.url?.absoluteString }
+            #expect(dispatched.urls == firstParty, "\(scenario.id): first-party beacons, in dispatch order")
             #expect(
-                sent.filter { !thirdPartyURLs.contains($0) } == firstParty,
-                "\(scenario.id): first-party beacons, in order"
+                sent.filter { !thirdPartyURLs.contains($0) }.sorted() == firstParty.sorted(),
+                "\(scenario.id): first-party beacons sent"
             )
             #expect(
                 sent.filter { thirdPartyURLs.contains($0) }.sorted() == thirdParty.sorted(),
@@ -441,5 +448,23 @@ extension MockNetworkTests {
             }
             return nil
         }
+    }
+}
+
+/// Records dispatched URLs from whatever thread the SDK fires on.
+final class DispatchLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var entries: [String] = []
+
+    func append(_ url: String) {
+        lock.lock()
+        entries.append(url)
+        lock.unlock()
+    }
+
+    var urls: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries
     }
 }

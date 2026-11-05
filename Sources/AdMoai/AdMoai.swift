@@ -39,6 +39,11 @@ public struct AdMoai {
     /// Fires canonical beacons. Never follows a redirect: a click's `302` is the engine
     /// recording it, and the app — not the SDK — opens the destination.
     private let session: BeaconSession
+    /// The first-party beacon session, for tests that assert dispatch order (`@testable`).
+    var beaconSession: BeaconSession {
+        session
+    }
+
     /// Fires `tracking.thirdPartyTrackers` through its own credential-isolated session —
     /// never through `session`, which carries the SDK User-Agent and Admoai headers.
     private let thirdPartyDispatcher: ThirdPartyTrackerDispatcher
@@ -403,9 +408,10 @@ public struct AdMoai {
     /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
     /// creative-level click, so that sends nothing.
     public func trackSlideClick(_ slide: Slide, in creative: Creative) {
-        // A click the slide cannot record did not happen: no view, no click, no fan-out.
-        guard let clicks = slide.tracking?.clicks, !clicks.isEmpty else { return }
+        // A tap proves the slide was on screen, so its view counts (once) even when the slide
+        // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
         trackSlideView(slide)
+        guard let clicks = slide.tracking?.clicks, !clicks.isEmpty else { return }
         for item in clicks {
             fireTracking(url: item.url)
         }
