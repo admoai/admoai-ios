@@ -1,0 +1,199 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "brand_logo",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-logo.png"
+            },
+            {
+              "key": "disclaimer",
+              "type": "text",
+              "value": "While stocks last."
+            },
+            {
+              "key": "slides",
+              "type": "group",
+              "value": [
+                {
+                  "slideId": "slide_01JDY02N8MA2K2HKQ74989YS99",
+                  "position": 1,
+                  "contents": [
+                    {
+                      "key": "image",
+                      "type": "image",
+                      "value": "https://cdn.admoai.com/media/slide-c.jpg"
+                    },
+                    {
+                      "key": "headline",
+                      "type": "text",
+                      "value": "Cold brew"
+                    },
+                    {
+                      "key": "supporting_text",
+                      "type": "text",
+                      "value": "Only this week — cold brew."
+                    },
+                    {
+                      "key": "cta_text",
+                      "type": "text",
+                      "value": "Order now"
+                    },
+                    {
+                      "key": "destination_url",
+                      "type": "url",
+                      "value": "https://volta.example/c"
+                    }
+                  ],
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "slide_view",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide1.slide_view"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide1.click"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "slideId": "slide_01JD04H8GY801VF8Y0FHETP6XA",
+                  "position": 2,
+                  "contents": [
+                    {
+                      "key": "image",
+                      "type": "image",
+                      "value": "https://cdn.admoai.com/media/slide-a.jpg"
+                    },
+                    {
+                      "key": "headline",
+                      "type": "text",
+                      "value": "Flat white"
+                    },
+                    {
+                      "key": "supporting_text",
+                      "type": "text",
+                      "value": "Only this week — flat white."
+                    },
+                    {
+                      "key": "cta_text",
+                      "type": "text",
+                      "value": "Order now"
+                    },
+                    {
+                      "key": "destination_url",
+                      "type": "url",
+                      "value": "https://volta.example/a"
+                    }
+                  ],
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "slide_view",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide2.slide_view"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide2.click"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "slideId": "slide_01JDRGMFSTZXQ7ES1QBCF0DR2X",
+                  "position": 3,
+                  "contents": [
+                    {
+                      "key": "image",
+                      "type": "image",
+                      "value": "https://cdn.admoai.com/media/slide-b.jpg"
+                    },
+                    {
+                      "key": "headline",
+                      "type": "text",
+                      "value": "Mocha"
+                    },
+                    {
+                      "key": "supporting_text",
+                      "type": "text",
+                      "value": "Only this week — mocha."
+                    },
+                    {
+                      "key": "cta_text",
+                      "type": "text",
+                      "value": "Order now"
+                    },
+                    {
+                      "key": "destination_url",
+                      "type": "url",
+                      "value": "https://volta.example/b"
+                    }
+                  ],
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "slide_view",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide3.slide_view"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.slide3.click"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "carousel",
+            "style": "carousel"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.full.impression"
+              }
+            ],
+            "clicks": [],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JDF6VKBHSKF5SVM0Y7ATEX7B",
+            "creativeId": "creative_01JD04H8GY801VF8Y0FHETP6XA",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDRGMFSTZXQ7ES1QBCF0DR2X",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

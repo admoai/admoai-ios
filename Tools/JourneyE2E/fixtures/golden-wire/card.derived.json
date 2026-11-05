@@ -1,0 +1,78 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-latte.jpg"
+            },
+            {
+              "key": "headline",
+              "type": "text",
+              "value": "Two lattes, one price"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            },
+            {
+              "key": "promo_code",
+              "type": "text",
+              "value": "VOLTA2X1"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "city_promo_display",
+            "style": "compact"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.derived.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.derived.click"
+              }
+            ],
+            "custom": [
+              {
+                "key": "save_offer",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.derived.save_offer"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JDQA9PJQC1M206VCD5CCX4ZM",
+            "creativeId": "creative_01JDF9Z54P5KNER7PRNWGZB98F",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JD7MGVP04YN16MAY9WW89EVB",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "based_on_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

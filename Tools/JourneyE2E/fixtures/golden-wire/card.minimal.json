@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-latte.jpg"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "card",
+            "style": "default"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.minimal.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.minimal.click"
+              }
+            ],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JD0R43Z2P97HWMHKNQKAY7EN",
+            "creativeId": "creative_01JD5WRV1EZCS0CB082W50BVNR",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JD1V81MZ1C8PC6HYXYPBQA8R",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

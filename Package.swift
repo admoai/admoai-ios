@@ -40,7 +40,7 @@ let package = Package(
             name: "journey-e2e",
             dependencies: ["AdMoai"],
             path: "Tools/JourneyE2E",
-            exclude: ["README.md"]
+            exclude: ["README.md", "fixtures"]
         ),
     ]
 )

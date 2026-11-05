@@ -16,13 +16,19 @@ fail() { echo "FAIL: $case_name ($1)"; sed 's/^/    | /' "$tmp/out"; failed=$((f
 # The registry: $tmp/reg/<path after the registry URL>.
 reg="$tmp/reg/@admoai/sdk-scenarios"
 mkdir -p "$reg/-"
-publish() { # version content
-  local d="$tmp/build/$1/package"; mkdir -p "$d"; printf '%s' "$2" > "$d/scenarios.json"
+publish() { # version content [golden-file-name golden-content]...
+  local v="$1" d="$tmp/build/$1/package"; mkdir -p "$d"; printf '%s' "$2" > "$d/scenarios.json"
+  shift 2
+  while [ $# -ge 2 ]; do
+    mkdir -p "$d/fixtures/golden-wire"; printf '%s' "$2" > "$d/fixtures/golden-wire/$1"; shift 2
+  done
+  set -- "$v"
   tar -czf "$reg/-/sdk-scenarios-$1.tgz" -C "$tmp/build/$1" package
 }
 publish 1.0.0 '{"v":1}'
 publish 1.1.0 '{"v":11}'
-printf '{"dist-tags":{"latest":"1.1.0"}}' > "$reg/index"
+publish 1.2.0 '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' a.json '{"a":1}' b.json '{"b":2}'
+printf '{"dist-tags":{"latest":"1.2.0"}}' > "$reg/index"
 
 mkdir -p "$tmp/bin"
 cat > "$tmp/bin/curl" <<EOF
@@ -49,18 +55,42 @@ m="$tmp/repo/scenarios.json"; mkdir -p "$tmp/repo"
 
 case_name="the vendored bytes of the named version pass, and a newer version is a warning"
 printf '{"v":1}' > "$m"; echo 1.0.0 > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
-if [ $status -eq 0 ] && has "is @admoai/sdk-scenarios@1.0.0, byte for byte" && has "::warning" && has "@1.1.0 is published"; then pass; else fail "status=$status"; fi
+if [ $status -eq 0 ] && has "is @admoai/sdk-scenarios@1.0.0, byte for byte" && has "::warning" && has "@1.2.0 is published"; then pass; else fail "status=$status"; fi
 
 case_name="the latest version passes with no warning"
-printf '{"v":11}' > "$m"; echo 1.1.0 > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
+printf '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' > "$m"; echo 1.2.0 > "$tmp/repo/MANIFEST_VERSION"
+mkdir -p "$tmp/repo/fixtures/golden-wire"; printf '{"a":1}' > "$tmp/repo/fixtures/golden-wire/a.json"; printf '{"b":2}' > "$tmp/repo/fixtures/golden-wire/b.json"
+run check "$m"
 if [ $status -eq 0 ] && ! has "::warning"; then pass; else fail "status=$status"; fi
 
+fx="$tmp/repo/fixtures/golden-wire"
+
+case_name="a golden file edited in this repo fails, naming adhub as the place to change it"
+printf '{"a":99}' > "$fx/a.json"; run check "$m"; edited=$status; edited_out="$(cat "$tmp/out")"
+printf '{"a":1}' > "$fx/a.json"
+if [ $edited -eq 1 ] && grep -qF "changed in adhub" <<< "$edited_out"; then pass; else fail "status=$edited"; fi
+
+case_name="a golden file added or removed here fails (same file set required)"
+printf '{}' > "$fx/extra.json"; run check "$m"; s1=$status; rm "$fx/extra.json"
+mv "$fx/b.json" "$tmp/b.json"; run check "$m"; s2=$status; mv "$tmp/b.json" "$fx/b.json"
+if [ $s1 -eq 1 ] && [ $s2 -eq 1 ]; then pass; else fail "status=$s1/$s2"; fi
+
+case_name="a manifest with fixtureScenarios and no fixtures dir fails"
+mv "$tmp/repo/fixtures" "$tmp/fixtures.moved"; run check "$m"; moved=$status; moved_has="$(has "is missing" && echo yes || echo no)"
+mv "$tmp/fixtures.moved" "$tmp/repo/fixtures"
+if [ $moved -eq 1 ] && [ "$moved_has" = yes ]; then pass; else fail "status=$moved"; fi
+
+case_name="a fixtures dir beside a version that ships none fails"
+printf '{"v":11}' > "$m"; echo 1.1.0 > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
+if [ $status -eq 1 ] && has "::error"; then pass; else fail "status=$status"; fi
+printf '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' > "$m"; echo 1.2.0 > "$tmp/repo/MANIFEST_VERSION"
+
 case_name="a manifest edited in this repo fails, naming adhub as the place to change it"
-printf '{"v":11,"edited":true}' > "$m"; run check "$m"
+printf '{"v":12,"edited":true}' > "$m"; run check "$m"
 if [ $status -eq 1 ] && has "::error" && has "changed in adhub"; then pass; else fail "status=$status"; fi
 
 case_name="a version that was never published is a registry error (2), not a pass"
-printf '{"v":11}' > "$m"; echo 9.9.9 > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
+printf '{"v":12}' > "$m"; echo 9.9.9 > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
 if [ $status -eq 2 ] && has "cannot download"; then pass; else fail "status=$status"; fi
 
 case_name="a missing or malformed MANIFEST_VERSION fails"
@@ -68,10 +98,14 @@ rm "$tmp/repo/MANIFEST_VERSION"; run check "$m"; s1=$status
 echo "v1" > "$tmp/repo/MANIFEST_VERSION"; run check "$m"
 if [ $s1 -eq 1 ] && [ $status -eq 1 ] && has "not a MAJOR.MINOR.PATCH"; then pass; else fail "status=$s1/$status"; fi
 
-case_name="adopt latest writes the published bytes and the version, and check then passes"
-printf 'old' > "$m"; run adopt "$m" latest
-adopted="$(cat "$m")"; ver="$(cat "$tmp/repo/MANIFEST_VERSION")"; run check "$m"
-if [ "$adopted" = '{"v":11}' ] && [ "$ver" = 1.1.0 ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted ver=$ver"; fi
+case_name="adopt latest writes the published bytes, the golden files and the version, and check then passes"
+printf 'old' > "$m"; mkdir -p "$fx"; printf 'stale' > "$fx/stale.json"; run adopt "$m" latest
+adopted="$(cat "$m")"; ver="$(cat "$tmp/repo/MANIFEST_VERSION")"; files="$(ls "$fx" | tr '\n' ' ')"; run check "$m"
+if [ "$adopted" = '{"v":12,"fixtureScenarios":[{"id":"F1"}]}' ] && [ "$ver" = 1.2.0 ] && [ "$files" = "a.json b.json " ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted ver=$ver files=$files"; fi
+
+case_name="adopting a version that ships no fixtures removes the fixtures dir, and check passes"
+run adopt "$m" 1.1.0; adopted="$(cat "$m")"; run check "$m"
+if [ "$adopted" = '{"v":11}' ] && [ ! -d "$tmp/repo/fixtures" ] && [ $status -eq 0 ]; then pass; else fail "adopted=$adopted status=$status"; fi
 
 case_name="a plain-http registry is refused"
 set +e; SCENARIOS_REGISTRY=http://registry.test "$here/scenarios.sh" check "$m" > "$tmp/out" 2>&1; status=$?; set -e

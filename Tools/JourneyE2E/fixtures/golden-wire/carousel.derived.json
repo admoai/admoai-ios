@@ -1,0 +1,119 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "slides",
+              "type": "group",
+              "value": [
+                {
+                  "slideId": "slide_01JDS1H8VEM0ABE2PQ0JY6S38W",
+                  "position": 1,
+                  "contents": [
+                    {
+                      "key": "image",
+                      "type": "image",
+                      "value": "https://cdn.admoai.com/media/slide-a.jpg"
+                    },
+                    {
+                      "key": "destination_url",
+                      "type": "url",
+                      "value": "https://volta.example/a"
+                    }
+                  ],
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "slide_view",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.derived.slide1.slide_view"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.derived.slide1.click"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "slideId": "slide_01JDDGXJE0JDBY21Y9KEJDD54A",
+                  "position": 2,
+                  "contents": [
+                    {
+                      "key": "image",
+                      "type": "image",
+                      "value": "https://cdn.admoai.com/media/slide-b.jpg"
+                    },
+                    {
+                      "key": "destination_url",
+                      "type": "url",
+                      "value": "https://volta.example/b"
+                    }
+                  ],
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "slide_view",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.derived.slide2.slide_view"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.derived.slide2.click"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "key": "promo_code",
+              "type": "text",
+              "value": "VOLTA2X1"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "city_carousel",
+            "style": "carousel"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.carousel.derived.impression"
+              }
+            ],
+            "clicks": [],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JD849HTYNJ7SX6H5JRBKZ069",
+            "creativeId": "creative_01JDS1H8VEM0ABE2PQ0JY6S38W",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDDGXJE0JDBY21Y9KEJDD54A",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "based_on_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

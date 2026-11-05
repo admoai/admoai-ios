@@ -1,0 +1,147 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "map_pins",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "pinImage",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-pin.png"
+            },
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-latte.jpg"
+            },
+            {
+              "key": "headline",
+              "type": "text",
+              "value": "Two lattes, one price"
+            },
+            {
+              "key": "description",
+              "type": "textarea",
+              "value": "This week at every Volta in Santiago."
+            },
+            {
+              "key": "ctaText",
+              "type": "text",
+              "value": "See the menu"
+            },
+            {
+              "key": "defaultDestinationUrl",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            },
+            {
+              "key": "matched_points",
+              "type": "matched_points",
+              "value": [
+                {
+                  "id": "advertiser_location_01JDQS6M466X43YTZ8MBFQMGWJ",
+                  "name": "Volta Providencia",
+                  "address": "Volta Providencia, Santiago",
+                  "latitude": -33.4263,
+                  "longitude": -70.611,
+                  "distance": 120,
+                  "clickUrl": "https://volta.example/menu",
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.131.pin_view"
+                      }
+                    ],
+                    "taps": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.131.pin_tap"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.131.click"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "advertiser_location_01JDGEJW7K1CAK6PP2J0TREJ7P",
+                  "name": "Volta Lastarria",
+                  "address": "Volta Lastarria, Santiago",
+                  "latitude": -33.438,
+                  "longitude": -70.64,
+                  "distance": 640,
+                  "clickUrl": "https://volta.example/menu",
+                  "tracking": {
+                    "views": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.132.pin_view"
+                      }
+                    ],
+                    "taps": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.132.pin_tap"
+                      }
+                    ],
+                    "clicks": [
+                      {
+                        "key": "default",
+                        "url": "https://api.admoai.com/v1/tracking?e=tok.spl.132.click"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "sponsored_pin_location",
+            "style": "map_pin"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.sponsored_pin_location.full.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.sponsored_pin_location.full.click"
+              }
+            ],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JDXB5DWFCCBHYN9YSHAHM33F",
+            "creativeId": "creative_01JDQS6M466X43YTZ8MBFQMGWJ",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDGEJW7K1CAK6PP2J0TREJ7P",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "sponsored_pin_location",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}
