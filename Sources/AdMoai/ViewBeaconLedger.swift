@@ -1,7 +1,9 @@
 import Foundation
 
-/// Remembers which Sponsored Pin view URLs this SDK instance has already fired, so a map
-/// re-rendering the same decision response does not fire them again.
+/// Remembers which view-beacon URLs this SDK instance has already fired, so a map or carousel
+/// re-rendering the same decision response does not fire them again. One instance per kind of
+/// view — Sponsored Pin views and Carousel slide views each own theirs, so their capacities
+/// never compete.
 ///
 /// Keyed on the view URL itself, never on the point id. The engine mints every view URL with
 /// its own event id, one per `(request, creative, location)`, so "this URL was fired" is
@@ -16,7 +18,7 @@ import Foundation
 /// `final class` + a lock, the way ``SessionBox`` is: ``AdMoai`` is a struct, so the ledger
 /// must be a reference every copy shares, and ``claim(_:)`` runs synchronously on whatever
 /// thread the publisher's map callback uses.
-internal final class PointViewLedger: @unchecked Sendable {
+internal final class ViewBeaconLedger: @unchecked Sendable {
     /// Ten full decision responses at the engine's 50-point ceiling, one view URL per point on
     /// the standard template.
     static let defaultCapacity = 500
@@ -26,7 +28,7 @@ internal final class PointViewLedger: @unchecked Sendable {
     /// Ordered least → most recently claimed.
     private let urls = NSMutableOrderedSet()
 
-    init(capacity: Int = PointViewLedger.defaultCapacity) {
+    init(capacity: Int = ViewBeaconLedger.defaultCapacity) {
         self.capacity = max(1, capacity)
     }
 

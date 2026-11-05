@@ -57,7 +57,10 @@ public struct AdMoai {
     /// singleton) both do.
     private let _session = SessionBox()
     /// Sponsored Pin view URLs already fired, shared by every copy — see ``trackPointView(_:)``.
-    internal let pointViewLedger = PointViewLedger()
+    internal let pinViewLedger = ViewBeaconLedger()
+    /// Carousel slide view URLs already fired, shared by every copy — see ``trackSlideView(_:)``.
+    /// Its own instance so slide capacity never competes with pins'.
+    internal let slideViewLedger = ViewBeaconLedger()
 
     public init(
         config: SDKConfig,
@@ -323,7 +326,7 @@ public struct AdMoai {
     /// re-sent on the next render. Taps and clicks are never de-duplicated.
     public func trackPointView(_ point: MatchedPoint) {
         guard let views = point.tracking?.views else { return }
-        for item in views where pointViewLedger.claim(item.url) {
+        for item in views where pinViewLedger.claim(item.url) {
             fireTracking(url: item.url)
         }
     }
@@ -379,11 +382,17 @@ public struct AdMoai {
     ///
     /// Trackers stay attached to their slide: pass the ``Slide`` you rendered, never the
     /// creative. A slide served without tracking is a no-op.
-    public func trackSlideView(_ slide: Slide) {}
+    public func trackSlideView(_ slide: Slide) {
+        for item in slide.tracking?.views ?? [] where slideViewLedger.claim(item.url) {
+            fireTracking(url: item.url)
+        }
+    }
 
     /// Reports several slides becoming visible at once — the bulk form of
     /// ``trackSlideView(_:)``, with the same once-per-response rule.
-    public func trackSlideViews(_ slides: [Slide]) {}
+    public func trackSlideViews(_ slides: [Slide]) {
+        slides.forEach(trackSlideView)
+    }
 
     /// Reports that the user **activated a slide** (`click`). Billable.
     ///
@@ -393,7 +402,18 @@ public struct AdMoai {
     ///
     /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
     /// creative-level click, so that sends nothing.
-    public func trackSlideClick(_ slide: Slide, in creative: Creative) {}
+    public func trackSlideClick(_ slide: Slide, in creative: Creative) {
+        // A click the slide cannot record did not happen: no view, no click, no fan-out.
+        guard let clicks = slide.tracking?.clicks, !clicks.isEmpty else { return }
+        trackSlideView(slide)
+        for item in clicks {
+            fireTracking(url: item.url)
+        }
+        // One fan-out per click, whatever number of click beacons the slide carries, and only
+        // when a canonical click beacon was actually valid (same rule as `fireClick`).
+        guard let key = clicks.first(where: { Self.isAbsoluteHttpURL($0.url) })?.key else { return }
+        fireThirdPartyTrackers(creative.tracking, event: .click(key: key))
+    }
 
     // MARK: - Standard format custom events
 

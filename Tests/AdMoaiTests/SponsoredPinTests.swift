@@ -482,7 +482,7 @@ extension MockNetworkTests {
         }
 
         /// AC8b — a second render of the same response is not a second view. The full rule lives
-        /// in `PointViewLedgerTests`, scenario by scenario.
+        /// in `ViewBeaconLedgerTests`, scenario by scenario.
         @Test func bulkDeduplicatesAcrossInvocationsOfTheSameResponse() async throws {
             let points = try threePoints()
             let first = try #require(points.first)
