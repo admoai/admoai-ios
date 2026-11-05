@@ -48,6 +48,16 @@ public struct Creative: Decodable {
     /// clustering, sheets or scroll position, which is exactly why it never fires a point
     /// event on your behalf. See ``AdMoai/trackPointView(_:)``.
     public let matchedPoints: [MatchedPoint]
+    /// A Carousel's slides, in the order the server sent them (never re-sorted by
+    /// ``Slide/position``). Empty for every creative that is not a Carousel.
+    ///
+    /// Each slide carries its own contents and its own trackers, and they stay attached to the
+    /// slide: a slide view or click is reported with that slide's ``SlideTracking``, not with the
+    /// creative's. The creative-level ``tracking`` of a Carousel has no click.
+    ///
+    /// **Rendering the slides is your job.** The SDK draws no carousel and knows nothing about
+    /// paging, scroll position or which slide is on screen.
+    public let slides: [Slide]
 }
 
 extension Creative {
@@ -85,6 +95,7 @@ extension Creative {
                 .compactMap(\.value)
                 .first { $0.key == MatchedPointsEntry.contentKey }
                 .map { $0.value.compactMap(\.value) } ?? []
+        self.slides = []
     }
 }
 
@@ -130,6 +141,27 @@ public struct MatchedPoint: Decodable, Equatable {
 public struct MatchedPointTracking: Decodable, Equatable {
     public let views: [TrackingItem]?
     public let taps: [TrackingItem]?
+    public let clicks: [TrackingItem]?
+}
+
+/// One slide of a Carousel creative. See ``Creative/slides``.
+///
+/// Not `Equatable`: ``Content`` wraps an untyped ``AnyCodable`` value, and giving the public
+/// `Content` an equality it does not have today would be an API change of its own.
+public struct Slide: Decodable {
+    /// The slide's public id (`slide_<ULID>`), stable across requests.
+    public let slideId: String
+    /// The slide's 1-based position as the server numbered it. Informational: the order of
+    /// ``Creative/slides`` is the order to render.
+    public let position: Int
+    public let contents: [Content]
+    /// This slide's own beacons. Absent leaves the slide perfectly renderable.
+    public let tracking: SlideTracking?
+}
+
+/// One slide's beacon lists: the slide view and the slide click.
+public struct SlideTracking: Decodable, Equatable {
+    public let views: [TrackingItem]?
     public let clicks: [TrackingItem]?
 }
 
@@ -246,6 +278,17 @@ public struct Metadata: Decodable {
     public let skipOffsetSeconds: Int?
     /// End-card presentation mode for video creatives (`endCardMode,omitempty`).
     public let endCardMode: String?
+    /// The standard native format this creative is served as (`card`, `carousel`,
+    /// `expandable_banner`, `branded_assets`, `standard_video`, `sponsored_pin_location`).
+    /// Absent when the engine does not send it, never an empty string. Open-set: keep an
+    /// unknown value verbatim.
+    public let effectiveStandardFormatKey: String?
+    /// The version of that standard format. Absent when not sent or not a number.
+    public let effectiveStandardFormatVersion: Int?
+    /// Where the creative's template comes from: `admoai_standard` (the standard itself) or
+    /// `based_on_standard` (an operator's template built on it). Open-set: an unknown value is
+    /// kept verbatim, and absent is `nil`.
+    public let templateSource: String?
 }
 
 public struct Advertiser: Decodable {
@@ -484,6 +527,9 @@ extension Metadata {
             (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
                 ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
         self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
+        self.effectiveStandardFormatKey = nil
+        self.effectiveStandardFormatVersion = nil
+        self.templateSource = nil
     }
 }
 
