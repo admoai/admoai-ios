@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "map_vehicles",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "branded_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-car.png"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "branded_assets",
+            "style": "branded_asset"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.branded_assets.minimal.impression"
+              }
+            ],
+            "clicks": [],
+            "custom": [
+              {
+                "key": "asset_tap",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.branded_assets.minimal.asset_tap"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JD5G0KWPJS27NVHD88PECDV3",
+            "creativeId": "creative_01JDNVFDYH4MJS4NEPTAW7BTG8",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDZZDBFPJPN49AB9VF53KXKX",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "branded_assets",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": "vehicle_marker"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

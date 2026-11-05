@@ -1,0 +1,74 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "map_vehicles",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "branded_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-car.png"
+            },
+            {
+              "key": "accessible_label",
+              "type": "text",
+              "value": "Volta Coffee car"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "branded_assets",
+            "style": "branded_asset"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.branded_assets.full.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.branded_assets.full.click"
+              }
+            ],
+            "custom": [
+              {
+                "key": "asset_tap",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.branded_assets.full.asset_tap"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JDBPXZN4D94EPQC5MVQB9MR6",
+            "creativeId": "creative_01JD1Z5CNM4GMHEJJFHCYWGKJ4",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDKPBTZ611WAFQXYSNYMNXQ1",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "branded_assets",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": "vehicle_marker"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

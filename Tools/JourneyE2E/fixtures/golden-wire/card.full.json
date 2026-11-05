@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-latte.jpg"
+            },
+            {
+              "key": "brand_logo",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-logo.png"
+            },
+            {
+              "key": "headline",
+              "type": "text",
+              "value": "Two lattes, one price"
+            },
+            {
+              "key": "supporting_text",
+              "type": "text",
+              "value": "This week at every Volta in Santiago."
+            },
+            {
+              "key": "cta_text",
+              "type": "text",
+              "value": "See the menu"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "card",
+            "style": "tall"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.full.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.card.full.click"
+              }
+            ],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JDC69A0M6C0QGBF17PHDJ81B",
+            "creativeId": "creative_01JDJFV4GFKCR82452R7XXHX23",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JD19FWQSE5QZCVMVD705VQ89",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

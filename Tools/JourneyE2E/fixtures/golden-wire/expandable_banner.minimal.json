@@ -1,0 +1,77 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "teaser_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/teaser.jpg"
+            },
+            {
+              "key": "expanded_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/expanded.jpg"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "expandable_banner",
+            "style": "expandable"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.minimal.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.minimal.click"
+              }
+            ],
+            "custom": [
+              {
+                "key": "expand",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.minimal.expand"
+              },
+              {
+                "key": "close",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.minimal.close"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JDD4ZB04ZZ0W9M1X80XT898A",
+            "creativeId": "creative_01JDEZCMVEP0QTK4D39ESRV6Z8",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDCSQ9HETBF1SS4V0EPY1ZPY",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "expandable_banner",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

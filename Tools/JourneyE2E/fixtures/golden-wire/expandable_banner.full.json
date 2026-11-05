@@ -1,0 +1,102 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "teaser_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/teaser.jpg"
+            },
+            {
+              "key": "teaser_headline",
+              "type": "text",
+              "value": "Tap for this week's deal"
+            },
+            {
+              "key": "expanded_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/expanded.jpg"
+            },
+            {
+              "key": "headline",
+              "type": "text",
+              "value": "Two lattes, one price"
+            },
+            {
+              "key": "supporting_text",
+              "type": "text",
+              "value": "At every Volta in Santiago until Sunday."
+            },
+            {
+              "key": "cta_text",
+              "type": "text",
+              "value": "See the menu"
+            },
+            {
+              "key": "destination_url",
+              "type": "url",
+              "value": "https://volta.example/menu"
+            },
+            {
+              "key": "disclaimer",
+              "type": "text",
+              "value": "While stocks last."
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "expandable_banner",
+            "style": "expandable"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.full.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.full.click"
+              }
+            ],
+            "custom": [
+              {
+                "key": "expand",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.full.expand"
+              },
+              {
+                "key": "close",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.expandable_banner.full.close"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JDVEY9B39G8HPJDTYDH526QW",
+            "creativeId": "creative_01JDQ25XGR1YW994MG818V7N9H",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDQMFP5FDFMVTRZ063H19EHR",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "expandable_banner",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

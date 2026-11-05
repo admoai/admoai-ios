@@ -48,6 +48,16 @@ public struct Creative: Decodable {
     /// clustering, sheets or scroll position, which is exactly why it never fires a point
     /// event on your behalf. See ``AdMoai/trackPointView(_:)``.
     public let matchedPoints: [MatchedPoint]
+    /// A Carousel's slides, in the order the server sent them (never re-sorted by
+    /// ``Slide/position``). Empty for every creative that is not a Carousel.
+    ///
+    /// Each slide carries its own contents and its own trackers, and they stay attached to the
+    /// slide: a slide view or click is reported with that slide's ``SlideTracking``, not with the
+    /// creative's. The creative-level ``tracking`` of a Carousel has no click.
+    ///
+    /// **Rendering the slides is your job.** The SDK draws no carousel and knows nothing about
+    /// paging, scroll position or which slide is on screen.
+    public let slides: [Slide]
 }
 
 extension Creative {
@@ -85,7 +95,25 @@ extension Creative {
                 .compactMap(\.value)
                 .first { $0.key == MatchedPointsEntry.contentKey }
                 .map { $0.value.compactMap(\.value) } ?? []
+        // Same approach as `matchedPoints`: straight off the wire, server order kept (never
+        // sorted by `position`). A slide that lacks a usable id or position is dropped on its own,
+        // and a malformed entry inside a slide is dropped on its own; neither can fail the
+        // creative. The `slides` entry also stays in `contents`, exactly as before.
+        self.slides =
+            ((try? c.decode([SafelyDecodable<SlidesEntry>].self, forKey: .contents)) ?? [])
+                .compactMap(\.value)
+                .first { $0.key == SlidesEntry.contentKey }
+                .map { $0.value.compactMap(\.value) } ?? []
     }
+}
+
+/// The `contents` entry that carries a Carousel's slides, decoded as itself rather than as an
+/// `AnyCodable` blob. Only the entry whose key matches is kept.
+struct SlidesEntry: Decodable {
+    static let contentKey = "slides"
+
+    let key: String
+    let value: [SafelyDecodable<Slide>]
 }
 
 /// The `contents` entry that carries Matched Points, decoded as itself rather than as an
@@ -131,6 +159,58 @@ public struct MatchedPointTracking: Decodable, Equatable {
     public let views: [TrackingItem]?
     public let taps: [TrackingItem]?
     public let clicks: [TrackingItem]?
+}
+
+/// One slide of a Carousel creative. See ``Creative/slides``.
+///
+/// Not `Equatable`: ``Content`` wraps an untyped ``AnyCodable`` value, and giving the public
+/// `Content` an equality it does not have today would be an API change of its own.
+public struct Slide: Decodable {
+    /// The slide's public id (`slide_<ULID>`), stable across requests.
+    public let slideId: String
+    /// The slide's 1-based position as the server numbered it. Informational: the order of
+    /// ``Creative/slides`` is the order to render.
+    public let position: Int
+    public let contents: [Content]
+    /// This slide's own beacons. Absent leaves the slide perfectly renderable.
+    public let tracking: SlideTracking?
+}
+
+/// One slide's beacon lists: the slide view and the slide click.
+public struct SlideTracking: Decodable, Equatable {
+    public let views: [TrackingItem]?
+    public let clicks: [TrackingItem]?
+}
+
+extension Slide {
+    private enum TolerantKeys: String, CodingKey { case slideId, position, contents, tracking }
+
+    /// `slideId` and `position` are structurally required: a slide without them cannot be told
+    /// apart or ordered by a publisher, so it throws here and the array level drops it
+    /// (`SafelyDecodable`). Everything inside a slide is tolerant: contents drop malformed
+    /// entries, a malformed `tracking` becomes `nil`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        self.slideId = try c.decode(String.self, forKey: .slideId)
+        self.position = try c.decode(Int.self, forKey: .position)
+        self.contents =
+            ((try? c.decode([SafelyDecodable<Content>].self, forKey: .contents)) ?? [])
+                .compactMap(\.value)
+        self.tracking = try? c.decode(SlideTracking.self, forKey: .tracking)
+    }
+}
+
+extension SlideTracking {
+    private enum TolerantKeys: String, CodingKey { case views, clicks }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: TolerantKeys.self)
+        func list(_ key: TolerantKeys) -> [TrackingItem]? {
+            (try? c.decode([SafelyDecodable<TrackingItem>].self, forKey: key))?.compactMap(\.value)
+        }
+        self.views = list(.views)
+        self.clicks = list(.clicks)
+    }
 }
 
 /// Tolerant array-element wrapper: a malformed or non-object element decodes to `nil`
@@ -246,6 +326,18 @@ public struct Metadata: Decodable {
     public let skipOffsetSeconds: Int?
     /// End-card presentation mode for video creatives (`endCardMode,omitempty`).
     public let endCardMode: String?
+    /// The standard native format this creative is served as (`card`, `carousel`,
+    /// `expandable_banner`, `branded_assets`, `standard_video`, `sponsored_pin_location`).
+    /// Absent when the engine does not send it, never an empty string. Open-set: keep an
+    /// unknown value verbatim.
+    public let effectiveStandardFormatKey: String?
+    /// The version of that standard format. Absent when not sent or not a whole number (a
+    /// fractional value is not a version, so it is `nil`, never truncated).
+    public let effectiveStandardFormatVersion: Int?
+    /// Where the creative's template comes from: `admoai_standard` (the standard itself) or
+    /// `based_on_standard` (an operator's template built on it). Open-set: an unknown value is
+    /// kept verbatim, and absent is `nil`.
+    public let templateSource: String?
 }
 
 public struct Advertiser: Decodable {
@@ -459,6 +551,7 @@ extension Metadata {
         case adId, creativeId, advertiserId, templateId, placementId, priority
         case language, format, style, impId, duration, aspectRatio, isSkippable
         case skipOffsetSeconds, endCardMode
+        case effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource
     }
 
     public init(from decoder: Decoder) throws {
@@ -484,6 +577,14 @@ extension Metadata {
             (try? c.decode(Int.self, forKey: .skipOffsetSeconds))
                 ?? (try? c.decode(Double.self, forKey: .skipOffsetSeconds)).map { Int($0) }
         self.endCardMode = try? c.decode(String.self, forKey: .endCardMode)
+        // Open-set strings, absent when the engine does not send them (it omits all three while
+        // the standard formats are off). A wrong type is `nil`, never a throw.
+        self.effectiveStandardFormatKey = try? c.decode(String.self, forKey: .effectiveStandardFormatKey)
+        self.effectiveStandardFormatVersion =
+            (try? c.decode(Int.self, forKey: .effectiveStandardFormatVersion))
+                ?? (try? c.decode(Double.self, forKey: .effectiveStandardFormatVersion))
+                .flatMap { $0 == $0.rounded() ? Int(exactly: $0) : nil }
+        self.templateSource = try? c.decode(String.self, forKey: .templateSource)
     }
 }
 

@@ -8,11 +8,13 @@
 # Usage:
 #   .github/scripts/scenarios.sh check <manifest>
 #       Fails when <manifest> is not byte-identical to the scenarios.json of the version
-#       MANIFEST_VERSION names — an edit made in this repo instead of in adhub. Warns
+#       MANIFEST_VERSION names — an edit made in this repo instead of in adhub — or when
+#       fixtures/golden-wire/ beside it is not exactly the tarball's fixtures/golden-wire/
+#       (same files, same bytes; a manifest with `fixtureScenarios` requires it). Warns
 #       when a newer version is published. Run by CI on every pull request.
 #   .github/scripts/scenarios.sh adopt <manifest> <version|latest>
-#       Replaces <manifest> with that published version's scenarios.json and writes
-#       MANIFEST_VERSION. How a new version is taken: by hand, or by adhub's bump bot.
+#       Replaces <manifest> with that published version's scenarios.json, recreates
+#       fixtures/golden-wire/ beside it from the tarball, and writes MANIFEST_VERSION. How a new version is taken: by hand, or by adhub's bump bot.
 #
 # Exit: 0 ok (warnings included), 1 drift or bad input, 2 the registry could not be read.
 #
@@ -28,6 +30,7 @@ usage() { sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//' >&2; exit 1; }
 [ $# -ge 2 ] || usage
 cmd="$1"; manifest="$2"
 version_file="$(dirname "$manifest")/MANIFEST_VERSION"
+fixtures_dir="$(dirname "$manifest")/fixtures/golden-wire"
 case "$registry" in https://*) ;; *) echo "SCENARIOS_REGISTRY must be an https:// URL, got '$registry'" >&2; exit 1 ;; esac
 
 fetch() { curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 "$@"; }
@@ -35,7 +38,8 @@ fetch() { curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 "$@"; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-# The published version's scenarios.json, into $tmp/package/scenarios.json.
+# The published version's scenarios.json, into $tmp/package/scenarios.json, and its
+# fixtures/ (the golden decision-wire files, since 1.2.0) when the tarball has them.
 download() { # version
   local v="$1"
   if ! fetch -o "$tmp/pkg.tgz" "$registry/$package/-/sdk-scenarios-$v.tgz"; then
@@ -43,6 +47,21 @@ download() { # version
     exit 2
   fi
   tar -xzf "$tmp/pkg.tgz" -C "$tmp" package/scenarios.json
+  # Absent in tarballs before 1.2.0: tar exits non-zero for a missing member, which is fine.
+  tar -xzf "$tmp/pkg.tgz" -C "$tmp" package/fixtures 2>/dev/null || true
+}
+
+# Whether the manifest declares fixtureScenarios (then the golden files are mandatory).
+needs_fixtures() { # manifest
+  python3 -c 'import json, sys; sys.exit(0 if json.load(open(sys.argv[1])).get("fixtureScenarios") else 1)' "$1"
+}
+
+# 0 when $fixtures_dir holds exactly the tarball's fixtures/golden-wire (names and bytes).
+# A tarball without fixtures/ must leave no fixtures dir here either.
+fixtures_match() {
+  local src="$tmp/package/fixtures/golden-wire"
+  if [ ! -d "$src" ]; then [ ! -d "$fixtures_dir" ]; return; fi
+  [ -d "$fixtures_dir" ] && diff -r "$src" "$fixtures_dir" > "$tmp/fixtures.diff" 2>&1
 }
 
 latest() {
@@ -65,6 +84,19 @@ case "$cmd" in
       echo "::error file=$manifest::$manifest is not $package@$version. Scenarios are changed in adhub (sdk/scenarios), published, then adopted here with: .github/scripts/scenarios.sh adopt $manifest <version>"
       exit 1
     fi
+    if needs_fixtures "$manifest" && [ ! -d "$tmp/package/fixtures/golden-wire" ]; then
+      echo "::error file=$manifest::$manifest declares fixtureScenarios but $package@$version ships no fixtures/golden-wire"
+      exit 1
+    fi
+    if needs_fixtures "$manifest" && [ ! -d "$fixtures_dir" ]; then
+      echo "::error file=$fixtures_dir::$manifest declares fixtureScenarios and $fixtures_dir is missing. Take it with: .github/scripts/scenarios.sh adopt $manifest $version"
+      exit 1
+    fi
+    if ! fixtures_match; then
+      [ -f "$tmp/fixtures.diff" ] && sed 's/^/    | /' "$tmp/fixtures.diff" >&2
+      echo "::error file=$fixtures_dir::$fixtures_dir is not the fixtures/golden-wire of $package@$version. Golden files are changed in adhub, published, then adopted here with: .github/scripts/scenarios.sh adopt $manifest <version>"
+      exit 1
+    fi
     echo "✓ $manifest is $package@$version, byte for byte"
     newest="$(latest)"
     if older "$version" "$newest"; then
@@ -77,7 +109,18 @@ case "$cmd" in
     [ "$version" = latest ] && version="$(latest)"
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "'$version' is not a MAJOR.MINOR.PATCH version" >&2; exit 1; }
     download "$version"
+    # Refuse an inconsistent package before touching anything here.
+    if needs_fixtures "$tmp/package/scenarios.json" && [ ! -d "$tmp/package/fixtures/golden-wire" ]; then
+      echo "$package@$version declares fixtureScenarios but ships no fixtures/golden-wire; nothing was changed" >&2
+      exit 1
+    fi
     cp "$tmp/package/scenarios.json" "$manifest"
+    # Only fixtures/golden-wire belongs to the package; anything beside it is this repo's own.
+    rm -rf "$fixtures_dir"
+    if [ -d "$tmp/package/fixtures/golden-wire" ]; then
+      mkdir -p "$(dirname "$fixtures_dir")"
+      cp -R "$tmp/package/fixtures/golden-wire" "$fixtures_dir"
+    fi
     printf '%s\n' "$version" > "$version_file"
     echo "✓ $manifest is now $package@$version ($version_file updated); run the e2e suite against an engine before merging"
     ;;

@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "preroll",
+      "creatives": [
+        {
+          "delivery": "json",
+          "contents": [
+            {
+              "key": "video_asset",
+              "type": "video",
+              "value": "https://cdn.admoai.com/media/volta-15s.mp4"
+            },
+            {
+              "key": "poster_image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/volta-poster.jpg"
+            }
+          ],
+          "advertiser": {
+            "name": "Volta Coffee",
+            "legalName": "Volta Coffee SpA",
+            "logoUrl": "https://cdn.admoai.com/media/volta-logo.png"
+          },
+          "template": {
+            "key": "standard_video",
+            "style": "default"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.impression"
+              }
+            ],
+            "clicks": [],
+            "custom": [],
+            "videoEvents": [
+              {
+                "key": "start",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.start"
+              },
+              {
+                "key": "first_quartile",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.first_quartile"
+              },
+              {
+                "key": "midpoint",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.midpoint"
+              },
+              {
+                "key": "third_quartile",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.third_quartile"
+              },
+              {
+                "key": "complete",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.standard_video.minimal.complete"
+              }
+            ]
+          },
+          "metadata": {
+            "adId": "ad_01JDB2BVYVEG36SJ39ZVJ2S7FK",
+            "creativeId": "creative_01JDXWS60TJADDBKW1184GW4DE",
+            "advertiserId": "advertiser_01JDH315KXW0FP82VY8WMV97YE",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01JDJ0JEE18TK4W82VSCT9NM1F",
+            "priority": "standard",
+            "language": "en",
+            "format": "video",
+            "effectiveStandardFormatKey": "standard_video",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "duration": 15,
+            "aspectRatio": "16:9"
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

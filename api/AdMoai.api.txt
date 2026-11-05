@@ -134,6 +134,7 @@ Creative.journeyStageKey  property  var journeyStageKey: String? { get }
 Creative.journeyStageNodeId  property  var journeyStageNodeId: String? { get }
 Creative.matchedPoints  property  let matchedPoints: [MatchedPoint]
 Creative.metadata  property  let metadata: Metadata?
+Creative.slides  property  let slides: [Slide]
 Creative.template  property  let template: Template?
 Creative.tracking  property  let tracking: Tracking
 Creative.vast  property  let vast: VastData?
@@ -301,6 +302,8 @@ Metadata.advertiserId  property  let advertiserId: String?
 Metadata.aspectRatio  property  let aspectRatio: String?
 Metadata.creativeId  property  let creativeId: String
 Metadata.duration  property  let duration: Int?
+Metadata.effectiveStandardFormatKey  property  let effectiveStandardFormatKey: String?
+Metadata.effectiveStandardFormatVersion  property  let effectiveStandardFormatVersion: Int?
 Metadata.endCardMode  property  let endCardMode: String?
 Metadata.format  property  let format: String?
 Metadata.impId  property  let impId: String?
@@ -312,6 +315,7 @@ Metadata.priority  property  let priority: Priority
 Metadata.skipOffsetSeconds  property  let skipOffsetSeconds: Int?
 Metadata.style  property  let style: String?
 Metadata.templateId  property  let templateId: String
+Metadata.templateSource  property  let templateSource: String?
 Placement  struct  struct Placement
 Placement.advertiserId  property  let advertiserId: String?
 Placement.count  property  let count: Int?
@@ -342,6 +346,16 @@ SDKError.invalidDistanceLimit(_:)  case  case invalidDistanceLimit(Int)
 SDKError.invalidDistanceRadius(_:)  case  case invalidDistanceRadius(Double)
 SDKError.invalidMinConfidence(_:)  case  case invalidMinConfidence(Double)
 SDKError.noPlacements  case  case noPlacements
+Slide  struct  struct Slide
+Slide.contents  property  let contents: [Content]
+Slide.init(from:)  init  init(from decoder: any Decoder) throws
+Slide.position  property  let position: Int
+Slide.slideId  property  let slideId: String
+Slide.tracking  property  let tracking: SlideTracking?
+SlideTracking  struct  struct SlideTracking
+SlideTracking.clicks  property  let clicks: [TrackingItem]?
+SlideTracking.init(from:)  init  init(from decoder: any Decoder) throws
+SlideTracking.views  property  let views: [TrackingItem]?
 Swift::Array.getContent(key:)  method  func getContent(key: String) -> Content?
 Swift::Array.hasContents()  method  func hasContents() -> Bool
 Swift::Array.isType(key:type:)  method  func isType(key: String, type: String) -> Bool

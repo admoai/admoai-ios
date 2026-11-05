@@ -22,6 +22,9 @@ import Foundation
 
 // MARK: Manifest model
 
+/// The one manifest `schemaVersion` this runner executes.
+let supportedSchemaVersion = 2
+
 struct Manifest: Decodable {
     let schemaVersion: Int
     let scenarios: [ManifestScenario]
@@ -151,6 +154,16 @@ func manifestGroup() async {
             throw ClaimFailed(claim: "scenarios.json is readable and valid: \(error)")
         }
         return
+    }
+
+    // The live runner executes `scenarios` only. Version 2 added `fixtureScenarios` (offline,
+    // golden decision-wire files): they run as unit tests, and a runner that read a newer
+    // manifest as if it were version 1 would silently skip half of it.
+    guard manifest.schemaVersion == supportedSchemaVersion else {
+        fatalError(
+            "scenarios.json is schemaVersion \(manifest.schemaVersion); this runner knows schemaVersion "
+                + "\(supportedSchemaVersion); fixtureScenarios run as unit tests in FixtureScenariosTests"
+        )
     }
 
     for entry in manifest.scenarios {
