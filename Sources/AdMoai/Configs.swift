@@ -94,7 +94,9 @@ extension SDKConfig: CustomStringConvertible, CustomDebugStringConvertible, Cust
             + "\(playgroundToken == nil ? "nil" : Self.redacted))"
     }
 
-    public var debugDescription: String { description }
+    public var debugDescription: String {
+        description
+    }
 
     public var customMirror: Mirror {
         Mirror(
