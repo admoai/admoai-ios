@@ -14,6 +14,9 @@ public struct SDKConfig {
     public let defaultLanguage: String?
     public let logger: Logger
     public let sessionConfiguration: URLSessionConfiguration
+    /// Playground token. Set it to talk to a playground; leave it unset (`nil`) for live.
+    /// An empty string is treated as unset.
+    public let playgroundToken: String?
 
     /// Initializes the SDKConfig with a base URL, optional API version, logger, and session configuration.
     /// - Parameters:
@@ -29,11 +32,35 @@ public struct SDKConfig {
         logger: Logger = Logger(subsystem: "com.admoai.sdk", category: "AdMoaiSDK"),
         sessionConfiguration: URLSessionConfiguration = defaultSessionConfiguration()
     ) {
+        self.init(
+            baseUrl: baseUrl,
+            apiVersion: apiVersion,
+            defaultLanguage: defaultLanguage,
+            logger: logger,
+            sessionConfiguration: sessionConfiguration,
+            playgroundToken: nil
+        )
+    }
+
+    /// Initializes the SDKConfig against a playground: same parameters, plus the playground token.
+    /// An overload rather than a defaulted parameter, so the existing initializer stays unchanged.
+    /// - Parameters:
+    ///   - playgroundToken: When set, decision requests go to `/v1/playground/decision` with an
+    ///     `X-Playground-Token` header. `nil` or an empty string means live.
+    public init(
+        baseUrl: String,
+        apiVersion: String? = nil,
+        defaultLanguage: String? = nil,
+        logger: Logger = Logger(subsystem: "com.admoai.sdk", category: "AdMoaiSDK"),
+        sessionConfiguration: URLSessionConfiguration = defaultSessionConfiguration(),
+        playgroundToken: String?
+    ) {
         self.baseUrl = baseUrl
         self.apiVersion = apiVersion
         self.defaultLanguage = defaultLanguage
         self.logger = logger
         self.sessionConfiguration = sessionConfiguration
+        self.playgroundToken = playgroundToken?.isEmpty == false ? playgroundToken : nil
         logger.debug("AdMoai SDK config initialized")
     }
 
