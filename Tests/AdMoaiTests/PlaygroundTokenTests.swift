@@ -92,6 +92,25 @@ struct PlaygroundTokenTests {
         #expect(SDKConfig(baseUrl: "https://x", playgroundToken: "pg_abc").playgroundToken == "pg_abc")
     }
 
+    // Scenario: printing, logging or dumping a config never shows the token
+    @Test
+    func testTokenIsRedactedWhenPrinted() {
+        let token = "pg_secret_token_123"
+        let config = SDKConfig(baseUrl: "https://x", apiVersion: "2025-11-01", playgroundToken: token)
+        var dumped = ""
+        dump(config, to: &dumped)
+        let admoai = AdMoai(config: config)
+        for text in [
+            "\(config)", String(describing: config), String(reflecting: config), dumped,
+            String(describing: admoai), String(reflecting: admoai),
+        ] {
+            #expect(!text.contains(token), "token leaked in: \(text)")
+        }
+        #expect("\(config)".contains("playgroundToken: <redacted>"))
+        #expect("\(config)".contains(#"apiVersion: "2025-11-01""#))
+        #expect("\(SDKConfig(baseUrl: "https://x"))".contains("playgroundToken: nil"))
+    }
+
     // Scenario: a refusal reason header becomes a warning; no header, no warning
     @Test
     func testPlaygroundReasonMessage() {

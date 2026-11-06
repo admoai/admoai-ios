@@ -86,6 +86,38 @@ public struct SDKConfig {
     }
 }
 
+// The token is a credential: printing, logging or dumping a config never shows it.
+extension SDKConfig: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    public var description: String {
+        "SDKConfig(baseUrl: \(String(reflecting: baseUrl)), apiVersion: \(Self.text(apiVersion)), "
+            + "defaultLanguage: \(Self.text(defaultLanguage)), playgroundToken: "
+            + "\(playgroundToken == nil ? "nil" : Self.redacted))"
+    }
+
+    public var debugDescription: String { description }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "baseUrl": baseUrl,
+                "apiVersion": apiVersion as Any,
+                "defaultLanguage": defaultLanguage as Any,
+                "logger": logger,
+                "sessionConfiguration": sessionConfiguration,
+                "playgroundToken": (playgroundToken == nil ? nil : Self.redacted) as Any,
+            ],
+            displayStyle: .struct
+        )
+    }
+
+    private static let redacted = "<redacted>"
+
+    private static func text(_ value: String?) -> String {
+        value.map { String(reflecting: $0) } ?? "nil"
+    }
+}
+
 public protocol Clearable {
     static func clear() -> Self
 }
