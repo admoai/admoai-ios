@@ -371,7 +371,11 @@ struct Driver {
 /// Builds a driver over the real public entry point.
 ///
 /// `apiVersion` is passed through so a scenario can prove the version gate by omitting it.
-func newDriver(apiVersion: String? = e2eAPIVersion, sessionId: String? = nil) -> Driver {
+func newDriver(
+    apiVersion: String? = e2eAPIVersion,
+    sessionId: String? = nil,
+    playgroundToken: String? = nil
+) -> Driver {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 20
     configuration.protocolClasses = [RecordingURLProtocol.self]
@@ -381,7 +385,8 @@ func newDriver(apiVersion: String? = e2eAPIVersion, sessionId: String? = nil) ->
             baseUrl: e2eBaseURL,
             apiVersion: apiVersion,
             defaultLanguage: e2eLanguage,
-            sessionConfiguration: configuration
+            sessionConfiguration: configuration,
+            playgroundToken: playgroundToken
         ),
         sessionId: sessionId
     )

@@ -162,6 +162,20 @@ sdk.clearAppConfig()
 | `defaultLanguage` | String? | `nil` | Default language for requests |
 | `logger` | Logger | SDK default | Custom logger instance |
 | `sessionConfiguration` | URLSessionConfiguration | SDK default | Custom URL session configuration |
+| `playgroundToken` | String? | `nil` | Set it to talk to a playground; leave it unset for live. When set, decision requests go to `/v1/playground/decision` with an `X-Playground-Token` header; `baseUrl` and the version headers do not change. An empty string counts as unset |
+
+#### Testing against a playground
+
+```swift
+let config = SDKConfig(
+    baseUrl: "https://api.admoai.com",  // same host as live
+    apiVersion: "2025-11-01",
+    playgroundToken: "pg_..."           // from the Integration page; remove it to go live
+)
+```
+
+A token that cannot serve (unknown, revoked) returns no ads, and the SDK logs the engine's
+`X-Playground-Reason` as a warning. Tracking URLs in a playground response are fired as usual.
 
 ### Format
 

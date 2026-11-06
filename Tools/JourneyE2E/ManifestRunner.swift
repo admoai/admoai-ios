@@ -48,6 +48,8 @@ struct ManifestRequest: Decodable {
     var apiVersion: String?
     /// Sponsored Pin: a radius or a bounds search (epic #3138).
     var distance: ManifestDistance?
+    /// Customer Playground: build the SDK with this `SDKConfig.playgroundToken` (adhub#3280).
+    var playgroundToken: String?
 }
 
 /// One Sponsored Pin search, declared once in the shared manifest and expressed by each SDK
@@ -175,10 +177,11 @@ func manifestGroup() async {
 
 private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [String]) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
+    let token = entry.request.playgroundToken
     let driver: Driver = switch entry.request.apiVersion {
-    case .some("none"): newDriver(apiVersion: nil)
-    case let .some(version): newDriver(apiVersion: version)
-    case nil: newDriver()
+    case .some("none"): newDriver(apiVersion: nil, playgroundToken: token)
+    case let .some(version): newDriver(apiVersion: version, playgroundToken: token)
+    case nil: newDriver(playgroundToken: token)
     }
 
     let builder = driver.sdk.createRequestBuilder()
