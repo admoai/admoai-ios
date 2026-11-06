@@ -104,7 +104,6 @@ struct PlaygroundTokenTests {
 }
 
 extension MockNetworkTests {
-    @Suite
     struct PlaygroundTokenWireTests {
         private func send(playgroundToken: String?) async throws -> URLRequest {
             MockURLProtocol.reset(stub: .init(body: Data(#"{"success":true,"data":[]}"#.utf8)))
