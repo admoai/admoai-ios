@@ -46,7 +46,23 @@ internal final class BeaconSession {
 
     /// Sends `request` once. Nothing is retried, and no response — success, error or 3xx —
     /// reaches the caller.
+    /// Dispatch order is the SDK's contract (a slide's view goes out before its click); arrival
+    /// order is the network's, which no client controls. Tests observe the former here: the
+    /// closure runs synchronously, in call order, before each request is handed to the session.
+    private let observerLock = NSLock()
+    private var dispatchObserver: ((URLRequest) -> Void)?
+
+    func observeDispatches(_ observer: ((URLRequest) -> Void)?) {
+        observerLock.lock()
+        dispatchObserver = observer
+        observerLock.unlock()
+    }
+
     func fire(_ request: URLRequest) {
+        observerLock.lock()
+        let observer = dispatchObserver
+        observerLock.unlock()
+        observer?(request)
         session.dataTask(with: request).resume()
     }
 }

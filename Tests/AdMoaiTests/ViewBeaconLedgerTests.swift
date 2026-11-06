@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 /// Pin views are reported once per decision response — the scenarios of
-/// `Sources/AdMoai/PointViewLedger.feature`, one test per scenario, named after it.
+/// `Sources/AdMoai/ViewBeaconLedger.feature`, one test per scenario, named after it.
 ///
 /// There is no Gherkin runner in this package, so `everyScenarioHasATest` holds the binding
 /// instead: a scenario added to the feature without a test here, or a test whose scenario was
@@ -38,7 +38,7 @@ private func viewURLs(_ range: Range<Int>, response: String) -> Set<String> {
 }
 
 extension MockNetworkTests {
-    struct PointViewLedgerTests {
+    struct ViewBeaconLedgerTests {
         private func sdk() -> AdMoai {
             AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
         }
@@ -66,7 +66,7 @@ extension MockNetworkTests {
         @Test func everyScenarioHasATest() throws {
             let feature = URL(fileURLWithPath: #filePath)
                 .deletingLastPathComponent()
-                .appendingPathComponent("../../Sources/AdMoai/PointViewLedger.feature")
+                .appendingPathComponent("../../Sources/AdMoai/ViewBeaconLedger.feature")
             let text = try String(contentsOf: feature, encoding: .utf8)
             let titles = text.split(separator: "\n")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -162,7 +162,7 @@ extension MockNetworkTests {
 
         @Test("memory is bounded")
         func memoryIsBounded() throws {
-            let ledger = PointViewLedger()
+            let ledger = ViewBeaconLedger()
             #expect(ledger.capacity == 500)
 
             for response in 0 ..< 100 {
@@ -181,7 +181,7 @@ extension MockNetworkTests {
         /// A pin re-rendered keeps its place: the next eviction takes the pin nobody has shown
         /// for longest, not the one the user is looking at.
         @Test func aRenderedPinIsNotTheNextEvicted() {
-            let ledger = PointViewLedger(capacity: 2)
+            let ledger = ViewBeaconLedger(capacity: 2)
             _ = ledger.claim("a")
             _ = ledger.claim("b")
             _ = ledger.claim("a")

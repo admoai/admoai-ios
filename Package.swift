@@ -21,7 +21,7 @@ let package = Package(
             name: "AdMoai",
             // Gherkin specifications live beside the code they specify; the tests that execute
             // them are in AdMoaiTests. Not resources — nothing ships them.
-            exclude: ["PointViewLedger.feature"]),
+            exclude: ["ViewBeaconLedger.feature"]),
         .testTarget(
             name: "AdMoaiTests",
             dependencies: ["AdMoai"],

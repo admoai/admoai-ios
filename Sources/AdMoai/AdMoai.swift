@@ -39,6 +39,11 @@ public struct AdMoai {
     /// Fires canonical beacons. Never follows a redirect: a click's `302` is the engine
     /// recording it, and the app — not the SDK — opens the destination.
     private let session: BeaconSession
+    /// The first-party beacon session, for tests that assert dispatch order (`@testable`).
+    var beaconSession: BeaconSession {
+        session
+    }
+
     /// Fires `tracking.thirdPartyTrackers` through its own credential-isolated session —
     /// never through `session`, which carries the SDK User-Agent and Admoai headers.
     private let thirdPartyDispatcher: ThirdPartyTrackerDispatcher
@@ -57,7 +62,14 @@ public struct AdMoai {
     /// singleton) both do.
     private let _session = SessionBox()
     /// Sponsored Pin view URLs already fired, shared by every copy — see ``trackPointView(_:)``.
-    internal let pointViewLedger = PointViewLedger()
+    internal let pinViewLedger = ViewBeaconLedger()
+    /// Carousel slide view URLs already fired, shared by every copy — see ``trackSlideView(_:)``.
+    /// Its own instance so slide capacity never competes with pins'.
+    internal let slideViewLedger = ViewBeaconLedger()
+    /// Serializes a slide's view claim + dispatch with slide clicks, so the view is always
+    /// dispatched before a click (BR-SDK-05) even when two threads race. Shared by every copy
+    /// (a reference type, like the ledger); reentrant because a click calls ``trackSlideView(_:)``.
+    internal let slideDispatchLock = NSRecursiveLock()
 
     public init(
         config: SDKConfig,
@@ -323,7 +335,7 @@ public struct AdMoai {
     /// re-sent on the next render. Taps and clicks are never de-duplicated.
     public func trackPointView(_ point: MatchedPoint) {
         guard let views = point.tracking?.views else { return }
-        for item in views where pointViewLedger.claim(item.url) {
+        for item in views where pinViewLedger.claim(item.url) {
             fireTracking(url: item.url)
         }
     }
@@ -362,6 +374,78 @@ public struct AdMoai {
     /// for it.
     public func trackPointViews(_ points: [MatchedPoint]) {
         points.forEach(trackPointView)
+    }
+
+    // MARK: - Carousel slide tracking
+
+    /// Reports that one slide became **visible to the user** (`slide_view`). Free.
+    ///
+    /// **Returning a slide is not showing it.** You decide when a slide counts as viewed — the
+    /// platform's rule is 50 % of it visible for one continuous second — and call this then.
+    /// The SDK draws nothing and never fires on its own.
+    ///
+    /// **Once per served instance.** A slide is reported the first time it is shown for the
+    /// decision response that returned it; scrolling back to it or re-rendering sends nothing.
+    /// A new response carries new signed view URLs and is reported again. A view is never
+    /// retried.
+    ///
+    /// Trackers stay attached to their slide: pass the ``Slide`` you rendered, never the
+    /// creative. A slide served without tracking is a no-op.
+    public func trackSlideView(_ slide: Slide) {
+        slideDispatchLock.lock()
+        defer { slideDispatchLock.unlock() }
+        for item in slide.tracking?.views ?? [] where slideViewLedger.claim(item.url) {
+            fireTracking(url: item.url)
+        }
+    }
+
+    /// Reports several slides becoming visible at once — the bulk form of
+    /// ``trackSlideView(_:)``, with the same once-per-response rule.
+    public func trackSlideViews(_ slides: [Slide]) {
+        slides.forEach(trackSlideView)
+    }
+
+    /// Reports that the user **activated a slide** (`click`). Billable.
+    ///
+    /// A click on a slide that was not reported as viewed yet sends the slide's view first, then
+    /// the click. Every click then also fans out the creative's applicable third-party click
+    /// trackers once.
+    ///
+    /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
+    /// creative-level click, so that sends nothing.
+    public func trackSlideClick(_ slide: Slide, in creative: Creative) {
+        slideDispatchLock.lock()
+        defer { slideDispatchLock.unlock() }
+        // A tap proves the slide was on screen, so its view counts (once) even when the slide
+        // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
+        trackSlideView(slide)
+        guard let clicks = slide.tracking?.clicks, !clicks.isEmpty else { return }
+        for item in clicks {
+            fireTracking(url: item.url)
+        }
+        // One fan-out per click, whatever number of click beacons the slide carries, and only
+        // when a canonical click beacon was actually valid (same rule as `fireClick`).
+        guard let key = clicks.first(where: { Self.isAbsoluteHttpURL($0.url) })?.key else { return }
+        fireThirdPartyTrackers(creative.tracking, event: .click(key: key))
+    }
+
+    // MARK: - Standard format custom events
+
+    /// Reports that a Tap-to-expand creative actually expanded (custom event `expand`). Not a
+    /// click: no click is sent and no third-party click tracker fires.
+    public func fireExpand(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "expand")
+    }
+
+    /// Reports that an expanded creative was closed (custom event `close`). Not a click.
+    public func fireClose(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "close")
+    }
+
+    /// Reports that the user tapped a Branded Assets asset (custom event `asset_tap`). Not a
+    /// click: use ``fireClick(tracking:key:)`` for the creative's destination.
+    public func fireAssetTap(tracking: Tracking) {
+        fireCustomEvent(tracking: tracking, key: "asset_tap")
     }
 
     private func fireAll(_ items: [TrackingItem]?) {

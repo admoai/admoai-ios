@@ -32,10 +32,13 @@ AdMoai.clearUserConfig()  method  mutating func clearUserConfig()
 AdMoai.config  property  var config: SDKConfig { get }
 AdMoai.createRequestBuilder()  method  func createRequestBuilder() -> DecisionRequestBuilder
 AdMoai.deviceConfig  property  var deviceConfig: DeviceConfig { get }
+AdMoai.fireAssetTap(tracking:)  method  func fireAssetTap(tracking: Tracking)
 AdMoai.fireClick(tracking:key:)  method  func fireClick(tracking: Tracking, key: String = "default")
+AdMoai.fireClose(tracking:)  method  func fireClose(tracking: Tracking)
 AdMoai.fireCompletion(tracking:key:)  method  func fireCompletion(tracking: Tracking, key: String)
 AdMoai.fireCustom(tracking:key:)  method  func fireCustom(tracking: Tracking, key: String) [deprecated]
 AdMoai.fireCustomEvent(tracking:key:)  method  func fireCustomEvent(tracking: Tracking, key: String)
+AdMoai.fireExpand(tracking:)  method  func fireExpand(tracking: Tracking)
 AdMoai.fireImpression(tracking:key:)  method  func fireImpression(tracking: Tracking, key: String = "default")
 AdMoai.fireTracking(url:)  method  func fireTracking(url: String)
 AdMoai.fireVideoEvent(tracking:key:)  method  func fireVideoEvent(tracking: Tracking, key: String)
@@ -53,6 +56,9 @@ AdMoai.trackPointClick(_:)  method  func trackPointClick(_ point: MatchedPoint)
 AdMoai.trackPointTap(_:)  method  func trackPointTap(_ point: MatchedPoint)
 AdMoai.trackPointView(_:)  method  func trackPointView(_ point: MatchedPoint)
 AdMoai.trackPointViews(_:)  method  func trackPointViews(_ points: [MatchedPoint])
+AdMoai.trackSlideClick(_:in:)  method  func trackSlideClick(_ slide: Slide, in creative: Creative)
+AdMoai.trackSlideView(_:)  method  func trackSlideView(_ slide: Slide)
+AdMoai.trackSlideViews(_:)  method  func trackSlideViews(_ slides: [Slide])
 AdMoai.userConfig  property  var userConfig: UserConfig { get }
 AdMoaiError  struct  struct AdMoaiError
 AdMoaiError.code  property  let code: Int

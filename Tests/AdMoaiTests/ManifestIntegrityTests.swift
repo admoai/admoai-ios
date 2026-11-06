@@ -36,13 +36,14 @@ struct ManifestIntegrityTests {
         }
     }
 
-    /// `schemaVersion` 2 added `fixtureScenarios`; the live runner refuses any other version and
-    /// FixtureScenariosTests interprets them, so both are pinned here against the vendored copy.
+    /// `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`); the live runner
+    /// refuses any other version and FixtureScenariosTests interprets them, so both are
+    /// pinned here against the vendored copy.
     @Test
     func testFixtureScenariosAreStructurallyValid() throws {
         let data = try Data(contentsOf: manifestURL())
         let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(root["schemaVersion"] as? Int == 2, "this SDK vendors a schemaVersion 2 manifest")
+        #expect(root["schemaVersion"] as? Int == 3, "this SDK vendors a schemaVersion 3 manifest")
 
         let fixtureScenarios = try #require(root["fixtureScenarios"] as? [[String: Any]])
         #expect(!fixtureScenarios.isEmpty, "the manifest declares fixture scenarios")

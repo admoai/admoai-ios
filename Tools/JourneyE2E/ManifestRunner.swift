@@ -23,7 +23,7 @@ import Foundation
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 2
+let supportedSchemaVersion = 3
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -162,7 +162,7 @@ func manifestGroup() async {
     guard manifest.schemaVersion == supportedSchemaVersion else {
         fatalError(
             "scenarios.json is schemaVersion \(manifest.schemaVersion); this runner knows schemaVersion "
-                + "\(supportedSchemaVersion); fixtureScenarios run as unit tests in FixtureScenariosTests"
+                + "\(supportedSchemaVersion); fixtureScenarios and their slideTracking run as unit tests in FixtureScenariosTests"
         )
     }
 
