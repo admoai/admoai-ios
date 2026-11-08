@@ -1,5 +1,6 @@
 import AdMoai
 import Foundation
+import ManifestExpectations
 #if canImport(FoundationNetworking)
     import FoundationNetworking
 #endif
@@ -23,7 +24,7 @@ import Foundation
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 3
+let supportedSchemaVersion = 4
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -166,14 +167,41 @@ func manifestGroup() async {
         )
     }
 
+    // `expect.creative` once more as raw JSON: the Decodable model above silently drops any key
+    // it has no field for, and the standard-format keys (schemaVersion 4) are compared as JSON
+    // values. A key neither knows fails its scenario (see assertCreative).
+    let rawCreativeExpect = loadRawCreativeExpectations()
+
     for entry in manifest.scenarios {
         await scenario(entry.id, entry.title) { notes in
-            try await runManifestScenario(entry, &notes)
+            try await runManifestScenario(entry, rawCreativeExpect[entry.id], &notes)
         }
     }
 }
 
-private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [String]) async throws {
+/// scenario id → its `expect.creative` object, as the manifest spells it.
+private func loadRawCreativeExpectations() -> [String: [String: Any]] {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("scenarios.json")
+    guard let data = try? Data(contentsOf: url),
+          let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let scenarios = root["scenarios"] as? [[String: Any]]
+    else { return [:] }
+    var out: [String: [String: Any]] = [:]
+    for entry in scenarios {
+        if let id = entry["id"] as? String,
+           let creative = (entry["expect"] as? [String: Any])?["creative"] as? [String: Any]
+        {
+            out[id] = creative
+        }
+    }
+    return out
+}
+
+private func runManifestScenario(
+    _ entry: ManifestScenario, _ rawCreativeExpect: [String: Any]?, _ notes: inout [String]
+) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
     let driver: Driver = switch entry.request.apiVersion {
     case .some("none"): newDriver(apiVersion: nil)
@@ -297,6 +325,7 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
 
     if let expectations = entry.expect.creative {
         try assertCreative(creatives[0], expectations, &notes)
+        try assertStandardFormat(creatives[0], rawCreativeExpect ?? [:], &notes)
     }
     if let pinTracking = entry.pinTracking {
         try await runPinTracking(pinTracking, driver, request, creatives[0], &notes)
@@ -304,6 +333,21 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
 }
 
 // MARK: Creative assertions
+
+/// The `expect.creative` keys the shared interpreter in `ManifestExpectations` owns
+/// (`metadata`, `templateKey`, `contentKeys`, `styleIn`, `journeyStageKey`, schemaVersion 4),
+/// plus the refusal of any key nobody here knows.
+private func assertStandardFormat(
+    _ creative: Creative, _ raw: [String: Any], _ notes: inout [String]
+) throws {
+    let unknown = LiveCreativeExpectations.unknownKeys(in: raw)
+    try check(unknown.isEmpty, "every expect.creative key is one this runner executes (unknown: \(unknown))")
+    guard !LiveCreativeExpectations.standardFormatKeys.isDisjoint(with: raw.keys) else { return }
+
+    let failures = LiveCreativeExpectations.failures(expect: raw, creative: creative)
+    try check(failures.isEmpty, failures.joined(separator: "; "))
+    notes.append("standard format: \(raw.keys.filter(LiveCreativeExpectations.standardFormatKeys.contains).sorted().joined(separator: ", "))")
+}
 
 private func assertCreative(
     _ creative: Creative, _ expect: ManifestCreative, _ notes: inout [String]

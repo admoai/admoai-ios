@@ -22,9 +22,16 @@ let package = Package(
             // Gherkin specifications live beside the code they specify; the tests that execute
             // them are in AdMoaiTests. Not resources — nothing ships them.
             exclude: ["ViewBeaconLedger.feature"]),
+        // The live scenario manifest's `expect.creative` interpreter: a library so the runner
+        // below and `swift test` run the same code (unit tests cover its pass and fail paths).
+        .target(
+            name: "ManifestExpectations",
+            dependencies: ["AdMoai"],
+            path: "Tools/ManifestExpectations"
+        ),
         .testTarget(
             name: "AdMoaiTests",
-            dependencies: ["AdMoai"],
+            dependencies: ["AdMoai", "ManifestExpectations"],
             // Documentation, the committed E2E report, and a read-only DB snapshot — not test
             // resources. The E2E runner lives in its own executable target and asserts against a
             // live engine; it never reads these. Excluded so SwiftPM does not treat them as
@@ -38,7 +45,7 @@ let package = Package(
         // silently against SDK changes. See Tools/JourneyE2E/README.md.
         .executableTarget(
             name: "journey-e2e",
-            dependencies: ["AdMoai"],
+            dependencies: ["AdMoai", "ManifestExpectations"],
             path: "Tools/JourneyE2E",
             exclude: ["README.md", "fixtures"]
         ),
