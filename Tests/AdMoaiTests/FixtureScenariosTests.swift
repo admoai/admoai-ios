@@ -140,7 +140,7 @@ private func editCreative(in root: inout JSONObject, _ body: (inout JSONObject) 
 
 // MARK: - The interpreter
 
-private let metadataKeys = ["effectiveStandardFormatKey", "effectiveStandardFormatVersion", "templateSource"]
+private let metadataKeys = ["effectiveStandardFormatKey", "effectiveStandardFormatVersion", "templateSource", "assetContext"]
 
 struct FixtureScenariosTests {
     @Test(arguments: FixtureScenario.all)
@@ -233,6 +233,8 @@ struct FixtureScenariosTests {
                 expectOptional(id, key, metadata?.effectiveStandardFormatVersion, value)
             case "templateSource":
                 expectOptional(id, key, metadata?.templateSource, value)
+            case "assetContext":
+                expectOptional(id, key, metadata?.assetContext, value)
             default:
                 Issue.record("\(id): unknown metadata expect key \(key) (known: \(metadataKeys))")
             }

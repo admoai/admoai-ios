@@ -124,4 +124,21 @@ struct SlidesDecodingTests {
         #expect(mistyped.metadata?.templateSource == nil)
         #expect(mistyped.metadata?.effectiveStandardFormatKey == nil)
     }
+
+    @Test
+    func testAssetContextComesFromTheGoldenFilesAndIsAbsentOtherwise() throws {
+        func served(_ golden: String) throws -> Creative {
+            let file = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("Tools/JourneyE2E/fixtures/golden-wire/\(golden).json")
+            let envelope = try JSONDecoder().decode(
+                APIResponseBody<DecisionResponse>.self, from: Data(contentsOf: file)
+            )
+            return try #require(envelope.data?.first?.creatives?.first)
+        }
+        #expect(try served("branded_assets.full").metadata?.assetContext == "vehicle_marker")
+        #expect(try served("card.minimal").metadata?.assetContext == nil)
+        let mistyped = try creative(contents: "[]", metadata: #"{"assetContext": 3}"#)
+        #expect(mistyped.metadata?.assetContext == nil, "a wrong type is absent, never a throw")
+    }
 }

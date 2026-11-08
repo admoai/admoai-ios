@@ -306,6 +306,7 @@ Metadata  struct  struct Metadata
 Metadata.adId  property  let adId: String
 Metadata.advertiserId  property  let advertiserId: String?
 Metadata.aspectRatio  property  let aspectRatio: String?
+Metadata.assetContext  property  let assetContext: String?
 Metadata.creativeId  property  let creativeId: String
 Metadata.duration  property  let duration: Int?
 Metadata.effectiveStandardFormatKey  property  let effectiveStandardFormatKey: String?
