@@ -1,5 +1,6 @@
 import AdMoai
 import Foundation
+import ManifestExpectations
 #if canImport(FoundationNetworking)
     import FoundationNetworking
 #endif
@@ -23,7 +24,7 @@ import Foundation
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 3
+let supportedSchemaVersion = 5
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -166,14 +167,47 @@ func manifestGroup() async {
         )
     }
 
+    // `expect.creative` and `slideTracking` once more as raw JSON: the Decodable model above
+    // silently drops any key it has no field for, and the standard-format keys (schemaVersion 4
+    // and 5) are compared as JSON values. A key neither knows fails its scenario (see
+    // assertCreative).
+    let raw = loadRawScenarioBlocks()
+
     for entry in manifest.scenarios {
         await scenario(entry.id, entry.title) { notes in
-            try await runManifestScenario(entry, &notes)
+            try await runManifestScenario(entry, raw.creative[entry.id], raw.slideTracking[entry.id], &notes)
         }
     }
 }
 
-private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [String]) async throws {
+/// scenario id → its `expect.creative` object, and scenario id → its `slideTracking` block, as the
+/// manifest spells them.
+private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slideTracking: [String: [String: Any]]) {
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("scenarios.json")
+    guard let data = try? Data(contentsOf: url),
+          let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let scenarios = root["scenarios"] as? [[String: Any]]
+    else { return ([:], [:]) }
+    var creative: [String: [String: Any]] = [:]
+    var slideTracking: [String: [String: Any]] = [:]
+    for entry in scenarios {
+        guard let id = entry["id"] as? String else { continue }
+        if let object = (entry["expect"] as? [String: Any])?["creative"] as? [String: Any] {
+            creative[id] = object
+        }
+        if let block = entry["slideTracking"] as? [String: Any] {
+            slideTracking[id] = block
+        }
+    }
+    return (creative, slideTracking)
+}
+
+private func runManifestScenario(
+    _ entry: ManifestScenario, _ rawCreativeExpect: [String: Any]?,
+    _ rawSlideTracking: [String: Any]?, _ notes: inout [String]
+) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
     let driver: Driver = switch entry.request.apiVersion {
     case .some("none"): newDriver(apiVersion: nil)
@@ -297,13 +331,36 @@ private func runManifestScenario(_ entry: ManifestScenario, _ notes: inout [Stri
 
     if let expectations = entry.expect.creative {
         try assertCreative(creatives[0], expectations, &notes)
+        try assertStandardFormat(creatives[0], rawCreativeExpect ?? [:], &notes)
     }
     if let pinTracking = entry.pinTracking {
         try await runPinTracking(pinTracking, driver, request, creatives[0], &notes)
     }
+    if let slideTracking = rawSlideTracking {
+        try await runSlideTracking(slideTracking, rawCreativeExpect ?? [:], driver, creatives[0], &notes)
+    }
 }
 
 // MARK: Creative assertions
+
+/// The `expect.creative` keys the shared interpreter in `ManifestExpectations` owns
+/// (`metadata`, `templateKey`, `contentKeys`, `styleIn`, `journeyStageKey` of schemaVersion 4, `slides`, `clickKeys` of
+/// 5),
+/// plus the refusal of any key nobody here knows.
+private func assertStandardFormat(
+    _ creative: Creative, _ raw: [String: Any], _ notes: inout [String]
+) throws {
+    let unknown = LiveCreativeExpectations.unknownKeys(in: raw)
+    try check(unknown.isEmpty, "every expect.creative key is one this runner executes (unknown: \(unknown))")
+    guard !LiveCreativeExpectations.standardFormatKeys.isDisjoint(with: raw.keys) else { return }
+
+    let failures = LiveCreativeExpectations.failures(expect: raw, creative: creative)
+    try check(failures.isEmpty, failures.joined(separator: "; "))
+    notes
+        .append(
+            "standard format: \(raw.keys.filter(LiveCreativeExpectations.standardFormatKeys.contains).sorted().joined(separator: ", "))"
+        )
+}
 
 private func assertCreative(
     _ creative: Creative, _ expect: ManifestCreative, _ notes: inout [String]
@@ -675,20 +732,93 @@ private func runPinTracking(
         }
     }
     if pin.expect.engineAcceptsEveryBeacon == true {
-        let deadline = Date().addingTimeInterval(10)
-        var answers = RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
-        while answers.count < sent.count, Date() < deadline {
-            await sleepSeconds(0.05)
-            answers = RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
-        }
-        try check(answers.count == sent.count, "the engine answered every beacon (\(answers.count)/\(sent.count))")
-        let rejected = answers.filter { !(200 ..< 400).contains($0.status) }
-        try check(rejected.isEmpty, "the engine accepts every beacon (rejected: \(rejected.map(\.status)))")
+        try await checkEngineAcceptsEveryBeacon(sentCount: sent.count)
     }
     notes.append(
         "\(responses.count) response(s), \(responses.map(\.count)) pins: \(expectedViews.count) view GET(s), "
             + "\(expectedInteractions.values.reduce(0, +)) tap/click GET(s), \(sent.count) sent in total"
     )
+}
+
+/// `engineAcceptsEveryBeacon`, shared by `pinTracking` and `slideTracking`: waits (up to 10 s) for
+/// the engine's answer to every tracking GET sent, then requires each below 400.
+private func checkEngineAcceptsEveryBeacon(sentCount: Int) async throws {
+    func answers() -> [(url: String, status: Int)] {
+        RecordingURLProtocol.answered.filter { $0.url.contains("/v1/tracking") }
+    }
+    let deadline = Date().addingTimeInterval(10)
+    while answers().count < sentCount, Date() < deadline {
+        await sleepSeconds(0.05)
+    }
+    let failures = LiveCreativeExpectations.acceptanceFailures(sentCount: sentCount, answered: answers())
+    try check(failures.isEmpty, failures.joined(separator: "; "))
+}
+
+// MARK: slideTracking (live, schemaVersion 5)
+
+//
+// What an app does with the slides of a served Carousel, through the SDK's public helpers on the
+// live-decoded creative: `slideView: n` -> `trackSlideView(slides[n-1])`, `slideClick: n` ->
+// `trackSlideClick(slides[n-1], in:)`, `fireClick: null` -> `fireClick(tracking:)` (n is the
+// 1-based position). Each step runs, then the runner waits until the count of tracking GETs stops
+// moving (no completion exists to await: tracking is fire-and-forget), so beacons of different
+// steps keep their order. Every tracking URL is mapped back to {slide, view|click key} by matching
+// the creative's slide trackers and compared, in order, with `expect.beacons`.
+// `engineAcceptsEveryBeacon` is the `pinTracking` check.
+
+private func runSlideTracking(
+    _ block: [String: Any], _ creativeExpect: [String: Any], _ driver: Driver,
+    _ creative: Creative, _ notes: inout [String]
+) async throws {
+    let shape = LiveCreativeExpectations.slideTrackingShapeFailures(block, creativeExpect: creativeExpect)
+    try check(shape.isEmpty, shape.joined(separator: "; "))
+    let steps = block["steps"] as? [[String: Any]] ?? []
+    let expect = block["expect"] as? [String: Any] ?? [:]
+
+    func slide(_ n: Int) throws -> Slide {
+        try check(
+            creative.slides.indices.contains(n - 1),
+            "the creative has a slide at position \(n) (got \(creative.slides.count))"
+        )
+        return creative.slides[n - 1]
+    }
+    func tracking() -> [String] {
+        RecordingURLProtocol.sent.filter { $0.contains("/v1/tracking") }
+    }
+
+    RecordingURLProtocol.clear()
+    for step in steps {
+        if let n = step["slideView"] as? Int {
+            try driver.sdk.trackSlideView(slide(n))
+        } else if let n = step["slideClick"] as? Int {
+            try driver.sdk.trackSlideClick(slide(n), in: creative)
+        } else if step.keys.contains("fireClick") {
+            if let key = step["fireClick"] as? String {
+                driver.sdk.fireClick(tracking: creative.tracking, key: key)
+            } else {
+                driver.sdk.fireClick(tracking: creative.tracking)
+            }
+        } else {
+            throw ClaimFailed(claim: "slideTracking step \(step) is slideView, slideClick or fireClick")
+        }
+        var last = -1
+        while tracking().count != last {
+            last = tracking().count
+            await sleepSeconds(0.25)
+        }
+    }
+    // A duplicate arriving late is still caught.
+    await sleepSeconds(1.0)
+    let sent = tracking()
+
+    let failures = LiveCreativeExpectations.beaconFailures(
+        expected: expect["beacons"] as? [[String: Any]] ?? [], dispatched: sent, creative: creative
+    )
+    try check(failures.isEmpty, failures.joined(separator: "; "))
+    if expect["engineAcceptsEveryBeacon"] as? Bool == true {
+        try await checkEngineAcceptsEveryBeacon(sentCount: sent.count)
+    }
+    notes.append("slideTracking: \(steps.count) step(s), \(sent.count) beacon(s) sent")
 }
 
 private func decideManifest(_ driver: Driver, _ request: DecisionRequest) async throws -> Served {

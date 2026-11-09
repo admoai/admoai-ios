@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 5,
   "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object.",
   "scenarios": [
     {
@@ -938,6 +938,916 @@
         "expect": {
           "viewsOncePerResponse": true,
           "interactionsEveryCall": true,
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "ST1",
+      "title": "a Card with only its required content serves under the Card standard",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_card_min"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "card",
+          "contentKeys": [
+            "image",
+            "destination_url"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST2",
+      "title": "a Card with every optional content serves them all, in a style the standard defines",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_card_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "card",
+          "contentKeys": [
+            "image",
+            "brand_logo",
+            "headline",
+            "supporting_text",
+            "cta_text",
+            "destination_url"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "styleIn": [
+            "default",
+            "tall"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ST3",
+      "title": "an Expandable Banner with only its required content serves under the Expandable Banner standard",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_expandable_banner_min"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "expandable_banner",
+          "contentKeys": [
+            "teaser_image",
+            "expanded_image",
+            "destination_url"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "expandable_banner",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST4",
+      "title": "an Expandable Banner with every optional content serves them all",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_expandable_banner_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "expandable_banner",
+          "contentKeys": [
+            "teaser_image",
+            "teaser_headline",
+            "expanded_image",
+            "headline",
+            "supporting_text",
+            "cta_text",
+            "destination_url",
+            "disclaimer"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "expandable_banner",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST5",
+      "title": "a Branded Asset with only its required content serves with its asset context",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_branded_assets_min"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "branded_assets",
+          "contentKeys": [
+            "branded_image"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "branded_assets",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": "vehicle_marker"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST6",
+      "title": "a Branded Asset with every optional content serves them all, with its asset context",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_branded_assets_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "branded_assets",
+          "contentKeys": [
+            "branded_image",
+            "accessible_label",
+            "destination_url"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "branded_assets",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": "vehicle_marker"
+          }
+        }
+      }
+    },
+    {
+      "id": "ST7",
+      "title": "a Standard Video with only its required content serves under the Standard Video standard",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_standard_video_min"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "standard_video",
+          "contentKeys": [
+            "video_asset",
+            "poster_image"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "standard_video",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST8",
+      "title": "a Standard Video with every optional content serves them all",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_standard_video_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "standard_video",
+          "contentKeys": [
+            "video_asset",
+            "poster_image",
+            "brand_logo",
+            "headline",
+            "supporting_text",
+            "cta_text",
+            "destination_url",
+            "disclaimer"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "standard_video",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST9",
+      "title": "a standard Ad whose creative cannot satisfy its standard's contract is not served",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_card_incomplete"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd"
+      }
+    },
+    {
+      "id": "ST10",
+      "title": "a legacy creative names no standard and carries no asset context",
+      "request": {
+        "placements": [
+          {
+            "key": "home"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "metadata": {
+            "effectiveStandardFormatKey": null,
+            "effectiveStandardFormatVersion": null,
+            "templateSource": null,
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST11",
+      "title": "a Journey screen that cannot satisfy its standard is skipped and the next stage's screen answers",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_journey_skip"
+          }
+        ],
+        "session": "auto",
+        "journeyOpt": "in"
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": true,
+          "journeyStageKey": "complete",
+          "templateKey": "card",
+          "metadata": {
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
+      "id": "ST12",
+      "title": "a Journey screen serves the Card style saved on it",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_journey_styles"
+          }
+        ],
+        "session": "auto",
+        "journeyOpt": "in"
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": true,
+          "templateKey": "card",
+          "styleIn": [
+            "default",
+            "tall"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ST13",
+      "title": "a Carousel with only its required content serves its slides in order, each with the slide tracking the app needs",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_min"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1001",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1002",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ST14",
+      "title": "a Carousel with every field serves three slides, each carrying all five slide contents",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [
+            "brand_logo",
+            "disclaimer"
+          ],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1101",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1102",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1103",
+              "position": 3,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ST15",
+      "title": "a Carousel whose second slide misses its required image is not served, because a slide is never dropped to make a Carousel valid",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_incomplete"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd"
+      }
+    },
+    {
+      "id": "ST16",
+      "title": "a slide clicked before its view was sent sends the view, then the click, and the engine accepts both",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [
+            "brand_logo",
+            "disclaimer"
+          ],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1101",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1102",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1103",
+              "position": 3,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideClick": 2
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            }
+          ],
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "ST17",
+      "title": "a slide clicked after its view sends only the click, on every click, and the engine accepts them",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [
+            "brand_logo",
+            "disclaimer"
+          ],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1101",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1102",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1103",
+              "position": 3,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 2
+          },
+          {
+            "slideClick": 2
+          },
+          {
+            "slideClick": 2
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            }
+          ],
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "ST18",
+      "title": "a slide shown twice sends its view beacon once per response",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [
+            "brand_logo",
+            "disclaimer"
+          ],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1101",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1102",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1103",
+              "position": 3,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 1
+          },
+          {
+            "slideView": 1
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 1,
+              "view": "slide_view"
+            }
+          ],
+          "engineAcceptsEveryBeacon": true
+        }
+      }
+    },
+    {
+      "id": "ST19",
+      "title": "a Carousel has no creative-level click: fireClick sends nothing",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_carousel_full"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "carousel",
+          "contentKeys": [
+            "brand_logo",
+            "disclaimer"
+          ],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1101",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1102",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "slide_01KJ4733ST0000000000SD1103",
+              "position": 3,
+              "contentKeys": [
+                "image",
+                "headline",
+                "supporting_text",
+                "cta_text",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "fireClick": null
+          }
+        ],
+        "expect": {
+          "beacons": [],
           "engineAcceptsEveryBeacon": true
         }
       }

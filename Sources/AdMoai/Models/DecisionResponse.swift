@@ -338,6 +338,10 @@ public struct Metadata: Decodable {
     /// `based_on_standard` (an operator's template built on it). Open-set: an unknown value is
     /// kept verbatim, and absent is `nil`.
     public let templateSource: String?
+    /// What a Branded Assets creative's assets are for (e.g. `vehicle_marker`). Absent when the
+    /// engine does not send it (every other format), never an empty string. Open-set: an unknown
+    /// value is kept verbatim.
+    public let assetContext: String?
 }
 
 public struct Advertiser: Decodable {
@@ -551,7 +555,7 @@ extension Metadata {
         case adId, creativeId, advertiserId, templateId, placementId, priority
         case language, format, style, impId, duration, aspectRatio, isSkippable
         case skipOffsetSeconds, endCardMode
-        case effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource
+        case effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource, assetContext
     }
 
     public init(from decoder: Decoder) throws {
@@ -585,6 +589,7 @@ extension Metadata {
                 ?? (try? c.decode(Double.self, forKey: .effectiveStandardFormatVersion))
                 .flatMap { $0 == $0.rounded() ? Int(exactly: $0) : nil }
         self.templateSource = try? c.decode(String.self, forKey: .templateSource)
+        self.assetContext = try? c.decode(String.self, forKey: .assetContext)
     }
 }
 
