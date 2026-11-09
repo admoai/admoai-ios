@@ -36,7 +36,8 @@ struct ManifestIntegrityTests {
         }
     }
 
-    /// `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format `expect.creative` keys, 5 the live Carousel `slides`, `clickKeys` and `slideTracking`); the live runner
+    /// `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format
+    /// `expect.creative` keys, 5 the live Carousel `slides`, `clickKeys` and `slideTracking`); the live runner
     /// refuses any other version and FixtureScenariosTests interprets them, so both are
     /// pinned here against the vendored copy.
     @Test

@@ -141,7 +141,12 @@ private func editCreative(in root: inout JSONObject, _ body: (inout JSONObject) 
 
 // MARK: - The interpreter
 
-private let metadataKeys = ["effectiveStandardFormatKey", "effectiveStandardFormatVersion", "templateSource", "assetContext"]
+private let metadataKeys = [
+    "effectiveStandardFormatKey",
+    "effectiveStandardFormatVersion",
+    "templateSource",
+    "assetContext",
+]
 
 struct FixtureScenariosTests {
     @Test(arguments: FixtureScenario.all)

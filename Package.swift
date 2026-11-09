@@ -11,17 +11,19 @@ let package = Package(
     products: [
         .library(
             name: "AdMoai",
-            targets: ["AdMoai"])
+            targets: ["AdMoai"]
+        ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0")
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
     ],
     targets: [
         .target(
             name: "AdMoai",
             // Gherkin specifications live beside the code they specify; the tests that execute
             // them are in AdMoaiTests. Not resources — nothing ships them.
-            exclude: ["ViewBeaconLedger.feature"]),
+            exclude: ["ViewBeaconLedger.feature"]
+        ),
         // The live scenario manifest's `expect.creative` interpreter: a library so the runner
         // below and `swift test` run the same code (unit tests cover its pass and fail paths).
         .target(

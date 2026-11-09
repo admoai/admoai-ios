@@ -1,11 +1,11 @@
+@testable import AdMoai
 import Foundation
 import ManifestExpectations
 import Testing
 
-@testable import AdMoai
-
 /// The live manifest's schemaVersion 4 and 5 `expect.creative` keys and `slideTracking` helpers
-/// (@admoai/sdk-scenarios 1.4.0 and 1.5.0, ST1-ST19): each key passes on a matching creative and fails on a mismatching one, and a key
+/// (@admoai/sdk-scenarios 1.4.0 and 1.5.0, ST1-ST19): each key passes on a matching creative and fails on a mismatching
+/// one, and a key
 /// nobody executes is refused rather than ignored. The runner proves the same code against a
 /// real engine; this proves its fail paths offline.
 struct LiveCreativeExpectationsTests {
@@ -21,8 +21,12 @@ struct LiveCreativeExpectationsTests {
             "advertiser": ["name": "A"],
             "tracking": [String: Any](),
         ]
-        if let template { wire["template"] = template }
-        if let journey { wire["journey"] = journey }
+        if let template {
+            wire["template"] = template
+        }
+        if let journey {
+            wire["journey"] = journey
+        }
         return try JSONDecoder().decode(Creative.self, from: JSONSerialization.data(withJSONObject: wire))
     }
 
@@ -55,7 +59,8 @@ struct LiveCreativeExpectationsTests {
         let c = try creative(metadata: meta)
         #expect(failures(["metadata": ["templateSource": NSNull()]], c).count == 1)
         let bare = try creative()
-        #expect(failures(["metadata": ["templateSource": NSNull(), "effectiveStandardFormatKey": NSNull()]], bare).isEmpty)
+        #expect(failures(["metadata": ["templateSource": NSNull(), "effectiveStandardFormatKey": NSNull()]], bare)
+            .isEmpty)
     }
 
     @Test func assetContextIsReadFromTheServedMetadata() throws {
@@ -77,7 +82,7 @@ struct LiveCreativeExpectationsTests {
         let c = try creative()
         #expect(failures(["templateKey": "card"], c).isEmpty)
         #expect(failures(["templateKey": "carousel"], c).count == 1)
-        #expect(failures(["templateKey": "card"], try creative(template: nil)).count == 1)
+        #expect(try failures(["templateKey": "card"], creative(template: nil)).count == 1)
     }
 
     @Test func contentKeysIsAnExactUnorderedSetWithoutSlidesOrMatchedPoints() throws {
@@ -96,14 +101,17 @@ struct LiveCreativeExpectationsTests {
         #expect(failures(["styleIn": ["default", "dark"]], c).isEmpty)
         #expect(failures(["styleIn": ["default", "light"]], c).count == 1)
         #expect(failures(["styleIn": [String]()], c).count == 1, "an empty list is invalid")
-        #expect(failures(["styleIn": ["default"]], try creative(template: ["key": "card"])).count == 1, "no style is not listed")
+        #expect(
+            try failures(["styleIn": ["default"]], creative(template: ["key": "card"])).count == 1,
+            "no style is not listed"
+        )
     }
 
     @Test func journeyStageKeyPassesAndFails() throws {
         let c = try creative(journey: ["stageKey": "pick"])
         #expect(failures(["journey": true, "journeyStageKey": "pick"], c).isEmpty)
         #expect(failures(["journey": true, "journeyStageKey": "other"], c).count == 1)
-        #expect(failures(["journey": true, "journeyStageKey": "pick"], try creative()).count == 1, "not a journey ad")
+        #expect(try failures(["journey": true, "journeyStageKey": "pick"], creative()).count == 1, "not a journey ad")
         #expect(failures(["journeyStageKey": "pick"], c).count == 1, "needs journey: true")
     }
 
@@ -114,7 +122,9 @@ struct LiveCreativeExpectationsTests {
 
     // MARK: schemaVersion 5: slides, clickKeys, slideTracking
 
-    private func slideWire(_ id: String, _ position: Int, contents: [String] = ["image"], clicks: [String] = ["default"]) -> JSON {
+    private func slideWire(_ id: String, _ position: Int, contents: [String] = ["image"],
+                           clicks: [String] = ["default"]) -> JSON
+    {
         [
             "slideId": id, "position": position,
             "contents": contents.map { ["key": $0, "value": "v", "type": "text"] },
@@ -127,7 +137,11 @@ struct LiveCreativeExpectationsTests {
 
     private func carousel(slides: [JSON]? = nil, clicks: [JSON] = []) throws -> Creative {
         let wire: JSON = [
-            "contents": [["key": "slides", "value": slides ?? [slideWire("s1", 1), slideWire("s2", 2)], "type": "slides"]],
+            "contents": [[
+                "key": "slides",
+                "value": slides ?? [slideWire("s1", 1), slideWire("s2", 2)],
+                "type": "slides",
+            ]],
             "advertiser": ["name": "A"],
             "tracking": ["clicks": clicks],
         ]
@@ -147,8 +161,14 @@ struct LiveCreativeExpectationsTests {
         let c = try carousel()
         #expect(!failures(["slides": [slideExpect("s2", 2), slideExpect("s1", 1)]], c).isEmpty, "wrong order")
         #expect(!failures(["slides": [slideExpect("s1", 1)]], c).isEmpty, "a served slide the manifest does not list")
-        #expect(!failures(["slides": [slideExpect("s1", 1), slideExpect("s2", 2), slideExpect("s3", 3)]], c).isEmpty, "a listed slide that is missing")
-        #expect(!failures(["slides": [slideExpect("s1", 1), slideExpect("s2", 2, clicks: [])]], c).isEmpty, "an extra served click key")
+        #expect(
+            !failures(["slides": [slideExpect("s1", 1), slideExpect("s2", 2), slideExpect("s3", 3)]], c).isEmpty,
+            "a listed slide that is missing"
+        )
+        #expect(
+            !failures(["slides": [slideExpect("s1", 1), slideExpect("s2", 2, clicks: [])]], c).isEmpty,
+            "an extra served click key"
+        )
         var wrongView = slideExpect("s1", 1)
         wrongView["viewKeys"] = ["other"]
         #expect(!failures(["slides": [wrongView, slideExpect("s2", 2)]], c).isEmpty)
@@ -164,7 +184,10 @@ struct LiveCreativeExpectationsTests {
         let none = try carousel()
         #expect(failures(["clickKeys": [String]()], none).isEmpty)
         #expect(failures(["clickKeys": ["default"]], none).count == 1, "a missing key fails")
-        let some = try carousel(clicks: [["key": "default", "url": "https://e.test/c"], ["key": "extra", "url": "https://e.test/e"]])
+        let some = try carousel(clicks: [
+            ["key": "default", "url": "https://e.test/c"],
+            ["key": "extra", "url": "https://e.test/e"],
+        ])
         #expect(failures(["clickKeys": ["extra", "default"]], some).isEmpty, "order is not asserted")
         #expect(failures(["clickKeys": [String]()], some).count == 1, "an extra served key fails")
     }
@@ -175,27 +198,63 @@ struct LiveCreativeExpectationsTests {
         let click = "https://e.test/v1/tracking/click/s2/default"
         let expected: [JSON] = [["slide": 2, "view": "slide_view"], ["slide": 2, "click": "default"]]
         #expect(LiveCreativeExpectations.beaconLabel(url: click, creative: c) == "slide 2 click default")
-        #expect(LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click], creative: c).isEmpty)
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [click, view], creative: c).isEmpty, "order mismatch")
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view], creative: c).isEmpty, "a missing beacon")
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click, click], creative: c).isEmpty, "a stray beacon")
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, "https://e.test/other"], creative: c).isEmpty, "an unknown URL")
-        #expect(LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [], creative: c).isEmpty, "no beacons expected, none sent")
+        #expect(LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click], creative: c)
+            .isEmpty)
+        #expect(
+            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [click, view], creative: c)
+                .isEmpty,
+            "order mismatch"
+        )
+        #expect(
+            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view], creative: c).isEmpty,
+            "a missing beacon"
+        )
+        #expect(
+            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click, click], creative: c)
+                .isEmpty,
+            "a stray beacon"
+        )
+        #expect(
+            !LiveCreativeExpectations
+                .beaconFailures(expected: expected, dispatched: [view, "https://e.test/other"], creative: c).isEmpty,
+            "an unknown URL"
+        )
+        #expect(
+            LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [], creative: c).isEmpty,
+            "no beacons expected, none sent"
+        )
         #expect(!LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [view], creative: c).isEmpty)
     }
 
     @Test func aRejectedOrUnansweredBeaconFailsTheAcceptanceCheck() {
         #expect(LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204), ("b", 302)]).isEmpty)
-        #expect(LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204), ("b", 403)]).count == 1, "rejected")
-        #expect(LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204), ("b", -1)]).count == 1, "transport error")
-        #expect(LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204)]).count == 1, "unanswered")
+        #expect(
+            LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204), ("b", 403)]).count == 1,
+            "rejected"
+        )
+        #expect(
+            LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204), ("b", -1)]).count == 1,
+            "transport error"
+        )
+        #expect(
+            LiveCreativeExpectations.acceptanceFailures(sentCount: 2, answered: [("a", 204)]).count == 1,
+            "unanswered"
+        )
     }
 
     @Test func slideTrackingBlockNeedsSlidesAndRefusesUnknownKeys() {
-        let block: JSON = ["steps": [["slideView": 1]], "expect": ["beacons": [JSON](), "engineAcceptsEveryBeacon": true]]
-        #expect(LiveCreativeExpectations.slideTrackingShapeFailures(block, creativeExpect: ["slides": [JSON]()]).isEmpty)
+        let block: JSON = [
+            "steps": [["slideView": 1]],
+            "expect": ["beacons": [JSON](), "engineAcceptsEveryBeacon": true],
+        ]
+        #expect(LiveCreativeExpectations.slideTrackingShapeFailures(block, creativeExpect: ["slides": [JSON]()])
+            .isEmpty)
         #expect(LiveCreativeExpectations.slideTrackingShapeFailures(block, creativeExpect: [:]).count == 1)
-        let thirdParty: JSON = ["steps": [["custom": "expand"]], "expect": ["beacons": [JSON](), "thirdPartyBeacons": ["x"]]]
-        #expect(LiveCreativeExpectations.slideTrackingShapeFailures(thirdParty, creativeExpect: ["slides": [JSON]()]).count == 2)
+        let thirdParty: JSON = [
+            "steps": [["custom": "expand"]],
+            "expect": ["beacons": [JSON](), "thirdPartyBeacons": ["x"]],
+        ]
+        #expect(LiveCreativeExpectations.slideTrackingShapeFailures(thirdParty, creativeExpect: ["slides": [JSON]()])
+            .count == 2)
     }
 }

@@ -140,7 +140,10 @@ public enum LiveCreativeExpectations {
                 ("clickKeys", Set((slide.tracking?.clicks ?? []).map(\.key))),
             ]
             for (name, actual) in sets where actual != Set(want[name] as? [String] ?? []) {
-                out.append("\(label) \(name) is exactly \((want[name] as? [String] ?? []).sorted()) (got \(actual.sorted()))")
+                out
+                    .append(
+                        "\(label) \(name) is exactly \((want[name] as? [String] ?? []).sorted()) (got \(actual.sorted()))"
+                    )
             }
         }
         return out
@@ -166,8 +169,12 @@ public enum LiveCreativeExpectations {
     /// not of that shape.
     public static func beaconLabel(expected beacon: [String: Any]) -> String? {
         guard let slide = beacon["slide"] as? Int else { return nil }
-        if let key = beacon["view"] as? String { return "slide \(slide) view \(key)" }
-        if let key = beacon["click"] as? String { return "slide \(slide) click \(key)" }
+        if let key = beacon["view"] as? String {
+            return "slide \(slide) view \(key)"
+        }
+        if let key = beacon["click"] as? String {
+            return "slide \(slide) click \(key)"
+        }
         return nil
     }
 
@@ -241,7 +248,9 @@ public enum LiveCreativeExpectations {
                 continue
             }
             if expected is NSNull {
-                if actual != nil { out.append("metadata.\(key) is absent (got \(describe(actual)))") }
+                if actual != nil {
+                    out.append("metadata.\(key) is absent (got \(describe(actual)))")
+                }
             } else if !equal(expected, actual) {
                 out.append("metadata.\(key) is \(describe(expected)) (got \(describe(actual)))")
             }
@@ -251,9 +260,9 @@ public enum LiveCreativeExpectations {
 
     private static func equal(_ expected: Any, _ actual: Any?) -> Bool {
         switch (expected, actual) {
-        case let (e as String, a as String): return e == a
-        case let (e as Int, a as Int): return e == a
-        default: return false
+        case let (e as String, a as String): e == a
+        case let (e as Int, a as Int): e == a
+        default: false
         }
     }
 

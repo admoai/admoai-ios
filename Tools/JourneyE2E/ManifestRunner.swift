@@ -344,7 +344,8 @@ private func runManifestScenario(
 // MARK: Creative assertions
 
 /// The `expect.creative` keys the shared interpreter in `ManifestExpectations` owns
-/// (`metadata`, `templateKey`, `contentKeys`, `styleIn`, `journeyStageKey` of schemaVersion 4, `slides`, `clickKeys` of 5),
+/// (`metadata`, `templateKey`, `contentKeys`, `styleIn`, `journeyStageKey` of schemaVersion 4, `slides`, `clickKeys` of
+/// 5),
 /// plus the refusal of any key nobody here knows.
 private func assertStandardFormat(
     _ creative: Creative, _ raw: [String: Any], _ notes: inout [String]
@@ -355,7 +356,10 @@ private func assertStandardFormat(
 
     let failures = LiveCreativeExpectations.failures(expect: raw, creative: creative)
     try check(failures.isEmpty, failures.joined(separator: "; "))
-    notes.append("standard format: \(raw.keys.filter(LiveCreativeExpectations.standardFormatKeys.contains).sorted().joined(separator: ", "))")
+    notes
+        .append(
+            "standard format: \(raw.keys.filter(LiveCreativeExpectations.standardFormatKeys.contains).sorted().joined(separator: ", "))"
+        )
 }
 
 private func assertCreative(
@@ -751,6 +755,7 @@ private func checkEngineAcceptsEveryBeacon(sentCount: Int) async throws {
 }
 
 // MARK: slideTracking (live, schemaVersion 5)
+
 //
 // What an app does with the slides of a served Carousel, through the SDK's public helpers on the
 // live-decoded creative: `slideView: n` -> `trackSlideView(slides[n-1])`, `slideClick: n` ->
@@ -771,7 +776,10 @@ private func runSlideTracking(
     let expect = block["expect"] as? [String: Any] ?? [:]
 
     func slide(_ n: Int) throws -> Slide {
-        try check(creative.slides.indices.contains(n - 1), "the creative has a slide at position \(n) (got \(creative.slides.count))")
+        try check(
+            creative.slides.indices.contains(n - 1),
+            "the creative has a slide at position \(n) (got \(creative.slides.count))"
+        )
         return creative.slides[n - 1]
     }
     func tracking() -> [String] {
@@ -781,9 +789,9 @@ private func runSlideTracking(
     RecordingURLProtocol.clear()
     for step in steps {
         if let n = step["slideView"] as? Int {
-            driver.sdk.trackSlideView(try slide(n))
+            try driver.sdk.trackSlideView(slide(n))
         } else if let n = step["slideClick"] as? Int {
-            driver.sdk.trackSlideClick(try slide(n), in: creative)
+            try driver.sdk.trackSlideClick(slide(n), in: creative)
         } else if step.keys.contains("fireClick") {
             if let key = step["fireClick"] as? String {
                 driver.sdk.fireClick(tracking: creative.tracking, key: key)
