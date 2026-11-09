@@ -1,5 +1,6 @@
 @testable import AdMoai
 import Foundation
+import ManifestExpectations
 import Testing
 
 // Shared fixture scenarios (@admoai/sdk-scenarios schemaVersion 3, admoai/adhub#4734)
@@ -253,24 +254,8 @@ struct FixtureScenariosTests {
     }
 
     private func checkSlides(_ id: String, _ expected: [JSONObject], _ slides: [Slide]) {
-        #expect(slides.count == expected.count, "\(id): slide count, got \(slides.count)")
-        for (index, want) in expected.enumerated() where index < slides.count {
-            let slide = slides[index]
-            let label = "\(id): slide \(index + 1)"
-            for key in want.keys where !["slideId", "position", "contentKeys", "viewKeys", "clickKeys"].contains(key) {
-                Issue.record("\(label): unknown slide expect key \(key)")
-            }
-            #expect(slide.slideId == want["slideId"] as? String, "\(label) slideId")
-            #expect(slide.position == want["position"] as? Int, "\(label) position")
-            #expect(Set(slide.contents.map(\.key)) == Set(strings(want["contentKeys"])), "\(label) contentKeys")
-            #expect(
-                Set((slide.tracking?.views ?? []).map(\.key)) == Set(strings(want["viewKeys"])),
-                "\(label) viewKeys"
-            )
-            #expect(
-                Set((slide.tracking?.clicks ?? []).map(\.key)) == Set(strings(want["clickKeys"])),
-                "\(label) clickKeys"
-            )
+        for failure in LiveCreativeExpectations.slideFailures(expected, slides) {
+            Issue.record("\(id): \(failure)")
         }
     }
 
