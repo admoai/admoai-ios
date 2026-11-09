@@ -389,12 +389,16 @@ public struct AdMoai {
     /// A new response carries new signed view URLs and is reported again. A view is never
     /// retried.
     ///
+    /// Sends only the slide's `slide_view` entries. Any other view-type entry a template adds
+    /// to the slide is never sent by this helper.
+    ///
     /// Trackers stay attached to their slide: pass the ``Slide`` you rendered, never the
     /// creative. A slide served without tracking is a no-op.
     public func trackSlideView(_ slide: Slide) {
         slideDispatchLock.lock()
         defer { slideDispatchLock.unlock() }
-        for item in slide.tracking?.views ?? [] where slideViewLedger.claim(item.url) {
+        let views = (slide.tracking?.views ?? []).filter { $0.key == Self.slideViewKey }
+        for item in views where slideViewLedger.claim(item.url) {
             fireTracking(url: item.url)
         }
     }
@@ -407,9 +411,11 @@ public struct AdMoai {
 
     /// Reports that the user **activated a slide** (`click`). Billable.
     ///
-    /// A click on a slide that was not reported as viewed yet sends the slide's view first, then
-    /// the click. Every click then also fans out the creative's applicable third-party click
-    /// trackers once.
+    /// A click on a slide that was not reported as viewed yet sends the slide's `slide_view`
+    /// first, then the slide's `default` click and nothing else: click entries a template adds
+    /// under other keys are never sent by this helper. Every click then also fans out the
+    /// creative's third-party click trackers that apply to `default` once. A slide with no
+    /// `default` click counts its view only: no click and no fan-out.
     ///
     /// **Do not route a slide tap through ``fireClick(tracking:key:)``**: a Carousel has no
     /// creative-level click, so that sends nothing.
@@ -419,15 +425,19 @@ public struct AdMoai {
         // A tap proves the slide was on screen, so its view counts (once) even when the slide
         // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
         trackSlideView(slide)
-        guard let clicks = slide.tracking?.clicks, !clicks.isEmpty else { return }
+        let clicks = (slide.tracking?.clicks ?? []).filter { $0.key == Self.slideDefaultClickKey }
+        guard !clicks.isEmpty else { return }
         for item in clicks {
             fireTracking(url: item.url)
         }
-        // One fan-out per click, whatever number of click beacons the slide carries, and only
-        // when a canonical click beacon was actually valid (same rule as `fireClick`).
-        guard let key = clicks.first(where: { Self.isAbsoluteHttpURL($0.url) })?.key else { return }
-        fireThirdPartyTrackers(creative.tracking, event: .click(key: key))
+        // One fan-out per click, whatever number of `default` beacons the slide carries, and only
+        // when one of them was actually valid (same rule as `fireClick`).
+        guard clicks.contains(where: { Self.isAbsoluteHttpURL($0.url) }) else { return }
+        fireThirdPartyTrackers(creative.tracking, event: .click(key: Self.slideDefaultClickKey))
     }
+
+    private static let slideViewKey = "slide_view"
+    private static let slideDefaultClickKey = "default"
 
     // MARK: - Standard format custom events
 

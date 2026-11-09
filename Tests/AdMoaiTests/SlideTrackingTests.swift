@@ -22,6 +22,17 @@ private func slideJSON(_ n: Int, views: Bool = true, clicks: Bool = true) -> Str
     """
 }
 
+/// A slide whose template added events beyond the standard `slide_view` and `default`.
+private func customSlideJSON(views: [String], clicks: [String]) -> String {
+    func entries(_ keys: [String], _ kind: String) -> String {
+        keys.map { #"{"key": "\#($0)", "url": "https://t/custom/\#($0)"}"# }.joined(separator: ",")
+    }
+    return """
+    {"slideId": "slide_1", "position": 1, "contents": [],
+     "tracking": {"views": [\(entries(views, "view"))], "clicks": [\(entries(clicks, "click"))]}}
+    """
+}
+
 private func creative(slides: [String]) throws -> Creative {
     let json = """
     {
@@ -34,6 +45,8 @@ private func creative(slides: [String]) throws -> Creative {
            "eventKey": "default", "url": "https://agency.example/default"},
           {"trackerId": "other", "eventType": "click", "matchType": "specific",
            "eventKey": "save", "url": "https://agency.example/other"},
+          {"trackerId": "save_offer", "eventType": "click", "matchType": "specific",
+           "eventKey": "save_offer", "url": "https://agency.example/save_offer"},
           {"trackerId": "imp", "eventType": "impression", "url": "https://agency.example/imp"}
         ]
       }
@@ -212,6 +225,44 @@ extension MockNetworkTests {
             sdk().fireClick(tracking: creative.tracking)
             await expectRequests(0)
             #expect(sent().isEmpty)
+        }
+
+        @Test func aViewSendsOnlyTheSlideViewEntry() async throws {
+            let slide = customSlideJSON(views: ["slide_shown_custom", "slide_view"], clicks: ["default"])
+            let creative = try creative(slides: [slide])
+            let sdk = sdk()
+            MockURLProtocol.reset()
+            sdk.trackSlideView(creative.slides[0])
+            await expectRequests(1)
+            #expect(sent() == ["https://t/custom/slide_view"], "other view-type entries are never sent by the helper")
+        }
+
+        @Test func aClickSendsTheViewThenOnlyTheDefaultClickAndItsTrackers() async throws {
+            let slide = customSlideJSON(
+                views: ["slide_view", "slide_shown_custom"], clicks: ["save_offer", "default"]
+            )
+            let creative = try creative(slides: [slide])
+            let sdk = sdk()
+            MockURLProtocol.reset()
+            let dispatched = DispatchLog()
+            sdk.beaconSession.observeDispatches { dispatched.append($0.url?.absoluteString ?? "") }
+            defer { sdk.beaconSession.observeDispatches(nil) }
+            sdk.trackSlideClick(creative.slides[0], in: creative)
+            await expectRequests(4)
+            #expect(dispatched.urls.filter { $0.hasPrefix("https://t/") }
+                == ["https://t/custom/slide_view", "https://t/custom/default"])
+            let thirdParty = sent().filter { $0.hasPrefix("https://agency.example/") }
+            #expect(thirdParty.sorted() == ["https://agency.example/any", "https://agency.example/default"])
+        }
+
+        @Test func aSlideWhoseOnlyClickIsCustomCountsItsViewAndNothingElse() async throws {
+            let slide = customSlideJSON(views: ["slide_view"], clicks: ["save_offer"])
+            let creative = try creative(slides: [slide])
+            let sdk = sdk()
+            MockURLProtocol.reset()
+            sdk.trackSlideClick(creative.slides[0], in: creative)
+            await expectRequests(1)
+            #expect(sent() == ["https://t/custom/slide_view"], "no default click: no click, no fan-out")
         }
     }
 }
