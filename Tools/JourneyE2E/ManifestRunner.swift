@@ -186,10 +186,11 @@ private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slid
     let url = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .appendingPathComponent("scenarios.json")
-    guard let data = try? Data(contentsOf: url),
-          let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-          let scenarios = root["scenarios"] as? [[String: Any]]
-    else { return ([:], [:]) }
+    // `manifestGroup` already loaded this file through `loadManifest()` and stopped at its failing
+    // MANIFEST scenario if it could not, so here it reads and parses.
+    let data = (try? Data(contentsOf: url)) ?? Data()
+    let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    let scenarios = root?["scenarios"] as? [[String: Any]] ?? []
     var creative: [String: [String: Any]] = [:]
     var slideTracking: [String: [String: Any]] = [:]
     for entry in scenarios {
@@ -763,7 +764,9 @@ private func checkEngineAcceptsEveryBeacon(sentCount: Int) async throws {
 // 1-based position). Each step runs, then the runner waits until the count of tracking GETs stops
 // moving (no completion exists to await: tracking is fire-and-forget), so beacons of different
 // steps keep their order. Every tracking URL is mapped back to {slide, view|click key} by matching
-// the creative's slide trackers and compared, in order, with `expect.beacons`.
+// the creative's slide trackers and compared with `expect.beacons`: as a set within a step (the
+// runner sees transport order, not SDK dispatch order, which fixture F18 pins offline through the
+// dispatch seam), each expected beacon tied to the step that produces it.
 // `engineAcceptsEveryBeacon` is the `pinTracking` check.
 
 private func runSlideTracking(
@@ -787,7 +790,9 @@ private func runSlideTracking(
     }
 
     RecordingURLProtocol.clear()
+    var stepBeacons: [[String]] = []
     for step in steps {
+        let before = tracking().count
         if let n = step["slideView"] as? Int {
             try driver.sdk.trackSlideView(slide(n))
         } else if let n = step["slideClick"] as? Int {
@@ -806,13 +811,19 @@ private func runSlideTracking(
             last = tracking().count
             await sleepSeconds(0.25)
         }
+        stepBeacons.append(Array(tracking().dropFirst(before)))
     }
-    // A duplicate arriving late is still caught.
+    // A duplicate arriving late is still caught: it lands in the last step.
     await sleepSeconds(1.0)
     let sent = tracking()
+    if !stepBeacons.isEmpty {
+        let counted = stepBeacons.dropLast().reduce(0) { $0 + $1.count }
+        stepBeacons[stepBeacons.count - 1] = Array(sent.dropFirst(counted))
+    }
 
     let failures = LiveCreativeExpectations.beaconFailures(
-        expected: expect["beacons"] as? [[String: Any]] ?? [], dispatched: sent, creative: creative
+        expected: expect["beacons"] as? [[String: Any]] ?? [], steps: steps, dispatchedSteps: stepBeacons,
+        creative: creative
     )
     try check(failures.isEmpty, failures.joined(separator: "; "))
     if expect["engineAcceptsEveryBeacon"] as? Bool == true {

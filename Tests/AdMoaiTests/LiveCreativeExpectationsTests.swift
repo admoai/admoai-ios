@@ -192,38 +192,42 @@ struct LiveCreativeExpectationsTests {
         #expect(failures(["clickKeys": [String]()], some).count == 1, "an extra served key fails")
     }
 
-    @Test func beaconsMapBackToSlideAndKeyAndCompareInOrder() throws {
+    @Test func beaconsAreTiedToTheirStepAndCompareAsASetWithinIt() throws {
         let c = try carousel()
         let view = "https://e.test/v1/tracking/view/s2"
         let click = "https://e.test/v1/tracking/click/s2/default"
-        let expected: [JSON] = [["slide": 2, "view": "slide_view"], ["slide": 2, "click": "default"]]
+        let tap: [JSON] = [["slideClick": 2]]
+        let viewThenTap: [JSON] = [["slideView": 2], ["slideClick": 2]]
+        let pair: [JSON] = [["slide": 2, "view": "slide_view"], ["slide": 2, "click": "default"]]
+        func failures(_ steps: [JSON], _ observed: [[String]], _ expected: [JSON] = pair) -> [String] {
+            LiveCreativeExpectations.beaconFailures(
+                expected: expected, steps: steps, dispatchedSteps: observed, creative: c
+            )
+        }
         #expect(LiveCreativeExpectations.beaconLabel(url: click, creative: c) == "slide 2 click default")
-        #expect(LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click], creative: c)
-            .isEmpty)
+        #expect(failures(viewThenTap, [[view], [click]]).isEmpty, "two steps, each with its own beacon")
+        #expect(failures(tap, [[view, click]]).isEmpty, "one tap, view then click")
+        #expect(failures(tap, [[click, view]]).isEmpty, "one tap, transport order differs: still the same set")
+        #expect(!failures(viewThenTap, [[], [view, click]]).isEmpty, "the view arrives on the tap, not the view step")
+        #expect(!failures(viewThenTap, [[view, click], []]).isEmpty, "the click arrives on the view step")
+        #expect(!failures(tap, [[view]]).isEmpty, "a missing beacon")
+        #expect(!failures(tap, [[view, click, click]]).isEmpty, "a stray beacon")
+        #expect(!failures(tap, [[view, view]]).isEmpty, "a duplicate in place of the click")
+        #expect(!failures(tap, [[view, "https://e.test/other"]]).isEmpty, "an unknown URL")
+        #expect(!failures(tap, [[view, click], []]).isEmpty, "one observed list per step")
         #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [click, view], creative: c)
-                .isEmpty,
-            "order mismatch"
+            !failures([["slideView": 2]], [[view]], pair).isEmpty,
+            "a beacon no step can produce fails the list"
         )
-        #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view], creative: c).isEmpty,
-            "a missing beacon"
-        )
-        #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click, click], creative: c)
-                .isEmpty,
-            "a stray beacon"
-        )
-        #expect(
-            !LiveCreativeExpectations
-                .beaconFailures(expected: expected, dispatched: [view, "https://e.test/other"], creative: c).isEmpty,
-            "an unknown URL"
-        )
-        #expect(
-            LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [], creative: c).isEmpty,
-            "no beacons expected, none sent"
-        )
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [view], creative: c).isEmpty)
+        #expect(failures([["fireClick": NSNull()]], [[]], []).isEmpty, "no beacons expected, none sent")
+        #expect(!failures([["fireClick": NSNull()]], [[view]], []).isEmpty)
+
+        // ST17 as the manifest spells it, against a regression where the standalone view sends
+        // nothing and the first tap sends view and click: the counts match, the steps do not.
+        let st17Steps: [JSON] = [["slideView": 2], ["slideClick": 2], ["slideClick": 2]]
+        let st17: [JSON] = pair + [["slide": 2, "click": "default"]]
+        #expect(failures(st17Steps, [[view], [click], [click]], st17).isEmpty)
+        #expect(!failures(st17Steps, [[], [view, click], [click]], st17).isEmpty)
     }
 
     @Test func aRejectedOrUnansweredBeaconFailsTheAcceptanceCheck() {
