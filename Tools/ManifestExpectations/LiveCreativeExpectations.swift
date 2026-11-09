@@ -178,10 +178,16 @@ public enum LiveCreativeExpectations {
         return nil
     }
 
-    /// `slideTracking.expect.beacons`: the exact ordered list of first-party beacons the SDK
-    /// dispatched, `dispatched` being every tracking URL in the order it reached the wire.
+    /// `slideTracking.expect.beacons`: the exact list of first-party beacons the SDK dispatched,
+    /// `dispatchedSteps` holding the tracking URLs observed during each step, in step order.
+    ///
+    /// Beacons produced WITHIN one step are compared as a multiset: the live runner sees requests
+    /// as the transport starts loading them, which reflects transport order, not the order the SDK
+    /// dispatched them in. Order ACROSS steps is kept, because the runner lets each step settle
+    /// before the next one starts. The SDK's own dispatch order (view before click) is pinned
+    /// offline by fixture F18 through the dispatch seam.
     public static func beaconFailures(
-        expected: [[String: Any]], dispatched: [String], creative: Creative
+        expected: [[String: Any]], dispatchedSteps: [[String]], creative: Creative
     ) -> [String] {
         var wanted: [String] = []
         for beacon in expected {
@@ -190,8 +196,19 @@ public enum LiveCreativeExpectations {
             }
             wanted.append(label)
         }
-        let actual = dispatched.map { beaconLabel(url: $0, creative: creative) }
-        return actual == wanted ? [] : ["beacons are, in order, \(wanted) (got \(actual))"]
+        let actualSteps = dispatchedSteps.map { $0.map { beaconLabel(url: $0, creative: creative) } }
+        let actual = actualSteps.flatMap { $0 }
+        let message = "beacons are \(wanted) (got \(actual)), compared as a set within a step and in order across steps"
+        guard actual.count == wanted.count else { return [message] }
+        var offset = 0
+        for step in actualSteps {
+            let slice = wanted[offset ..< offset + step.count]
+            if step.sorted() != slice.sorted() {
+                return [message]
+            }
+            offset += step.count
+        }
+        return []
     }
 
     /// `engineAcceptsEveryBeacon`: every beacon sent got an answer, and none below 200 or at 400

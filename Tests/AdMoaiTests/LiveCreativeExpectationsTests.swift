@@ -192,38 +192,25 @@ struct LiveCreativeExpectationsTests {
         #expect(failures(["clickKeys": [String]()], some).count == 1, "an extra served key fails")
     }
 
-    @Test func beaconsMapBackToSlideAndKeyAndCompareInOrder() throws {
+    @Test func beaconsMapBackToSlideAndKeyAndCompareAsASetWithinAStepAndInOrderAcrossSteps() throws {
         let c = try carousel()
         let view = "https://e.test/v1/tracking/view/s2"
         let click = "https://e.test/v1/tracking/click/s2/default"
         let expected: [JSON] = [["slide": 2, "view": "slide_view"], ["slide": 2, "click": "default"]]
+        func failures(_ steps: [[String]], _ expected: [JSON] = expected) -> [String] {
+            LiveCreativeExpectations.beaconFailures(expected: expected, dispatchedSteps: steps, creative: c)
+        }
         #expect(LiveCreativeExpectations.beaconLabel(url: click, creative: c) == "slide 2 click default")
-        #expect(LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click], creative: c)
-            .isEmpty)
-        #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [click, view], creative: c)
-                .isEmpty,
-            "order mismatch"
-        )
-        #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view], creative: c).isEmpty,
-            "a missing beacon"
-        )
-        #expect(
-            !LiveCreativeExpectations.beaconFailures(expected: expected, dispatched: [view, click, click], creative: c)
-                .isEmpty,
-            "a stray beacon"
-        )
-        #expect(
-            !LiveCreativeExpectations
-                .beaconFailures(expected: expected, dispatched: [view, "https://e.test/other"], creative: c).isEmpty,
-            "an unknown URL"
-        )
-        #expect(
-            LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [], creative: c).isEmpty,
-            "no beacons expected, none sent"
-        )
-        #expect(!LiveCreativeExpectations.beaconFailures(expected: [], dispatched: [view], creative: c).isEmpty)
+        #expect(failures([[view], [click]]).isEmpty, "two steps, in order")
+        #expect(failures([[view, click]]).isEmpty, "one step, in order")
+        #expect(failures([[click, view]]).isEmpty, "one step, transport order differs: still the same set")
+        #expect(!failures([[click], [view]]).isEmpty, "across steps, order is kept")
+        #expect(!failures([[view]]).isEmpty, "a missing beacon")
+        #expect(!failures([[view, click, click]]).isEmpty, "a stray beacon")
+        #expect(!failures([[view, view]]).isEmpty, "a duplicate in place of the click")
+        #expect(!failures([[view, "https://e.test/other"]]).isEmpty, "an unknown URL")
+        #expect(failures([], []).isEmpty, "no beacons expected, none sent")
+        #expect(!failures([[view]], []).isEmpty)
     }
 
     @Test func aRejectedOrUnansweredBeaconFailsTheAcceptanceCheck() {
