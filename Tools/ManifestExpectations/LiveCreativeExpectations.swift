@@ -179,36 +179,56 @@ public enum LiveCreativeExpectations {
     }
 
     /// `slideTracking.expect.beacons`: the exact list of first-party beacons the SDK dispatched,
-    /// `dispatchedSteps` holding the tracking URLs observed during each step, in step order.
+    /// `dispatchedSteps` holding the tracking URLs observed during each of `steps`, in step order.
     ///
-    /// Beacons produced WITHIN one step are compared as a multiset: the live runner sees requests
-    /// as the transport starts loading them, which reflects transport order, not the order the SDK
-    /// dispatched them in. Order ACROSS steps is kept, because the runner lets each step settle
-    /// before the next one starts. The SDK's own dispatch order (view before click) is pinned
-    /// offline by fixture F18 through the dispatch seam.
+    /// The manifest lists the beacons as one ordered list, so each one is first tied to the step
+    /// that can produce it, walking both in order: a `slideView` step owns at most one view of its
+    /// slide, a `slideClick` step at most one view of its slide followed by at most one click of
+    /// it, and a `fireClick` step no first-party slide beacon. A beacon no step can own fails the
+    /// list. Each step's beacons are then compared as a multiset: the live runner sees requests as
+    /// the transport starts loading them, which reflects transport order, not the order the SDK
+    /// dispatched them in. The SDK's own dispatch order (view before click) is pinned offline by
+    /// fixture F18 through the dispatch seam.
     public static func beaconFailures(
-        expected: [[String: Any]], dispatchedSteps: [[String]], creative: Creative
+        expected: [[String: Any]], steps: [[String: Any]], dispatchedSteps: [[String]], creative: Creative
     ) -> [String] {
-        var wanted: [String] = []
+        var wanted: [(slide: Int, label: String, isView: Bool)] = []
         for beacon in expected {
-            guard let label = beaconLabel(expected: beacon) else {
+            guard let label = beaconLabel(expected: beacon), let slide = beacon["slide"] as? Int else {
                 return ["beacon \(beacon) is {slide, view} or {slide, click}"]
             }
-            wanted.append(label)
+            wanted.append((slide, label, beacon["view"] != nil))
+        }
+        guard dispatchedSteps.count == steps.count else {
+            return ["beacons were observed for \(dispatchedSteps.count) step(s), the block has \(steps.count)"]
+        }
+        var perStep: [[String]] = []
+        var next = 0
+        for step in steps {
+            var owned: [String] = []
+            func take(slide: Int, view: Bool) {
+                if next < wanted.count, wanted[next].slide == slide, wanted[next].isView == view {
+                    owned.append(wanted[next].label)
+                    next += 1
+                }
+            }
+            if let n = step["slideView"] as? Int {
+                take(slide: n, view: true)
+            } else if let n = step["slideClick"] as? Int {
+                take(slide: n, view: true)
+                take(slide: n, view: false)
+            }
+            perStep.append(owned)
+        }
+        if next < wanted.count {
+            return ["beacons \(wanted[next...].map(\.label)) belong to no step of \(steps)"]
         }
         let actualSteps = dispatchedSteps.map { $0.map { beaconLabel(url: $0, creative: creative) } }
-        let actual = actualSteps.flatMap { $0 }
-        let message = "beacons are \(wanted) (got \(actual)), compared as a set within a step and in order across steps"
-        guard actual.count == wanted.count else { return [message] }
-        var offset = 0
-        for step in actualSteps {
-            let slice = wanted[offset ..< offset + step.count]
-            if step.sorted() != slice.sorted() {
-                return [message]
-            }
-            offset += step.count
+        var out: [String] = []
+        for (index, (want, got)) in zip(perStep, actualSteps).enumerated() where want.sorted() != got.sorted() {
+            out.append("step \(index + 1) \(steps[index]) sends \(want) (got \(got)), compared as a set")
         }
-        return []
+        return out
     }
 
     /// `engineAcceptsEveryBeacon`: every beacon sent got an answer, and none below 200 or at 400

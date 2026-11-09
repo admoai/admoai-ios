@@ -186,16 +186,11 @@ private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slid
     let url = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .appendingPathComponent("scenarios.json")
-    // A manifest that cannot be read must fail the run: empty maps would let the scenarios that
-    // depend on them (ST13-ST19) pass without asserting anything.
-    guard let data = try? Data(contentsOf: url) else {
-        fatalError("cannot read the vendored scenarios.json at \(url.path)")
-    }
-    guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-          let scenarios = root["scenarios"] as? [[String: Any]]
-    else {
-        fatalError("the vendored scenarios.json at \(url.path) is not an object with a `scenarios` array")
-    }
+    // `manifestGroup` already loaded this file through `loadManifest()` and stopped at its failing
+    // MANIFEST scenario if it could not, so here it reads and parses.
+    let data = (try? Data(contentsOf: url)) ?? Data()
+    let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    let scenarios = root?["scenarios"] as? [[String: Any]] ?? []
     var creative: [String: [String: Any]] = [:]
     var slideTracking: [String: [String: Any]] = [:]
     for entry in scenarios {
@@ -771,7 +766,7 @@ private func checkEngineAcceptsEveryBeacon(sentCount: Int) async throws {
 // steps keep their order. Every tracking URL is mapped back to {slide, view|click key} by matching
 // the creative's slide trackers and compared with `expect.beacons`: as a set within a step (the
 // runner sees transport order, not SDK dispatch order, which fixture F18 pins offline through the
-// dispatch seam) and in order across steps.
+// dispatch seam), each expected beacon tied to the step that produces it.
 // `engineAcceptsEveryBeacon` is the `pinTracking` check.
 
 private func runSlideTracking(
@@ -827,7 +822,8 @@ private func runSlideTracking(
     }
 
     let failures = LiveCreativeExpectations.beaconFailures(
-        expected: expect["beacons"] as? [[String: Any]] ?? [], dispatchedSteps: stepBeacons, creative: creative
+        expected: expect["beacons"] as? [[String: Any]] ?? [], steps: steps, dispatchedSteps: stepBeacons,
+        creative: creative
     )
     try check(failures.isEmpty, failures.joined(separator: "; "))
     if expect["engineAcceptsEveryBeacon"] as? Bool == true {
