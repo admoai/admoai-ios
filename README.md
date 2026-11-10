@@ -1428,6 +1428,27 @@ APIResponse<DecisionResponse>
 └── rawBody: String?
 ```
 
+### Tolerant reader
+
+The SDK reads the response tolerantly, so a server change that adds to it cannot break a shipped app. Decoding never throws on these cases:
+
+- Unknown JSON fields are ignored.
+- Server open-set values (`delivery`, `template.key`, `metadata.format`, `metadata.templateSource`) are plain `String`s, and an unknown value is kept as is. `metadata.priority` falls back to `.unknown`.
+- A wrong-typed or missing field becomes `nil`. A few non-optional fields become `""` (for example `metadata.adId`, `template.key`).
+- A malformed list entry (decision, creative, content entry, carousel slide, matched point, verification resource, third-party tracker) is dropped on its own. The rest of the response is kept.
+
+On your side:
+
+- Never use an exhaustive `switch` on a server string. Always add a `default`.
+- Do not reject a response because of a field you do not use. Validate only what your own logic needs.
+
+```swift
+switch creative.delivery {
+case "vast_tag", "vast_xml": playVideo(creative)
+default: renderNative(creative) // "json", or a delivery type this SDK version does not know
+}
+```
+
 ---
 
 ## Default Configuration Helpers
