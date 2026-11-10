@@ -30,8 +30,59 @@ env:
   SWIFTFORMAT_SHA256: 95ea62625d0b898a7af870293311ae6f09e4a3147ecd900593687e4b9ab2fd98
 
 jobs:
+  # A pull request that changes only documentation skips the build and test jobs below.
+  # They keep their names and report as skipped, which a ruleset reads as passing, so the
+  # required checks never wait. The Scenario manifest job, push to main, workflow_dispatch
+  # and the CodeQL / dependency scans are unfiltered. Fails open: a compare the API
+  # refuses, or one at its 300-file cap, runs everything; so does a failed planner.
+  changes:
+    name: Plan the CI jobs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.plan.outputs.code }}
+    steps:
+      - name: Does the change touch anything but documentation?
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != pull_request ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "$EVENT: every job runs"; exit 0
+          fi
+          # A rename lists its old path too, so moving code into docs/ still runs the jobs.
+          if ! compare="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE}...${HEAD}" \
+                 --jq '{n: (.files|length), f: [.files[] | .filename, (.previous_filename // empty)]}')"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "::warning::compare API failed: every job runs"; exit 0
+          fi
+          if [ "$(jq '.n' <<<"$compare")" -ge 300 ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "300+ files changed: every job runs"; exit 0
+          fi
+          is_doc() {
+            case "$1" in
+            # SwiftPM targets (Sources/, Tests/, Tools/) build what sits in them, so a
+            # Markdown file there counts as code; docs/ is the generated DocC site.
+            Sources/*|Tests/*|Tools/*) return 1 ;;
+            docs/*|*.md|LICENSE|LICENSE.*|.github/ISSUE_TEMPLATE/*) return 0 ;;
+            *) return 1 ;;
+            esac
+          }
+          code=false
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if is_doc "$f"; then echo "  docs: $f"; else echo "  code: $f"; code=true; fi
+          done < <(jq -r '.f[]' <<<"$compare")
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = true ]; then echo "code changed: every job runs"; else echo "documentation only: build and test jobs skipped"; fi
+
   build:
     name: Build & test
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -63,6 +114,8 @@ jobs:
 
   ios-build:
     name: iOS build
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -86,6 +139,8 @@ jobs:
   # shims honest in this repo's own PRs, instead of adhub finding out at the next pin bump.
   linux-e2e-build:
     name: Linux build (journey-e2e)
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
@@ -101,6 +156,8 @@ jobs:
   # compiler spells the declarations: bump XCODE_API_VERSION on purpose and regenerate.
   api:
     name: Public API check
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     env:
       XCODE_API_VERSION: '26.3'
