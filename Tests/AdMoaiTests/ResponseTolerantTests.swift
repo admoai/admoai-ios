@@ -225,4 +225,23 @@ struct ResponseTolerantTests {
         #expect(body.errors?.count == 1)
         #expect(body.errors?.first?.code == 10009)
     }
+
+    // Scenario: unknown open-set string values are kept verbatim and never fail the decode
+    @Test
+    func testUnknownOpenSetStringValuesAreKeptVerbatim() throws {
+        let creative = try decode(Creative.self, """
+        {
+            "contents": [{"key": "title", "value": "Hi", "type": "string"}],
+            "advertiser": {"id": "adv1"},
+            "tracking": {},
+            "template": {"key": "future_template"},
+            "delivery": "future_delivery",
+            "metadata": {"adId": "a", "creativeId": "c", "templateId": "t", "placementId": "p", "priority": "standard", "format": "future_format"}
+        }
+        """)
+        #expect(creative.delivery == "future_delivery")
+        #expect(creative.template?.key == "future_template")
+        #expect(creative.metadata?.format == "future_format")
+        #expect(creative.contents.count == 1)
+    }
 }
