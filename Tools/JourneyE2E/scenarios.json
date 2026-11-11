@@ -1851,6 +1851,160 @@
           "engineAcceptsEveryBeacon": true
         }
       }
+    },
+    {
+      "id": "ST20",
+      "title": "a Journey screen on the Carousel standard serves its slides in order, each with its own slide tracking, and no screen click",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_journey_carousel"
+          }
+        ],
+        "session": "auto",
+        "journeyOpt": "in"
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": true,
+          "journeyStageKey": "carousel",
+          "templateKey": "carousel",
+          "contentKeys": [],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "jslide_01KJ4733SJ0000000000SD2001",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "jslide_01KJ4733SJ0000000000SD2002",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ST21",
+      "title": "on a Journey slide, a view then taps send slide_view once per slide and one default click per tap, and the engine accepts every beacon",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_journey_carousel"
+          }
+        ],
+        "session": "auto",
+        "journeyOpt": "in"
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": true,
+          "journeyStageKey": "carousel",
+          "templateKey": "carousel",
+          "contentKeys": [],
+          "clickKeys": [],
+          "metadata": {
+            "effectiveStandardFormatKey": "carousel",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard",
+            "assetContext": null
+          },
+          "slides": [
+            {
+              "slideId": "jslide_01KJ4733SJ0000000000SD2001",
+              "position": 1,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            },
+            {
+              "slideId": "jslide_01KJ4733SJ0000000000SD2002",
+              "position": 2,
+              "contentKeys": [
+                "image",
+                "destination_url"
+              ],
+              "viewKeys": [
+                "slide_view"
+              ],
+              "clickKeys": [
+                "default"
+              ]
+            }
+          ]
+        }
+      },
+      "slideTracking": {
+        "steps": [
+          {
+            "slideView": 1
+          },
+          {
+            "slideClick": 1
+          },
+          {
+            "slideClick": 2
+          }
+        ],
+        "expect": {
+          "beacons": [
+            {
+              "slide": 1,
+              "view": "slide_view"
+            },
+            {
+              "slide": 1,
+              "click": "default"
+            },
+            {
+              "slide": 2,
+              "view": "slide_view"
+            },
+            {
+              "slide": 2,
+              "click": "default"
+            }
+          ],
+          "engineAcceptsEveryBeacon": true
+        }
+      }
     }
   ],
   "fixtureScenarios": [
