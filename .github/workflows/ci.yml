@@ -30,8 +30,60 @@ env:
   SWIFTFORMAT_SHA256: 95ea62625d0b898a7af870293311ae6f09e4a3147ecd900593687e4b9ab2fd98
 
 jobs:
+  # A pull request that changes only documentation skips the build and test jobs below (the three macOS jobs and the Linux runner build).
+  # A job skipped by its `if:` reports as skipped, which a ruleset reads as passing, so the
+  # required check names never wait. Only pull requests are planned: on push to main and
+  # workflow_dispatch this job is skipped, and a skipped planner means every job runs. The
+  # Scenario manifest job and the CodeQL workflow are never filtered. The file list comes from the
+  # compare API, which lists at most 300 files; at the cap, on an empty or unreadable list,
+  # or when this job fails, every job runs.
+  changes:
+    name: Plan the CI jobs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.plan.outputs.code }}
+    steps:
+      - name: Does the change touch anything but documentation?
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          run_all() { echo "code=true" >> "$GITHUB_OUTPUT"; echo "$1: every job runs"; exit 0; }
+          # A rename lists its old path too, so moving code into a docs path still runs the jobs.
+          compare="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE}...${HEAD}" \
+            --jq '{n: (.files|length), f: [.files[] | .filename, (.previous_filename // empty)]}')" \
+            || run_all "compare API failed"
+          n="$(jq -er '.n' <<<"$compare")" || run_all "unreadable compare"
+          [ "$n" -gt 0 ] || run_all "empty file list"
+          [ "$n" -lt 300 ] || run_all "300+ files changed"
+          files="$(jq -er '.f[]' <<<"$compare")" || run_all "unreadable file list"
+          is_doc() {
+            case "$1" in
+            # Markdown at the root only (in a case pattern `*` also matches `/`, so a deeper path
+            # never reaches this arm): Sources/, Tests/ and Tools/ are SwiftPM targets whose files
+            # can affect the build. docs/ is the generated DocC site; nothing builds from it.
+            */*.md) return 1 ;;
+            *.md|docs/*) return 0 ;;
+            *) return 1 ;;
+            esac
+          }
+          code=false
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if is_doc "$f"; then echo "  docs: $f"; else echo "  code: $f"; code=true; fi
+          done <<<"$files"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = true ]; then echo "code changed: every job runs"; else echo "documentation only: build and test jobs skipped"; fi
+
   build:
     name: Build & test
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -63,6 +115,8 @@ jobs:
 
   ios-build:
     name: iOS build
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -86,6 +140,8 @@ jobs:
   # shims honest in this repo's own PRs, instead of adhub finding out at the next pin bump.
   linux-e2e-build:
     name: Linux build (journey-e2e)
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
@@ -101,6 +157,8 @@ jobs:
   # compiler spells the declarations: bump XCODE_API_VERSION on purpose and regenerate.
   api:
     name: Public API check
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: macos-15
     env:
       XCODE_API_VERSION: '26.3'
