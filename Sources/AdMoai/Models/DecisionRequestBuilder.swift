@@ -102,7 +102,8 @@ public class DecisionRequestBuilder {
             timezone: deviceConfig.timezone,
             language: deviceConfig.language,
             carrier: deviceConfig.carrier,
-            category: deviceConfig.category
+            // Read when the request is built (`deviceForBuild()`), never captured here.
+            category: nil
         )
 
         self.user = User(
@@ -711,6 +712,23 @@ public class DecisionRequestBuilder {
         return self
     }
 
+    /// The device object with the category read now: the category follows the platform state when
+    /// each request is built, not when the builder (or the SDK) was created.
+    private func deviceForBuild() -> Device? {
+        guard let device else { return nil }
+        return Device(
+            id: device.id,
+            model: device.model,
+            manufacturer: device.manufacturer,
+            os: device.os,
+            osVersion: device.osVersion,
+            timezone: device.timezone,
+            language: device.language,
+            carrier: device.carrier,
+            category: deviceConfig.category
+        )
+    }
+
     // Build method
     public func build() -> DecisionRequest {
         // Misconfiguration guard: Journey context requires the Journey engine version.
@@ -725,7 +743,7 @@ public class DecisionRequestBuilder {
             placements: placements,
             targeting: targeting,
             user: user,
-            device: collectDeviceData ? device : nil,
+            device: collectDeviceData ? deviceForBuild() : nil,
             app: collectAppData ? app : nil,
             sessionId: sessionId,
             journeyOpt: journeyOpt
