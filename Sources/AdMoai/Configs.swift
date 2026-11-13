@@ -126,8 +126,7 @@ public struct DeviceConfig: Clearable, Equatable {
     /// The publisher's own category, when stated.
     private let manualCategory: DeviceCategory?
 
-    /// The category this configuration sends: the publisher's value when set, otherwise the one
-    /// collected when the request is built.
+    /// The category this configuration sends: the publisher's value, when set.
     public var category: DeviceCategory? {
         manualCategory
     }

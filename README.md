@@ -137,7 +137,7 @@ let request = try sdk.createRequestBuilder()
 
 ```swift
 sdk.setDeviceCarrier("Example Mobile")   // nil removes it
-sdk.setDeviceCategory(.phone)            // overrides the collected value; nil removes it
+sdk.setDeviceCategory(.phone)            // nil removes it
 ```
 
   Blank carriers and placeholders (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent.

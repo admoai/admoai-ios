@@ -155,8 +155,9 @@ public struct AdMoai {
         deviceConfig = deviceConfig.with(carrier: carrier, category: deviceConfig.category)
     }
 
-    /// States the device category, overriding the value collected from the system idiom;
-    /// `nil` removes it. `resetDeviceConfig()` collects it from the system again.
+    /// States the device category; `nil` removes it. The SDK does not collect the category on
+    /// its own yet, so this is the only source; `resetDeviceConfig()` and `clearDeviceConfig()`
+    /// both remove it.
     public mutating func setDeviceCategory(_ category: DeviceCategory?) {
         deviceConfig = deviceConfig.with(carrier: deviceConfig.carrier, category: category)
     }
