@@ -110,6 +110,38 @@ response.body.data?.forEach { adData in
 }
 ```
 
+### Audience signals
+
+Describe the viewer with typed helpers instead of hand-written custom keys. Values are sent
+verbatim; passing `nil` removes only that dimension, and the last call for a key wins (also
+against `addCustomTargeting` with the same key).
+
+```swift
+let request = try sdk.createRequestBuilder()
+    .addPlacement(key: "home")
+    .setAgeGroup(.age25To34)
+    .setSubscriptionStatus(.noSubscription)   // sent as "none"
+    .setTripFrequency30d(.trips3To9)
+    .setPublisherSegments(["airport_commuter", "high_value"])
+    .build()
+```
+
+- Publisher segments are always sent as an array, duplicates are dropped (first occurrence
+  kept), an empty list removes the entry, and a code that does not match `^[a-zA-Z0-9_]+$`
+  throws `SDKError.invalidPublisherSegment` and leaves the builder unchanged. Unknown codes are
+  rejected by the engine, which owns segment registration (archived codes are accepted).
+  Passing `nil` removes the entry.
+- Audience dimensions require `SDKConfig(apiVersion: "2025-11-01")`.
+- The device carrier and category are stated by the app; **iOS never collects the carrier
+  automatically**:
+
+```swift
+sdk.setDeviceCarrier("Example Mobile")   // nil removes it
+sdk.setDeviceCategory(.phone)            // overrides the collected value; nil removes it
+```
+
+  Blank carriers and placeholders (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent.
+
 ### 4. Extract Content
 
 ```swift

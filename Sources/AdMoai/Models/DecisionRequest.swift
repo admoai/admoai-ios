@@ -303,6 +303,10 @@ public struct Device: Encodable {
     public let osVersion: String?
     public let timezone: String?
     public let language: String?
+    /// The mobile carrier's name, when the publisher supplied one. Never collected by the SDK.
+    public let carrier: String?
+    /// The device form factor: collected from the system idiom, or stated by the publisher.
+    public let category: DeviceCategory?
 
     public init(
         id: String? = nil,
@@ -313,6 +317,26 @@ public struct Device: Encodable {
         timezone: String? = nil,
         language: String? = nil
     ) {
+        self.init(
+            id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
+            timezone: timezone, language: language, carrier: nil, category: nil
+        )
+    }
+
+    /// The same Device with the audience-signals fields. `carrier` and `category` have no
+    /// default so this overload never competes with the original initializer (the public API
+    /// stays additive); pass `nil` for the one you do not set.
+    public init(
+        id: String? = nil,
+        model: String? = nil,
+        manufacturer: String? = nil,
+        os: String? = nil,
+        osVersion: String? = nil,
+        timezone: String? = nil,
+        language: String? = nil,
+        carrier: String?,
+        category: DeviceCategory?
+    ) {
         self.id = id
         self.model = model
         self.manufacturer = manufacturer
@@ -320,6 +344,8 @@ public struct Device: Encodable {
         self.osVersion = osVersion
         self.timezone = timezone
         self.language = language
+        self.carrier = carrier
+        self.category = category
     }
 }
 
