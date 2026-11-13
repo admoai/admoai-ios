@@ -49,6 +49,7 @@ struct ManifestRequest: Decodable {
     var apiVersion: String?
     /// Sponsored Pin: a radius or a bounds search (epic #3138).
     var distance: ManifestDistance?
+    var device: ManifestDevice?
 }
 
 /// One Sponsored Pin search, declared once in the shared manifest and expressed by each SDK
@@ -78,7 +79,14 @@ struct ManifestPlacement: Decodable {
 
 struct ManifestCustom: Decodable {
     let key: String
-    let value: String
+    let value: ManifestCustomValue
+}
+
+/// The app's manual device configuration (`request.device`), applied on the SDK before the
+/// request builder is created.
+struct ManifestDevice: Decodable {
+    var carrier: String?
+    var category: String?
 }
 
 struct ManifestExpect: Decodable {
@@ -175,6 +183,7 @@ func manifestGroup() async {
 
     for entry in manifest.scenarios {
         await scenario(entry.id, entry.title) { notes in
+            try assertRequestKeysAreExecuted(raw.request[entry.id] ?? [:])
             try await runManifestScenario(entry, raw.creative[entry.id], raw.slideTracking[entry.id], &notes)
         }
     }
@@ -182,7 +191,10 @@ func manifestGroup() async {
 
 /// scenario id → its `expect.creative` object, and scenario id → its `slideTracking` block, as the
 /// manifest spells them.
-private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slideTracking: [String: [String: Any]]) {
+private func loadRawScenarioBlocks() -> (
+    creative: [String: [String: Any]], slideTracking: [String: [String: Any]],
+    request: [String: [String: Any]]
+) {
     let url = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .appendingPathComponent("scenarios.json")
@@ -193,8 +205,12 @@ private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slid
     let scenarios = root?["scenarios"] as? [[String: Any]] ?? []
     var creative: [String: [String: Any]] = [:]
     var slideTracking: [String: [String: Any]] = [:]
+    var request: [String: [String: Any]] = [:]
     for entry in scenarios {
         guard let id = entry["id"] as? String else { continue }
+        if let object = entry["request"] as? [String: Any] {
+            request[id] = object
+        }
         if let object = (entry["expect"] as? [String: Any])?["creative"] as? [String: Any] {
             creative[id] = object
         }
@@ -202,7 +218,19 @@ private func loadRawScenarioBlocks() -> (creative: [String: [String: Any]], slid
             slideTracking[id] = block
         }
     }
-    return (creative, slideTracking)
+    return (creative, slideTracking, request)
+}
+
+/// Refuses a scenario whose `request` (or `request.device`) names a key this runner does not
+/// execute, before anything is sent. The Decodable model would drop such a key silently.
+private func assertRequestKeysAreExecuted(_ request: [String: Any]) throws {
+    var unknown = ManifestRequestKeys.unknownRequestKeys(in: request)
+    if let device = request["device"] as? [String: Any] {
+        unknown += ManifestRequestKeys.unknownDeviceKeys(in: device).map { "device.\($0)" }
+    }
+    guard unknown.isEmpty else {
+        throw ClaimFailed(claim: "every request key is one this runner executes (unknown: \(unknown))")
+    }
 }
 
 private func runManifestScenario(
@@ -210,10 +238,25 @@ private func runManifestScenario(
     _ rawSlideTracking: [String: Any]?, _ notes: inout [String]
 ) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
-    let driver: Driver = switch entry.request.apiVersion {
+    var driver: Driver = switch entry.request.apiVersion {
     case .some("none"): newDriver(apiVersion: nil)
     case let .some(version): newDriver(apiVersion: version)
     case nil: newDriver()
+    }
+
+    // The app's manual device configuration, stated before the builder reads it.
+    if let device = entry.request.device {
+        if let carrier = device.carrier {
+            driver.sdk.setDeviceCarrier(carrier)
+        }
+        if let category = device.category {
+            guard let parsed = DeviceCategory(rawValue: category) else {
+                throw ClaimFailed(
+                    claim: "request.device.category is one of \(ManifestRequestKeys.deviceCategories.sorted()) (got \"\(category)\")"
+                )
+            }
+            driver.sdk.setDeviceCategory(parsed)
+        }
     }
 
     let builder = driver.sdk.createRequestBuilder()
@@ -227,7 +270,17 @@ private func runManifestScenario(
         )
     }
     for custom in entry.request.custom ?? [] {
-        _ = builder.addCustomTargeting(key: custom.key, value: custom.value)
+        switch custom.value {
+        case let .string(value):
+            _ = builder.addCustomTargeting(key: custom.key, value: value)
+        case let .strings(list) where custom.key == "publisher_segments":
+            // The SDK's own validation and dedup run here.
+            _ = try builder.setPublisherSegments(list)
+        case let .strings(list):
+            // Any other key carries the list as an array value, appended to what is set so far.
+            let current = builder.build().targeting?.custom ?? []
+            _ = builder.setCustomTargeting(current + [(key: custom.key, value: list)])
+        }
     }
     if entry.request.session != nil {
         _ = builder.setSessionId(freshSession(entry.id.lowercased()))
