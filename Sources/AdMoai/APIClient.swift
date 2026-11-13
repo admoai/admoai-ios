@@ -10,6 +10,7 @@ internal class AdMoaiClient {
     private let baseURL: String
     private let apiVersion: String?
     private let defaultLanguage: String?
+    private let playgroundToken: String?
     private let session: URLSession
     private let logger: Logger
 
@@ -18,11 +19,13 @@ internal class AdMoaiClient {
         apiVersion: String? = nil,
         defaultLanguage: String? = nil,
         sessionConfiguration: URLSessionConfiguration = .default,
+        playgroundToken: String? = nil,
         logger: Logger
     ) {
         self.baseURL = baseURL
         self.apiVersion = apiVersion
         self.defaultLanguage = defaultLanguage
+        self.playgroundToken = playgroundToken?.isEmpty == false ? playgroundToken : nil
         self.logger = logger
         self.session = URLSession(configuration: sessionConfiguration)
     }
@@ -59,6 +62,7 @@ internal class AdMoaiClient {
             // DEBUG/release status switch). Scoped to decision responses: tracking is
             // fire-and-forget and does not inspect response headers (documented limitation).
             warnIfDeprecated(httpResponse)
+            warnIfPlaygroundRefused(httpResponse)
 
             // One status contract for both build configurations.
             //
@@ -158,6 +162,22 @@ internal class AdMoaiClient {
         return "Admoai API version is deprecated. Consider updating SDKConfig.apiVersion."
     }
 
+    /// Logs why a playground token could not serve: the engine then answers 200 with no ads
+    /// and sets `X-Playground-Reason` (`no_token`, `revoked`, `branch_error`).
+    private func warnIfPlaygroundRefused(_ response: HTTPURLResponse) {
+        guard
+            let message = AdMoaiClient.playgroundReasonMessage(
+                response.value(forHTTPHeaderField: "X-Playground-Reason")
+            )
+        else { return }
+        self.logger.warning("\(message, privacy: .public)")
+    }
+
+    internal static func playgroundReasonMessage(_ reason: String?) -> String? {
+        guard let reason, !reason.isEmpty else { return nil }
+        return "Admoai playground could not serve this request (reason: \(reason)). Check SDKConfig.playgroundToken."
+    }
+
     func createDecisionRequest(_ request: DecisionRequest) throws -> HTTPRequest {
         let body = try JSONEncoder().encode(request)
 
@@ -180,8 +200,14 @@ internal class AdMoaiClient {
             headers["X-Decision-Version"] = apiVersion
         }
 
+        var path = "/v1/decision"
+        if let playgroundToken {
+            path = "/v1/playground/decision"
+            headers["X-Playground-Token"] = playgroundToken
+        }
+
         return HTTPRequest(
-            path: "/v1/decision",
+            path: path,
             method: .post,
             headers: headers,
             body: body

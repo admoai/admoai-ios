@@ -340,10 +340,15 @@ Priority.unknown  case  case unknown
 SDKConfig  struct  struct SDKConfig
 SDKConfig.apiVersion  property  let apiVersion: String?
 SDKConfig.baseUrl  property  let baseUrl: String
+SDKConfig.customMirror  property  var customMirror: Mirror { get }
+SDKConfig.debugDescription  property  var debugDescription: String { get }
 SDKConfig.defaultLanguage  property  let defaultLanguage: String?
 SDKConfig.defaultSessionConfiguration()  static method  static func defaultSessionConfiguration() -> URLSessionConfiguration
+SDKConfig.description  property  var description: String { get }
 SDKConfig.init(baseUrl:apiVersion:defaultLanguage:logger:sessionConfiguration:)  init  init(baseUrl: String, apiVersion: String? = nil, defaultLanguage: String? = nil, logger: Logger = Logger(subsystem: "com.admoai.sdk", category: "AdMoaiSDK"), sessionConfiguration: URLSessionConfiguration = defaultSessionConfiguration())
+SDKConfig.init(baseUrl:apiVersion:defaultLanguage:logger:sessionConfiguration:playgroundToken:)  init  init(baseUrl: String, apiVersion: String? = nil, defaultLanguage: String? = nil, logger: Logger = Logger(subsystem: "com.admoai.sdk", category: "AdMoaiSDK"), sessionConfiguration: URLSessionConfiguration = defaultSessionConfiguration(), playgroundToken: String?)
 SDKConfig.logger  property  let logger: Logger
+SDKConfig.playgroundToken  property  let playgroundToken: String?
 SDKConfig.sessionConfiguration  property  let sessionConfiguration: URLSessionConfiguration
 SDKError  enum  enum SDKError
 SDKError.description  property  var description: String { get }

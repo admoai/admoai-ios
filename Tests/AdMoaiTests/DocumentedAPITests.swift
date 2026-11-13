@@ -52,6 +52,17 @@ struct DocumentedAPITests {
         #expect(sdk.config.apiVersion == "2025-11-01")
     }
 
+    // Scenario: README "Testing against a playground"
+    @Test
+    func testPlaygroundTokenSurfaceExists() {
+        let config = SDKConfig(
+            baseUrl: "https://api.admoai.com",
+            apiVersion: "2025-11-01",
+            playgroundToken: "pg_..."
+        )
+        #expect(config.playgroundToken == "pg_...")
+    }
+
     // Scenario: README "Build and Send a Request" — every builder method the docs show
     @Test
     func testDocumentedBuilderSurfaceExists() throws {

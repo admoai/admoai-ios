@@ -87,6 +87,7 @@ public struct AdMoai {
             apiVersion: config.apiVersion,
             defaultLanguage: config.defaultLanguage,
             sessionConfiguration: config.sessionConfiguration,
+            playgroundToken: config.playgroundToken,
             logger: config.logger
         )
 
