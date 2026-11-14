@@ -35,6 +35,9 @@ public struct AdMoai {
     public private(set) var config: SDKConfig
     public private(set) var appConfig: AppConfig
     public private(set) var deviceConfig: DeviceConfig
+    /// Whether the app opted in to automatic device-category collection; `resetDeviceConfig()`
+    /// keeps collecting when it did.
+    private(set) var collectsDeviceCategory = false
     public private(set) var userConfig: UserConfig
     /// Fires canonical beacons. Never follows a redirect: a click's `302` is the engine
     /// recording it, and the app — not the SDK — opens the destination.
@@ -145,21 +148,38 @@ public struct AdMoai {
             timezone: timezone ?? current.timezone,
             language: language ?? current.language,
             carrier: current.carrier,
-            category: current.category
+            categoryOverride: current.categoryOverride,
+            categoryProvider: current.categoryProvider
         )
     }
 
     /// States the device's mobile carrier; `nil` removes it. Trimmed, and blanks or placeholders
     /// (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent. iOS never collects it on its own.
     public mutating func setDeviceCarrier(_ carrier: String?) {
-        deviceConfig = deviceConfig.with(carrier: carrier, category: deviceConfig.category)
+        deviceConfig = deviceConfig.with(carrier: carrier, categoryOverride: deviceConfig.categoryOverride)
     }
 
-    /// States the device category; `nil` removes it. The SDK does not collect the category on
-    /// its own yet, so this is the only source; `resetDeviceConfig()` and `clearDeviceConfig()`
-    /// both remove it.
+    /// Opts in to automatic device-category collection: requests then carry the category the
+    /// platform reports (phone idiom → `phone`, pad idiom → `tablet`, Mac, TV, CarPlay, Vision and
+    /// iOS apps on a Mac → `other`, absent when the platform cannot classify the device).
+    ///
+    /// Off by default: a workspace whose audience-signals contract is off refuses
+    /// `device.category`, so enable it once AdMoai has confirmed the contract is on for your
+    /// workspace. `clearDeviceConfig()` pauses collection until `resetDeviceConfig()` (or this call), and a
+    /// category set with `setDeviceCategory(_:)` always wins.
+    public mutating func enableDeviceCategoryCollection() {
+        collectsDeviceCategory = true
+        deviceConfig = deviceConfig.with(categoryProvider: currentDeviceCategory)
+    }
+
+    /// States the device category, overriding the collected value when collection is enabled.
+    /// `nil` removes it: the category is then absent, with no fallback to the collected value,
+    /// until `resetDeviceConfig()` discards the override (and collects again if enabled).
     public mutating func setDeviceCategory(_ category: DeviceCategory?) {
-        deviceConfig = deviceConfig.with(carrier: deviceConfig.carrier, category: category)
+        deviceConfig = deviceConfig.with(
+            carrier: deviceConfig.carrier,
+            categoryOverride: category.map(DeviceConfig.CategoryOverride.value) ?? .absent
+        )
     }
 
     public mutating func clearDeviceConfig() {
@@ -167,7 +187,7 @@ public struct AdMoai {
     }
 
     public mutating func resetDeviceConfig() {
-        self.deviceConfig = .systemDefault()
+        self.deviceConfig = .systemDefault(categoryProvider: collectsDeviceCategory ? currentDeviceCategory : nil)
     }
 
     // MARK: - User Configuration

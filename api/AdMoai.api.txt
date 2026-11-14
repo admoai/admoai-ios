@@ -32,6 +32,7 @@ AdMoai.clearUserConfig()  method  mutating func clearUserConfig()
 AdMoai.config  property  var config: SDKConfig { get }
 AdMoai.createRequestBuilder()  method  func createRequestBuilder() -> DecisionRequestBuilder
 AdMoai.deviceConfig  property  var deviceConfig: DeviceConfig { get }
+AdMoai.enableDeviceCategoryCollection()  method  mutating func enableDeviceCategoryCollection()
 AdMoai.fireAssetTap(tracking:)  method  func fireAssetTap(tracking: Tracking)
 AdMoai.fireClick(tracking:key:)  method  func fireClick(tracking: Tracking, key: String = "default")
 AdMoai.fireClose(tracking:)  method  func fireClose(tracking: Tracking)
@@ -315,6 +316,7 @@ DeviceConfig.osVersion  property  let osVersion: String?
 DeviceConfig.systemDefault()  static method  static func systemDefault() -> DeviceConfig
 DeviceConfig.timezone  property  let timezone: String?
 DeviceDetails  struct  struct DeviceDetails
+DeviceDetails.category  property  let category: DeviceCategory?
 DeviceDetails.id  property  let id: String?
 DeviceDetails.language  property  let language: String?
 DeviceDetails.manufacturer  property  let manufacturer: String?

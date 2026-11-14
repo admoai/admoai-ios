@@ -123,12 +123,34 @@ public struct DeviceConfig: Clearable, Equatable {
     public let language: String?
     /// Carrier name, normalized: trimmed, and `nil` for blanks and placeholders (`--`, `unknown`, `wifi`).
     public let carrier: String?
-    /// The publisher's own category, when stated.
-    private let manualCategory: DeviceCategory?
+    /// What the publisher stated about the category, if anything.
+    enum CategoryOverride: Equatable {
+        /// Nothing stated: the collected value is sent when the app enabled collection.
+        case none
+        /// The publisher's value wins over the collected one.
+        case value(DeviceCategory)
+        /// The publisher removed it: absent, with no fallback to the collected value
+        /// (cross-SDK ruling 2026-11-13), until `resetDeviceConfig()`.
+        case absent
+    }
 
-    /// The category this configuration sends: the publisher's value, when set.
+    let categoryOverride: CategoryOverride
+
+    /// Reads the category from the platform; `nil` means automatic collection is off, which is the
+    /// default: collection is opt-in through `AdMoai.enableDeviceCategoryCollection()`, because a
+    /// workspace whose audience-signals contract is off refuses `device.category` (cross-SDK
+    /// ruling 2026-11-13).
+    let categoryProvider: (@Sendable () -> DeviceCategory?)?
+
+    /// The category this configuration sends: the publisher's value when set (absent when the
+    /// publisher removed it), otherwise the one collected from the platform (absent when
+    /// collection is off, the default, or when the platform cannot classify the device).
     public var category: DeviceCategory? {
-        manualCategory
+        switch categoryOverride {
+        case let .value(category): category
+        case .absent: nil
+        case .none: categoryProvider?()
+        }
     }
 
     public init(
@@ -159,6 +181,25 @@ public struct DeviceConfig: Clearable, Equatable {
         carrier: String?,
         category: DeviceCategory?
     ) {
+        self.init(
+            id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
+            timezone: timezone, language: language, carrier: carrier,
+            categoryOverride: category.map(CategoryOverride.value) ?? .none, categoryProvider: nil
+        )
+    }
+
+    init(
+        id: String?,
+        model: String?,
+        manufacturer: String?,
+        os: String?,
+        osVersion: String?,
+        timezone: String?,
+        language: String?,
+        carrier: String?,
+        categoryOverride: CategoryOverride,
+        categoryProvider: (@Sendable () -> DeviceCategory?)?
+    ) {
         self.id = id
         self.model = model
         self.manufacturer = manufacturer
@@ -167,13 +208,26 @@ public struct DeviceConfig: Clearable, Equatable {
         self.timezone = timezone
         self.language = language
         self.carrier = normalizeCarrier(carrier)
-        self.manualCategory = category
+        self.categoryOverride = categoryOverride
+        self.categoryProvider = categoryProvider
     }
 
-    func with(carrier: String?, category: DeviceCategory?) -> DeviceConfig {
+    /// The same configuration with a different category source; everything else is preserved.
+    func with(categoryProvider: (@Sendable () -> DeviceCategory?)?) -> DeviceConfig {
         DeviceConfig(
             id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
-            timezone: timezone, language: language, carrier: carrier, category: category
+            timezone: timezone, language: language, carrier: carrier,
+            categoryOverride: categoryOverride, categoryProvider: categoryProvider
+        )
+    }
+
+    /// The same configuration with a different carrier and category override; the collection
+    /// state (`categoryProvider`) is preserved.
+    func with(carrier: String?, categoryOverride: CategoryOverride) -> DeviceConfig {
+        DeviceConfig(
+            id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
+            timezone: timezone, language: language, carrier: carrier,
+            categoryOverride: categoryOverride, categoryProvider: categoryProvider
         )
     }
 
@@ -191,7 +245,15 @@ public struct DeviceConfig: Clearable, Equatable {
         )
     }
 
+    /// The system device configuration. It collects no category: automatic collection is opt-in
+    /// (`AdMoai.enableDeviceCategoryCollection()`).
     public static func systemDefault() -> DeviceConfig {
+        systemDefault(categoryProvider: nil)
+    }
+
+    /// The system configuration with a category source: `currentDeviceCategory` once the app
+    /// enabled collection, or an injected one in tests.
+    static func systemDefault(categoryProvider: (@Sendable () -> DeviceCategory?)?) -> DeviceConfig {
         let details = getDeviceDetails()
 
         return DeviceConfig(
@@ -202,8 +264,10 @@ public struct DeviceConfig: Clearable, Equatable {
             osVersion: details.osVersion,
             timezone: details.timezone,
             language: details.language,
+            // iOS never collects the carrier automatically; manual setDeviceCarrier(_:) remains.
             carrier: nil,
-            category: nil
+            categoryOverride: .none,
+            categoryProvider: categoryProvider
         )
     }
 
@@ -211,7 +275,8 @@ public struct DeviceConfig: Clearable, Equatable {
         lhs.id == rhs.id && lhs.model == rhs.model && lhs.manufacturer == rhs.manufacturer
             && lhs.os == rhs.os && lhs.osVersion == rhs.osVersion && lhs.timezone == rhs.timezone
             && lhs.language == rhs.language && lhs.carrier == rhs.carrier
-            && lhs.manualCategory == rhs.manualCategory
+            && lhs.categoryOverride == rhs.categoryOverride
+            && (lhs.categoryProvider == nil) == (rhs.categoryProvider == nil)
     }
 }
 

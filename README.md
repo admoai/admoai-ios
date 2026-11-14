@@ -142,6 +142,25 @@ sdk.setDeviceCategory(.phone)            // nil removes it
 
   Blank carriers and placeholders (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent.
 
+- Automatic device-category collection is **opt-in**. A workspace whose audience-signals
+  contract is off refuses `device.category`, so the SDK sends none until you enable it, once
+  AdMoai confirms the contract is on for your workspace:
+
+```swift
+sdk.enableDeviceCategoryCollection()
+```
+
+  Phone idiom → `phone`, pad idiom → `tablet`, Mac (including iOS and Mac Catalyst apps running on a Mac), TV,
+  CarPlay and Vision → `other`, and absent when the platform cannot classify the device. An
+  iPhone-only app running on an iPad reports `phone`. The platform is read once per process. A
+  value you set with `setDeviceCategory(_:)` wins over the collected one (and works without
+  enabling collection); `setDeviceCategory(nil)` removes it: no category is sent, and the collected
+  one does not come back, until `resetDeviceConfig()`. `clearDeviceConfig()` pauses collection until
+  `resetDeviceConfig()`.
+- The carrier is never collected automatically on iOS (Apple's CoreTelephony returns static,
+  home-provider values), but can be set manually as above.
+- `disableDeviceCollection()` drops both, since it omits the whole device object.
+
 ### 4. Extract Content
 
 ```swift
