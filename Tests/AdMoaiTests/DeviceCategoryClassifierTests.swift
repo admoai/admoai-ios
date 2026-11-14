@@ -1,6 +1,9 @@
 @testable import AdMoai
 import Foundation
 import Testing
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 /// The scenarios of `Sources/AdMoai/Utils/DeviceCategoryClassifier.feature`, one test per scenario.
 ///
@@ -71,6 +74,7 @@ struct DeviceCategoryClassifierTests {
         "an unspecified idiom leaves the category absent",
         "an iOS app on a Mac is other even with the pad idiom",
         "a Mac Catalyst app is other even with the pad idiom",
+        "the platform's own idiom reaches the request",
         "the default SDK sends no device category",
         "enabling collection sends the platform category",
         "modern iOS has no reliable automatic carrier",
@@ -141,6 +145,27 @@ struct DeviceCategoryClassifierTests {
         #expect(classifyDeviceCategory(idiom: .pad, runsOnMac: runsOnMac) == .other)
         #expect(hostRunsOnMac(isiOSAppOnMac: true, isMacCatalystApp: false))
         #expect(!hostRunsOnMac(isiOSAppOnMac: false, isMacCatalystApp: false))
+    }
+
+    /// The end-to-end platform read (`UIDevice` → `DeviceIdiom` → category), which only a
+    /// simulator or device exercises: run with `xcodebuild test` on iPhone and iPad simulators.
+    @Test("the platform's own idiom reaches the request")
+    func platformIdiomReachesRequest() throws {
+        let expected: String?
+        #if targetEnvironment(macCatalyst)
+            expected = "other"
+        #elseif canImport(UIKit)
+            switch UIDevice.current.userInterfaceIdiom {
+            case .phone: expected = "phone"
+            case .pad: expected = ProcessInfo.processInfo.isiOSAppOnMac ? "other" : "tablet"
+            default: expected = "other"
+            }
+        #elseif os(macOS)
+            expected = "other"
+        #else
+            expected = nil
+        #endif
+        #expect(try category(request(collectingSDK()).build()) == expected)
     }
 
     @Test("the default SDK sends no device category")
