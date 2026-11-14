@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/admoai/admoai-ios/compare/v1.9.0...v1.10.0) (2026-11-14)
+
+
+### Added
+
+* device category collection ([#89](https://github.com/admoai/admoai-ios/issues/89)) ([ae6b630](https://github.com/admoai/admoai-ios/commit/ae6b630dcce3f539259c440bdf89f90e77886dc5))
+* typed audience targeting helpers and device model ([#88](https://github.com/admoai/admoai-ios/issues/88)) ([406f77a](https://github.com/admoai/admoai-ios/commit/406f77a9f3a579285a91fe617120121ccddcb01d))
+
+
+### Documentation
+
+* **readme:** state the tolerant reader guarantees next to the response model ([#83](https://github.com/admoai/admoai-ios/issues/83)) ([83beca8](https://github.com/admoai/admoai-ios/commit/83beca841a3a8deef78f4f6032a844be4931e0f4))
+
 ## [1.9.0](https://github.com/admoai/admoai-ios/compare/v1.8.0...v1.9.0) (2026-11-09)
 
 
