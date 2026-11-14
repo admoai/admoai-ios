@@ -1,0 +1,485 @@
+{
+  "$comment": "GENERATED from lib/audience-signals/catalog.ts by `bun run sync:audience-signals-catalog`. Do not edit by hand — catalog.spec.ts fails when this drifts from the TypeScript. It exists because Go, the SDK fixtures and the shared scenarios read the catalog too.",
+  "languages": [
+    "en",
+    "es",
+    "fr",
+    "pt"
+  ],
+  "presets": [
+    {
+      "key": "age_group",
+      "type": "multiselect",
+      "order": 1,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Age group",
+        "es": "Grupo de edad",
+        "fr": "Tranche d'âge",
+        "pt": "Faixa etária"
+      },
+      "description": {
+        "en": "User's age range.",
+        "es": "Rango de edad del usuario.",
+        "fr": "Tranche d'âge de l'utilisateur.",
+        "pt": "Faixa etária do usuário."
+      },
+      "values": [
+        {
+          "value": "under_18",
+          "label": {
+            "en": "Under 18",
+            "es": "Menos de 18",
+            "fr": "Moins de 18 ans",
+            "pt": "Menos de 18"
+          }
+        },
+        {
+          "value": "18_24",
+          "label": {
+            "en": "18–24",
+            "es": "18–24",
+            "fr": "18–24",
+            "pt": "18–24"
+          }
+        },
+        {
+          "value": "25_34",
+          "label": {
+            "en": "25–34",
+            "es": "25–34",
+            "fr": "25–34",
+            "pt": "25–34"
+          }
+        },
+        {
+          "value": "35_44",
+          "label": {
+            "en": "35–44",
+            "es": "35–44",
+            "fr": "35–44",
+            "pt": "35–44"
+          }
+        },
+        {
+          "value": "45_54",
+          "label": {
+            "en": "45–54",
+            "es": "45–54",
+            "fr": "45–54",
+            "pt": "45–54"
+          }
+        },
+        {
+          "value": "55_64",
+          "label": {
+            "en": "55–64",
+            "es": "55–64",
+            "fr": "55–64",
+            "pt": "55–64"
+          }
+        },
+        {
+          "value": "65_plus",
+          "label": {
+            "en": "65+",
+            "es": "65+",
+            "fr": "65+",
+            "pt": "65+"
+          }
+        }
+      ]
+    },
+    {
+      "key": "gender",
+      "type": "multiselect",
+      "order": 2,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Gender",
+        "es": "Género",
+        "fr": "Genre",
+        "pt": "Gênero"
+      },
+      "description": {
+        "en": "Publisher's explicitly supplied profile assertion; never inferred by Admoai.",
+        "es": "Dato de perfil informado explícitamente por el publisher; Admoai nunca lo infiere.",
+        "fr": "Information de profil fournie explicitement par l'éditeur ; jamais déduite par Admoai.",
+        "pt": "Informação de perfil fornecida explicitamente pelo publisher; nunca inferida pela Admoai."
+      },
+      "values": [
+        {
+          "value": "female",
+          "label": {
+            "en": "Female",
+            "es": "Femenino",
+            "fr": "Féminin",
+            "pt": "Feminino"
+          }
+        },
+        {
+          "value": "male",
+          "label": {
+            "en": "Male",
+            "es": "Masculino",
+            "fr": "Masculin",
+            "pt": "Masculino"
+          }
+        },
+        {
+          "value": "other",
+          "label": {
+            "en": "Other",
+            "es": "Otro",
+            "fr": "Autre",
+            "pt": "Outro"
+          }
+        },
+        {
+          "value": "prefer_not_to_say",
+          "label": {
+            "en": "Prefer not to say",
+            "es": "Prefiero no decirlo",
+            "fr": "Préfère ne pas répondre",
+            "pt": "Prefiro não dizer"
+          }
+        }
+      ]
+    },
+    {
+      "key": "account_type",
+      "type": "multiselect",
+      "order": 3,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Account type",
+        "es": "Tipo de cuenta",
+        "fr": "Type de compte",
+        "pt": "Tipo de conta"
+      },
+      "description": {
+        "en": "Type of the account or profile represented by the request.",
+        "es": "Tipo de cuenta o perfil representado por la solicitud.",
+        "fr": "Type de compte ou de profil représenté par la requête.",
+        "pt": "Tipo de conta ou perfil representado pela requisição."
+      },
+      "values": [
+        {
+          "value": "personal",
+          "label": {
+            "en": "Personal",
+            "es": "Personal",
+            "fr": "Personnel",
+            "pt": "Pessoal"
+          }
+        },
+        {
+          "value": "business",
+          "label": {
+            "en": "Business",
+            "es": "Empresa",
+            "fr": "Entreprise",
+            "pt": "Empresarial"
+          }
+        },
+        {
+          "value": "family",
+          "label": {
+            "en": "Family",
+            "es": "Familiar",
+            "fr": "Famille",
+            "pt": "Família"
+          }
+        },
+        {
+          "value": "student",
+          "label": {
+            "en": "Student",
+            "es": "Estudiante",
+            "fr": "Étudiant",
+            "pt": "Estudante"
+          }
+        },
+        {
+          "value": "other",
+          "label": {
+            "en": "Other",
+            "es": "Otro",
+            "fr": "Autre",
+            "pt": "Outro"
+          }
+        }
+      ]
+    },
+    {
+      "key": "subscription_status",
+      "type": "multiselect",
+      "order": 4,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Subscription status",
+        "es": "Estado de la suscripción",
+        "fr": "Statut de l'abonnement",
+        "pt": "Status da assinatura"
+      },
+      "description": {
+        "en": "Current status of the subscription or pass represented by the request.",
+        "es": "Estado actual de la suscripción o pase representado por la solicitud.",
+        "fr": "Statut actuel de l'abonnement ou du pass représenté par la requête.",
+        "pt": "Status atual da assinatura ou passe representado pela requisição."
+      },
+      "values": [
+        {
+          "value": "none",
+          "label": {
+            "en": "None",
+            "es": "Ninguna",
+            "fr": "Aucun",
+            "pt": "Nenhuma"
+          }
+        },
+        {
+          "value": "trial",
+          "label": {
+            "en": "Trial",
+            "es": "De prueba",
+            "fr": "Période d'essai",
+            "pt": "Período de teste"
+          }
+        },
+        {
+          "value": "active",
+          "label": {
+            "en": "Active",
+            "es": "Activa",
+            "fr": "Actif",
+            "pt": "Ativa"
+          }
+        },
+        {
+          "value": "paused",
+          "label": {
+            "en": "Paused",
+            "es": "En pausa",
+            "fr": "En pause",
+            "pt": "Pausada"
+          }
+        },
+        {
+          "value": "expired",
+          "label": {
+            "en": "Expired",
+            "es": "Vencida",
+            "fr": "Expiré",
+            "pt": "Expirada"
+          }
+        }
+      ]
+    },
+    {
+      "key": "account_tenure",
+      "type": "multiselect",
+      "order": 5,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Account tenure",
+        "es": "Antigüedad de la cuenta",
+        "fr": "Ancienneté du compte",
+        "pt": "Tempo de conta"
+      },
+      "description": {
+        "en": "Elapsed time since account creation.",
+        "es": "Tiempo transcurrido desde la creación de la cuenta.",
+        "fr": "Temps écoulé depuis la création du compte.",
+        "pt": "Tempo decorrido desde a criação da conta."
+      },
+      "values": [
+        {
+          "value": "0_30d",
+          "label": {
+            "en": "0–30 days",
+            "es": "0–30 días",
+            "fr": "0–30 jours",
+            "pt": "0–30 dias"
+          }
+        },
+        {
+          "value": "31_90d",
+          "label": {
+            "en": "31–90 days",
+            "es": "31–90 días",
+            "fr": "31–90 jours",
+            "pt": "31–90 dias"
+          }
+        },
+        {
+          "value": "91_365d",
+          "label": {
+            "en": "91–365 days",
+            "es": "91–365 días",
+            "fr": "91–365 jours",
+            "pt": "91–365 dias"
+          }
+        },
+        {
+          "value": "366d_plus",
+          "label": {
+            "en": "366+ days",
+            "es": "366+ días",
+            "fr": "366+ jours",
+            "pt": "366+ dias"
+          }
+        }
+      ]
+    },
+    {
+      "key": "trip_frequency_30d",
+      "type": "multiselect",
+      "order": 6,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Trip frequency in 30 days",
+        "es": "Frecuencia de viajes en 30 días",
+        "fr": "Fréquence des trajets sur 30 jours",
+        "pt": "Frequência de viagens em 30 dias"
+      },
+      "description": {
+        "en": "Completed trips in the trailing 30 days.",
+        "es": "Viajes completados en los últimos 30 días.",
+        "fr": "Trajets terminés au cours des 30 derniers jours.",
+        "pt": "Viagens concluídas nos últimos 30 dias."
+      },
+      "values": [
+        {
+          "value": "0",
+          "label": {
+            "en": "0",
+            "es": "0",
+            "fr": "0",
+            "pt": "0"
+          }
+        },
+        {
+          "value": "1_2",
+          "label": {
+            "en": "1–2",
+            "es": "1–2",
+            "fr": "1–2",
+            "pt": "1–2"
+          }
+        },
+        {
+          "value": "3_9",
+          "label": {
+            "en": "3–9",
+            "es": "3–9",
+            "fr": "3–9",
+            "pt": "3–9"
+          }
+        },
+        {
+          "value": "10_plus",
+          "label": {
+            "en": "10+",
+            "es": "10+",
+            "fr": "10+",
+            "pt": "10+"
+          }
+        }
+      ]
+    },
+    {
+      "key": "last_trip_recency",
+      "type": "multiselect",
+      "order": 7,
+      "optionPolicy": "fixed",
+      "requestShape": "string",
+      "name": {
+        "en": "Last trip recency",
+        "es": "Recencia del último viaje",
+        "fr": "Ancienneté du dernier trajet",
+        "pt": "Recência da última viagem"
+      },
+      "description": {
+        "en": "Time since the latest completed trip.",
+        "es": "Tiempo transcurrido desde el último viaje completado.",
+        "fr": "Temps écoulé depuis le dernier trajet terminé.",
+        "pt": "Tempo decorrido desde a última viagem concluída."
+      },
+      "values": [
+        {
+          "value": "never",
+          "label": {
+            "en": "Never",
+            "es": "Nunca",
+            "fr": "Jamais",
+            "pt": "Nunca"
+          }
+        },
+        {
+          "value": "0_7d",
+          "label": {
+            "en": "0–7 days",
+            "es": "0–7 días",
+            "fr": "0–7 jours",
+            "pt": "0–7 dias"
+          }
+        },
+        {
+          "value": "8_30d",
+          "label": {
+            "en": "8–30 days",
+            "es": "8–30 días",
+            "fr": "8–30 jours",
+            "pt": "8–30 dias"
+          }
+        },
+        {
+          "value": "31_90d",
+          "label": {
+            "en": "31–90 days",
+            "es": "31–90 días",
+            "fr": "31–90 jours",
+            "pt": "31–90 dias"
+          }
+        },
+        {
+          "value": "91d_plus",
+          "label": {
+            "en": "91+ days",
+            "es": "91+ días",
+            "fr": "91+ jours",
+            "pt": "91+ dias"
+          }
+        }
+      ]
+    },
+    {
+      "key": "publisher_segments",
+      "type": "multiselect",
+      "order": 8,
+      "optionPolicy": "workspace",
+      "requestShape": "string_array",
+      "valuePattern": "^[a-zA-Z0-9_]+$",
+      "name": {
+        "en": "Publisher segments",
+        "es": "Segmentos del publisher",
+        "fr": "Segments de l'éditeur",
+        "pt": "Segmentos do publisher"
+      },
+      "description": {
+        "en": "Reusable publisher-owned audiences, such as airport commuters or high-value users.",
+        "es": "Audiencias reutilizables del publisher, como viajeros al aeropuerto o usuarios de alto valor.",
+        "fr": "Audiences réutilisables propres à l'éditeur, comme les voyageurs de l'aéroport ou les utilisateurs à forte valeur.",
+        "pt": "Audiências reutilizáveis do publisher, como passageiros de aeroporto ou usuários de alto valor."
+      },
+      "values": []
+    }
+  ]
+}

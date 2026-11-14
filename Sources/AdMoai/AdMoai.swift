@@ -143,8 +143,23 @@ public struct AdMoai {
             os: os ?? current.os,
             osVersion: osVersion ?? current.osVersion,
             timezone: timezone ?? current.timezone,
-            language: language ?? current.language
+            language: language ?? current.language,
+            carrier: current.carrier,
+            category: current.category
         )
+    }
+
+    /// States the device's mobile carrier; `nil` removes it. Trimmed, and blanks or placeholders
+    /// (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent. iOS never collects it on its own.
+    public mutating func setDeviceCarrier(_ carrier: String?) {
+        deviceConfig = deviceConfig.with(carrier: carrier, category: deviceConfig.category)
+    }
+
+    /// States the device category; `nil` removes it. The SDK does not collect the category on
+    /// its own yet, so this is the only source; `resetDeviceConfig()` and `clearDeviceConfig()`
+    /// both remove it.
+    public mutating func setDeviceCategory(_ category: DeviceCategory?) {
+        deviceConfig = deviceConfig.with(carrier: deviceConfig.carrier, category: category)
     }
 
     public mutating func clearDeviceConfig() {

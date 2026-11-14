@@ -49,6 +49,8 @@ AdMoai.resetAppConfig()  method  mutating func resetAppConfig()
 AdMoai.resetDeviceConfig()  method  mutating func resetDeviceConfig()
 AdMoai.sessionId  property  var sessionId: String? { get }
 AdMoai.setAppConfig(name:version:buildNumber:identifier:language:)  method  mutating func setAppConfig(name: String? = nil, version: String? = nil, buildNumber: String? = nil, identifier: String? = nil, language: String? = nil)
+AdMoai.setDeviceCarrier(_:)  method  mutating func setDeviceCarrier(_ carrier: String?)
+AdMoai.setDeviceCategory(_:)  method  mutating func setDeviceCategory(_ category: DeviceCategory?)
 AdMoai.setDeviceConfig(id:model:manufacturer:os:osVersion:timezone:language:)  method  mutating func setDeviceConfig(id: String? = nil, model: String? = nil, manufacturer: String? = nil, os: String? = nil, osVersion: String? = nil, timezone: String? = nil, language: String? = nil)
 AdMoai.setSessionId(_:)  method  func setSessionId(_ sessionId: String?)
 AdMoai.setUserConfig(id:ip:timezone:consent:)  method  mutating func setUserConfig(id: String? = nil, ip: String? = nil, timezone: String? = nil, consent: User.Consent? = nil)
@@ -103,6 +105,65 @@ AppDetails.identifier  property  let identifier: String?
 AppDetails.language  property  let language: String?
 AppDetails.name  property  let name: String?
 AppDetails.version  property  let version: String?
+AudienceSignals  enum  enum AudienceSignals
+AudienceSignals.AccountTenure  enum  enum AccountTenure
+AudienceSignals.AccountTenure.days0To30  case  case days0To30
+AudienceSignals.AccountTenure.days31To90  case  case days31To90
+AudienceSignals.AccountTenure.days366Plus  case  case days366Plus
+AudienceSignals.AccountTenure.days91To365  case  case days91To365
+AudienceSignals.AccountTenure.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.AccountType  enum  enum AccountType
+AudienceSignals.AccountType.business  case  case business
+AudienceSignals.AccountType.family  case  case family
+AudienceSignals.AccountType.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.AccountType.other  case  case other
+AudienceSignals.AccountType.personal  case  case personal
+AudienceSignals.AccountType.student  case  case student
+AudienceSignals.AgeGroup  enum  enum AgeGroup
+AudienceSignals.AgeGroup.age18To24  case  case age18To24
+AudienceSignals.AgeGroup.age25To34  case  case age25To34
+AudienceSignals.AgeGroup.age35To44  case  case age35To44
+AudienceSignals.AgeGroup.age45To54  case  case age45To54
+AudienceSignals.AgeGroup.age55To64  case  case age55To64
+AudienceSignals.AgeGroup.age65Plus  case  case age65Plus
+AudienceSignals.AgeGroup.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.AgeGroup.under18  case  case under18
+AudienceSignals.Gender  enum  enum Gender
+AudienceSignals.Gender.female  case  case female
+AudienceSignals.Gender.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.Gender.male  case  case male
+AudienceSignals.Gender.other  case  case other
+AudienceSignals.Gender.preferNotToSay  case  case preferNotToSay
+AudienceSignals.Key  enum  enum Key
+AudienceSignals.Key.accountTenure  case  case accountTenure
+AudienceSignals.Key.accountType  case  case accountType
+AudienceSignals.Key.ageGroup  case  case ageGroup
+AudienceSignals.Key.gender  case  case gender
+AudienceSignals.Key.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.Key.lastTripRecency  case  case lastTripRecency
+AudienceSignals.Key.publisherSegments  case  case publisherSegments
+AudienceSignals.Key.subscriptionStatus  case  case subscriptionStatus
+AudienceSignals.Key.tripFrequency30d  case  case tripFrequency30d
+AudienceSignals.LastTripRecency  enum  enum LastTripRecency
+AudienceSignals.LastTripRecency.days0To7  case  case days0To7
+AudienceSignals.LastTripRecency.days31To90  case  case days31To90
+AudienceSignals.LastTripRecency.days8To30  case  case days8To30
+AudienceSignals.LastTripRecency.days91Plus  case  case days91Plus
+AudienceSignals.LastTripRecency.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.LastTripRecency.never  case  case never
+AudienceSignals.SubscriptionStatus  enum  enum SubscriptionStatus
+AudienceSignals.SubscriptionStatus.active  case  case active
+AudienceSignals.SubscriptionStatus.expired  case  case expired
+AudienceSignals.SubscriptionStatus.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.SubscriptionStatus.noSubscription  case  case noSubscription
+AudienceSignals.SubscriptionStatus.paused  case  case paused
+AudienceSignals.SubscriptionStatus.trial  case  case trial
+AudienceSignals.TripFrequency30d  enum  enum TripFrequency30d
+AudienceSignals.TripFrequency30d.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.TripFrequency30d.trips10Plus  case  case trips10Plus
+AudienceSignals.TripFrequency30d.trips1To2  case  case trips1To2
+AudienceSignals.TripFrequency30d.trips3To9  case  case trips3To9
+AudienceSignals.TripFrequency30d.zero  case  case zero
 Clearable  protocol  protocol Clearable
 Clearable.clear()  static method  static func clear() -> Self
 Content  struct  struct Content
@@ -200,33 +261,52 @@ DecisionRequestBuilder.clearTargeting()  method  func clearTargeting() -> Decisi
 DecisionRequestBuilder.clearUser()  method  func clearUser() -> DecisionRequestBuilder
 DecisionRequestBuilder.disableAppCollection()  method  func disableAppCollection() -> DecisionRequestBuilder
 DecisionRequestBuilder.disableDeviceCollection()  method  func disableDeviceCollection() -> DecisionRequestBuilder
+DecisionRequestBuilder.setAccountTenure(_:)  method  @discardableResult func setAccountTenure(_ value: AudienceSignals.AccountTenure?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setAccountType(_:)  method  @discardableResult func setAccountType(_ value: AudienceSignals.AccountType?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setAgeGroup(_:)  method  @discardableResult func setAgeGroup(_ value: AudienceSignals.AgeGroup?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setCustomTargeting(_:)  method  func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setDestinationTargeting(_:)  method  @discardableResult func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) throws -> DecisionRequestBuilder
 DecisionRequestBuilder.setDistanceTargeting(latitude:longitude:bounds:limit:)  method  @discardableResult func setDistanceTargeting(latitude: Double, longitude: Double, bounds: DistanceBounds, limit: Int? = nil) throws -> DecisionRequestBuilder
 DecisionRequestBuilder.setDistanceTargeting(latitude:longitude:radius:limit:)  method  @discardableResult func setDistanceTargeting(latitude: Double, longitude: Double, radius: Double, limit: Int? = nil) throws -> DecisionRequestBuilder
+DecisionRequestBuilder.setGender(_:)  method  @discardableResult func setGender(_ value: AudienceSignals.Gender?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setGeoTargeting(_:)  method  func setGeoTargeting(_ geoNameIds: [Int]?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setJourneyOpt(_:)  method  func setJourneyOpt(_ journeyOpt: JourneyOpt?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setLastTripRecency(_:)  method  @discardableResult func setLastTripRecency(_ value: AudienceSignals.LastTripRecency?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setLocationTargeting(_:)  method  func setLocationTargeting(_ locations: [Targeting.LocationCoordinate]?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setPublisherSegments(_:)  method  @discardableResult func setPublisherSegments(_ codes: [String]?) throws -> DecisionRequestBuilder
 DecisionRequestBuilder.setSessionId(_:)  method  func setSessionId(_ sessionId: String?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setSubscriptionStatus(_:)  method  @discardableResult func setSubscriptionStatus(_ value: AudienceSignals.SubscriptionStatus?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setTripFrequency30d(_:)  method  @discardableResult func setTripFrequency30d(_ value: AudienceSignals.TripFrequency30d?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserConsent(_:)  method  func setUserConsent(_ consent: User.Consent?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserId(_:)  method  func setUserId(_ id: String?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserIp(_:)  method  func setUserIp(_ ip: String?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserTimezone(_:)  method  func setUserTimezone(_ timezone: String?) -> DecisionRequestBuilder
 DecisionResponse  typealias  typealias DecisionResponse = [Decision]
 Device  struct  struct Device
+Device.carrier  property  let carrier: String?
+Device.category  property  let category: DeviceCategory?
 Device.id  property  let id: String?
 Device.init(id:model:manufacturer:os:osVersion:timezone:language:)  init  init(id: String? = nil, model: String? = nil, manufacturer: String? = nil, os: String? = nil, osVersion: String? = nil, timezone: String? = nil, language: String? = nil)
+Device.init(id:model:manufacturer:os:osVersion:timezone:language:carrier:category:)  init  init(id: String? = nil, model: String? = nil, manufacturer: String? = nil, os: String? = nil, osVersion: String? = nil, timezone: String? = nil, language: String? = nil, carrier: String?, category: DeviceCategory?)
 Device.language  property  let language: String?
 Device.manufacturer  property  let manufacturer: String?
 Device.model  property  let model: String?
 Device.os  property  let os: String?
 Device.osVersion  property  let osVersion: String?
 Device.timezone  property  let timezone: String?
+DeviceCategory  enum  enum DeviceCategory
+DeviceCategory.init(rawValue:)  init  init?(rawValue: String)
+DeviceCategory.other  case  case other
+DeviceCategory.phone  case  case phone
+DeviceCategory.tablet  case  case tablet
 DeviceConfig  struct  struct DeviceConfig
 DeviceConfig.==(_:_:)  operator  static func == (lhs: DeviceConfig, rhs: DeviceConfig) -> Bool
+DeviceConfig.carrier  property  let carrier: String?
+DeviceConfig.category  property  var category: DeviceCategory? { get }
 DeviceConfig.clear()  static method  static func clear() -> DeviceConfig
 DeviceConfig.id  property  let id: String?
 DeviceConfig.init(id:model:manufacturer:os:osVersion:timezone:language:)  init  init(id: String?, model: String?, manufacturer: String?, os: String?, osVersion: String?, timezone: String?, language: String?)
+DeviceConfig.init(id:model:manufacturer:os:osVersion:timezone:language:carrier:category:)  init  init(id: String?, model: String?, manufacturer: String?, os: String?, osVersion: String?, timezone: String?, language: String?, carrier: String?, category: DeviceCategory?)
 DeviceConfig.language  property  let language: String?
 DeviceConfig.manufacturer  property  let manufacturer: String?
 DeviceConfig.model  property  let model: String?
@@ -352,6 +432,7 @@ SDKError.invalidDistanceCoordinate(latitude:longitude:)  case  case invalidDista
 SDKError.invalidDistanceLimit(_:)  case  case invalidDistanceLimit(Int)
 SDKError.invalidDistanceRadius(_:)  case  case invalidDistanceRadius(Double)
 SDKError.invalidMinConfidence(_:)  case  case invalidMinConfidence(Double)
+SDKError.invalidPublisherSegment(_:)  case  case invalidPublisherSegment(String)
 SDKError.noPlacements  case  case noPlacements
 Slide  struct  struct Slide
 Slide.contents  property  let contents: [Content]

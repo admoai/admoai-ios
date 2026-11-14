@@ -38,7 +38,9 @@ let package = Package(
             // resources. The E2E runner lives in its own executable target and asserts against a
             // live engine; it never reads these. Excluded so SwiftPM does not treat them as
             // unhandled files.
-            exclude: ["E2E"]
+            // `Fixtures/` holds vendored contract data read through #filePath (the audience
+            // signals catalog generated in adhub), not bundle resources.
+            exclude: ["E2E", "Fixtures"]
         ),
         // Journey Ads live E2E runner. Deliberately an executable target and deliberately NOT
         // exposed as a package product: `swift test` therefore stays hermetic and offline by

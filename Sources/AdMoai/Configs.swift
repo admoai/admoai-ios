@@ -121,6 +121,15 @@ public struct DeviceConfig: Clearable, Equatable {
     public let osVersion: String?
     public let timezone: String?
     public let language: String?
+    /// Carrier name, normalized: trimmed, and `nil` for blanks and placeholders (`--`, `unknown`, `wifi`).
+    public let carrier: String?
+    /// The publisher's own category, when stated.
+    private let manualCategory: DeviceCategory?
+
+    /// The category this configuration sends: the publisher's value, when set.
+    public var category: DeviceCategory? {
+        manualCategory
+    }
 
     public init(
         id: String?,
@@ -131,6 +140,25 @@ public struct DeviceConfig: Clearable, Equatable {
         timezone: String?,
         language: String?
     ) {
+        self.init(
+            id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
+            timezone: timezone, language: language, carrier: nil, category: nil
+        )
+    }
+
+    /// The same configuration with the audience-signals fields; `carrier` is normalized
+    /// (trimmed; blanks and placeholders become `nil`).
+    public init(
+        id: String?,
+        model: String?,
+        manufacturer: String?,
+        os: String?,
+        osVersion: String?,
+        timezone: String?,
+        language: String?,
+        carrier: String?,
+        category: DeviceCategory?
+    ) {
         self.id = id
         self.model = model
         self.manufacturer = manufacturer
@@ -138,6 +166,15 @@ public struct DeviceConfig: Clearable, Equatable {
         self.osVersion = osVersion
         self.timezone = timezone
         self.language = language
+        self.carrier = normalizeCarrier(carrier)
+        self.manualCategory = category
+    }
+
+    func with(carrier: String?, category: DeviceCategory?) -> DeviceConfig {
+        DeviceConfig(
+            id: id, model: model, manufacturer: manufacturer, os: os, osVersion: osVersion,
+            timezone: timezone, language: language, carrier: carrier, category: category
+        )
     }
 
     public static func clear() -> DeviceConfig {
@@ -148,7 +185,9 @@ public struct DeviceConfig: Clearable, Equatable {
             os: nil,
             osVersion: nil,
             timezone: nil,
-            language: nil
+            language: nil,
+            carrier: nil,
+            category: nil
         )
     }
 
@@ -162,14 +201,17 @@ public struct DeviceConfig: Clearable, Equatable {
             os: details.os,
             osVersion: details.osVersion,
             timezone: details.timezone,
-            language: details.language
+            language: details.language,
+            carrier: nil,
+            category: nil
         )
     }
 
     public static func == (lhs: DeviceConfig, rhs: DeviceConfig) -> Bool {
         lhs.id == rhs.id && lhs.model == rhs.model && lhs.manufacturer == rhs.manufacturer
             && lhs.os == rhs.os && lhs.osVersion == rhs.osVersion && lhs.timezone == rhs.timezone
-            && lhs.language == rhs.language
+            && lhs.language == rhs.language && lhs.carrier == rhs.carrier
+            && lhs.manualCategory == rhs.manualCategory
     }
 }
 

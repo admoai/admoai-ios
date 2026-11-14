@@ -27,8 +27,13 @@ public enum SDKError: Error, CustomStringConvertible, Equatable {
     /// own cap; asking for none of it is a bug, not a way to ask for all of it.
     case invalidDistanceLimit(Int)
 
+    /// A publisher segment code did not match `^[a-zA-Z0-9_]+$`. The builder was left unchanged.
+    case invalidPublisherSegment(String)
+
     public var description: String {
         switch self {
+        case let .invalidPublisherSegment(code):
+            "Invalid publisher segment code \"\(code)\": codes must match ^[a-zA-Z0-9_]+$ (letters, digits, underscore; no spaces). The builder was left unchanged."
         case let .invalidMinConfidence(value):
             "minConfidence must be in [0.0, 1.0], got \(value)"
         case .noPlacements:
@@ -95,7 +100,9 @@ public class DecisionRequestBuilder {
             os: deviceConfig.os,
             osVersion: deviceConfig.osVersion,
             timezone: deviceConfig.timezone,
-            language: deviceConfig.language
+            language: deviceConfig.language,
+            carrier: deviceConfig.carrier,
+            category: deviceConfig.category
         )
 
         self.user = User(
@@ -475,6 +482,106 @@ public class DecisionRequestBuilder {
             )
         }
         return self
+    }
+
+    // MARK: - Audience signals
+
+    /// Sets the `age_group` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setAgeGroup(_ value: AudienceSignals.AgeGroup?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .ageGroup, value: value?.rawValue)
+    }
+
+    /// Sets the `gender` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setGender(_ value: AudienceSignals.Gender?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .gender, value: value?.rawValue)
+    }
+
+    /// Sets the `account_type` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setAccountType(_ value: AudienceSignals.AccountType?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .accountType, value: value?.rawValue)
+    }
+
+    /// Sets the `subscription_status` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setSubscriptionStatus(_ value: AudienceSignals.SubscriptionStatus?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .subscriptionStatus, value: value?.rawValue)
+    }
+
+    /// Sets the `account_tenure` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setAccountTenure(_ value: AudienceSignals.AccountTenure?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .accountTenure, value: value?.rawValue)
+    }
+
+    /// Sets the `trip_frequency_30d` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setTripFrequency30d(_ value: AudienceSignals.TripFrequency30d?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .tripFrequency30d, value: value?.rawValue)
+    }
+
+    /// Sets the `last_trip_recency` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// including against ``addCustomTargeting(key:value:)`` for the same key.
+    @discardableResult
+    public func setLastTripRecency(_ value: AudienceSignals.LastTripRecency?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .lastTripRecency, value: value?.rawValue)
+    }
+
+    /// Sets the publisher segments as one canonical array; `nil` removes the entry. Last write wins.
+    ///
+    /// Syntax is checked locally: every code must match `^[a-zA-Z0-9_]+$` (no trimming, no case
+    /// change; an empty string is invalid). Duplicates are dropped keeping first occurrence, the
+    /// entry is always an array, and an empty list removes it. Registration is the engine's call:
+    /// unknown codes are rejected server-side and archived codes are still accepted.
+    ///
+    /// - Throws: ``SDKError/invalidPublisherSegment(_:)`` on the first invalid code; the
+    ///   builder is left completely unchanged.
+    @discardableResult
+    public func setPublisherSegments(_ codes: [String]?) throws -> DecisionRequestBuilder {
+        guard let codes else {
+            return setStandardSignal(key: .publisherSegments, value: nil)
+        }
+        for code in codes where !Self.isValidSegmentCode(code) {
+            throw SDKError.invalidPublisherSegment(code)
+        }
+        var seen = Set<String>()
+        let unique = codes.filter { seen.insert($0).inserted }
+        let key = AudienceSignals.Key.publisherSegments
+        if unique.isEmpty {
+            return setStandardSignal(key: key, value: nil)
+        }
+        return setStandardSignal(key: key, value: unique)
+    }
+
+    private static func isValidSegmentCode(_ code: String) -> Bool {
+        !code.isEmpty
+            && code.unicodeScalars.allSatisfy {
+                ($0.value >= 0x30 && $0.value <= 0x39) || ($0.value >= 0x41 && $0.value <= 0x5A)
+                    || ($0.value >= 0x61 && $0.value <= 0x7A) || $0.value == 0x5F
+            }
+    }
+
+    /// Replaces (or, with `nil`, removes) one standard signal's custom entry, leaving every
+    /// other entry alone. When no custom entry remains, `custom` becomes `nil` so no empty
+    /// array is ever sent.
+    private func setStandardSignal(key: AudienceSignals.Key, value: Any?) -> DecisionRequestBuilder {
+        var current = targeting?.custom ?? []
+        current.removeAll { $0.key == key.rawValue }
+        if let value {
+            current.append((key: key.rawValue, value: value))
+        }
+        if targeting == nil, current.isEmpty {
+            return self
+        }
+        return setCustomTargeting(current.isEmpty ? nil : current)
     }
 
     // User methods
