@@ -96,6 +96,25 @@
       }
     },
     {
+      "id": "L9",
+      "title": "an ad whose creative is filled only in its default language serves in that language instead of an empty slot",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_locale_default_only"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "requireContents": true
+        }
+      }
+    },
+    {
       "id": "M1",
       "title": "count=2 returns at most two creatives, and they are distinct",
       "request": {
@@ -2005,6 +2024,36 @@
           "engineAcceptsEveryBeacon": true
         }
       }
+    },
+    {
+      "id": "ST22",
+      "title": "a template based on Native Display that adds a video serves the video as one of its contents",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_st_card_video_field"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": false,
+          "templateKey": "sdk_card_video_field",
+          "contentKeys": [
+            "image",
+            "destination_url",
+            "video_promo"
+          ],
+          "metadata": {
+            "effectiveStandardFormatKey": "card",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "based_on_standard",
+            "assetContext": null
+          }
+        }
+      }
     }
   ],
   "fixtureScenarios": [
@@ -2498,6 +2547,36 @@
         ],
         "customKeys": [],
         "matchedPoints": 2
+      }
+    },
+    {
+      "id": "F26",
+      "title": "a Sponsored Pin creative with only its pin image and no destination has no creative-level click tracker",
+      "comment": "Only pinImage is required. With no destination on the creative or on the pin, the creative and the pin carry no click tracker (an empty list, never a click that opens nothing) and the point has no clickUrl; its view and tap stay. This scenario checks only the creative-level click (clickKeys); the per-pin tracking.clicks and the absent clickUrl are checked by decode only, and the engine side is pinned by sponsored_pin_serving.feature.",
+      "fixture": {
+        "golden": "sponsored_pin_location.minimal"
+      },
+      "expect": {
+        "decodes": true,
+        "metadata": {
+          "effectiveStandardFormatKey": "sponsored_pin_location",
+          "effectiveStandardFormatVersion": 1,
+          "templateSource": "admoai_standard"
+        },
+        "templateKey": "sponsored_pin_location",
+        "contentKeys": [
+          "pinImage"
+        ],
+        "contentKeysAbsent": [
+          "image",
+          "headline",
+          "description",
+          "ctaText",
+          "defaultDestinationUrl"
+        ],
+        "clickKeys": [],
+        "customKeys": [],
+        "matchedPoints": 1
       }
     },
     {
