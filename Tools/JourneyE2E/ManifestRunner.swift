@@ -24,7 +24,7 @@ import ManifestExpectations
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 5
+let supportedSchemaVersion = 6
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -273,11 +273,11 @@ private func runManifestScenario(
         switch custom.value {
         case let .string(value):
             _ = builder.addCustomTargeting(key: custom.key, value: value)
-        case let .strings(list) where custom.key == "publisher_segments":
-            // The SDK's own validation and dedup run here.
-            _ = try builder.setPublisherSegments(list)
         case let .strings(list):
-            // Any other key carries the list as an array value, appended to what is set so far.
+            // The list goes out verbatim through the generic custom path, as an app that builds
+            // its own custom array would send it: no local validation or dedup, so the engine's
+            // refusals (a code sent twice, an unregistered or malformed code, a list over the cap)
+            // are what the scenario observes. `setPublisherSegments` is covered by unit tests.
             let current = builder.build().targeting?.custom ?? []
             _ = builder.setCustomTargeting(current + [(key: custom.key, value: list)])
         }

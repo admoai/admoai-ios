@@ -184,8 +184,16 @@ let builder = try sdk.createRequestBuilder()
   invalid code throws `SDKError.invalidPublisherSegment` and the builder keeps its previous
   segments; nothing is dropped silently.
 - **Checked by AdMoai:** a code must be registered in your workspace; registered codes are at most
-  32 characters, so a longer code is never accepted. A request carries at most **20** codes; more
-  is refused. Archived codes are still accepted.
+  32 characters, so a longer code is never accepted. A request carries at most **20** codes.
+  Archived codes are still accepted. The engine refuses the whole request with `422`, surfaced as
+  `APIError.validationError` whose `AdMoaiError.code` is:
+
+  | Code | When |
+  |---|---|
+  | `10029` | a code that is not registered in your workspace, or not a valid code |
+  | `10030` | `publisher_segments` sent as a single string instead of a list (or a list for a single-value signal) |
+  | `10073` | the same code twice in one request (the helper removes duplicates, so only a hand-built custom array can hit it) |
+  | `10076` | more than 20 codes |
 
 #### Device carrier
 
