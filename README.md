@@ -112,54 +112,125 @@ response.body.data?.forEach { adData in
 
 ### Audience signals
 
-Describe the viewer with typed helpers instead of hand-written custom keys. Values are sent
-verbatim; passing `nil` removes only that dimension, and the last call for a key wins (also
-against `addCustomTargeting` with the same key).
+Audience signals describe the viewer (who they are) and the device (what they hold) in a
+standard shape every AdMoai workspace understands, so advertisers can target them and reports
+can group them. Use the typed helpers below instead of hand-written custom keys: they can only
+produce values the engine accepts.
+
+**Requirements**
+
+- Audience signals are read on decision version `2025-11-01`:
+  `SDKConfig(baseUrl: ..., apiVersion: "2025-11-01")`. On older versions the values travel as
+  plain custom targeting, as before.
+- They take effect once AdMoai has enabled audience signals for your workspace. Until then,
+  leave device-category collection off (see below).
+
+#### Standard signals
+
+One setter per signal on `DecisionRequestBuilder`. Each takes an enum from `AudienceSignals`, whose
+raw values are the wire strings. `nil` removes only that signal, and the last call for a key wins
+(also against `addCustomTargeting` with the same key).
+
+| Setter | Wire key | Values (`case` → wire) |
+|---|---|---|
+| `setAgeGroup` | `age_group` | `under18` → `under_18`, `age18To24` → `18_24` … `age55To64` → `55_64`, `age65Plus` → `65_plus` |
+| `setGender` | `gender` | `female`, `male`, `other`, `preferNotToSay` → `prefer_not_to_say` |
+| `setAccountType` | `account_type` | `personal`, `business`, `family`, `student`, `other` |
+| `setSubscriptionStatus` | `subscription_status` | `noSubscription` → `none`, `trial`, `active`, `paused`, `expired` |
+| `setAccountTenure` | `account_tenure` | `days0To30` → `0_30d`, `days31To90` → `31_90d`, `days91To365` → `91_365d`, `days366Plus` → `366d_plus` |
+| `setTripFrequency30d` | `trip_frequency_30d` | `zero` → `0`, `trips1To2` → `1_2`, `trips3To9` → `3_9`, `trips10Plus` → `10_plus` |
+| `setLastTripRecency` | `last_trip_recency` | `never`, `days0To7` → `0_7d`, `days8To30` → `8_30d`, `days31To90` → `31_90d`, `days91Plus` → `91d_plus` |
+
+`AudienceSignals.Key` lists the eight wire keys, and every enum is `CaseIterable`.
 
 ```swift
-let request = try sdk.createRequestBuilder()
+let request = sdk.createRequestBuilder()
     .addPlacement(key: "home")
     .setAgeGroup(.age25To34)
     .setSubscriptionStatus(.noSubscription)   // sent as "none"
-    .setTripFrequency30d(.trips3To9)
-    .setPublisherSegments(["airport_commuter", "high_value"])
+    .setTripFrequency30d(.zero)               // sent as the string "0"
     .build()
 ```
 
-- Publisher segments are always sent as an array, duplicates are dropped (first occurrence
-  kept), an empty list removes the entry, and a code that does not match `^[a-zA-Z0-9_]+$`
-  throws `SDKError.invalidPublisherSegment` and leaves the builder unchanged. Unknown codes are
-  rejected by the engine, which owns segment registration (archived codes are accepted).
-  Passing `nil` removes the entry.
-- Audience dimensions require `SDKConfig(apiVersion: "2025-11-01")`.
-- The device carrier and category are stated by the app; **iOS never collects the carrier
-  automatically**:
-
-```swift
-sdk.setDeviceCarrier("Example Mobile")   // nil removes it
-sdk.setDeviceCategory(.phone)            // nil removes it
+```json
+"targeting": { "custom": [
+  { "key": "age_group", "value": "25_34" },
+  { "key": "subscription_status", "value": "none" },
+  { "key": "trip_frequency_30d", "value": "0" }
+] }
 ```
 
-  Blank carriers and placeholders (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent.
+#### Publisher segments
 
-- Automatic device-category collection is **opt-in**. A workspace whose audience-signals
-  contract is off refuses `device.category`, so the SDK sends none until you enable it, once
-  AdMoai confirms the contract is on for your workspace:
+Your own audience segments, registered by your ad-ops team in the AdMoai platform, sent by code.
 
 ```swift
-sdk.enableDeviceCategoryCollection()
+let builder = try sdk.createRequestBuilder()
+    .addPlacement(key: "home")
+    .setPublisherSegments(["airport_commuter", "high_value", "airport_commuter"])
 ```
 
-  Phone idiom → `phone`, pad idiom → `tablet`, Mac (including iOS and Mac Catalyst apps running on a Mac), TV,
-  CarPlay and Vision → `other`, and absent when the platform cannot classify the device. An
-  iPhone-only app running on an iPad reports `phone`. The platform is read once per process. A
-  value you set with `setDeviceCategory(_:)` wins over the collected one (and works without
-  enabling collection); `setDeviceCategory(nil)` removes it: no category is sent, and the collected
-  one does not come back, until `resetDeviceConfig()`. `clearDeviceConfig()` pauses collection until
-  `resetDeviceConfig()`.
-- The carrier is never collected automatically on iOS (Apple's CoreTelephony returns static,
-  home-provider values), but can be set manually as above.
-- `disableDeviceCollection()` drops both, since it omits the whole device object.
+```json
+"targeting": { "custom": [
+  { "key": "publisher_segments", "value": ["airport_commuter", "high_value"] }
+] }
+```
+
+- **Set:** always sent as an array, even for one code; duplicates are dropped (first occurrence
+  kept). Codes are sent verbatim: no trimming, no case change.
+- **Replace:** calling it again replaces the whole list (the last call wins).
+- **Clear:** `setPublisherSegments(nil)` or `setPublisherSegments([])` removes the entry.
+- **Checked on the device:** a code must fully match `^[a-zA-Z0-9_]+$`. A blank, padded or
+  invalid code throws `SDKError.invalidPublisherSegment` and the builder keeps its previous
+  segments; nothing is dropped silently.
+- **Checked by AdMoai:** a code must be registered in your workspace; registered codes are at most
+  32 characters, so a longer code is never accepted. A request carries at most **20** codes; more
+  is refused. Archived codes are still accepted.
+
+#### Device carrier
+
+iOS never collects the carrier: Apple's CoreTelephony returns static, home-provider values on
+modern iOS. Your app can state it:
+
+```swift
+sdk.setDeviceCarrier("Example Mobile")   // trimmed; nil removes it
+```
+
+```json
+"device": { ..., "carrier": "Example Mobile" }
+```
+
+A blank value or a placeholder (`--`, `unknown`, `wifi`, `wi-fi`, any case) is treated as absent,
+so `sdk.setDeviceCarrier("wifi")` sends no `carrier`.
+
+#### Device category
+
+`phone`, `tablet` or `other`. **Nothing is sent unless your app opts in or states it**, so an app
+that only upgrades the SDK sends exactly what it sent before (a workspace without audience
+signals refuses `device.category`).
+
+```swift
+sdk.enableDeviceCategoryCollection()   // opt in to automatic collection
+sdk.setDeviceCategory(.tablet)         // or state it yourself; this always wins
+sdk.setDeviceCategory(nil)             // remove it: no category is sent
+```
+
+```json
+"device": { ..., "category": "phone" }
+```
+
+- **Collected (opt-in):** phone idiom → `phone`; pad idiom → `tablet`; Mac (including iOS and Mac
+  Catalyst apps running on a Mac), TV, CarPlay and Vision → `other`; absent when the platform
+  cannot classify the device. An iPhone-only app running on an iPad reports `phone`. The platform
+  is read once per process.
+- **Manual:** `setDeviceCategory(_:)` works with or without collection and wins over the
+  collected value.
+- **Absent:** `setDeviceCategory(nil)` sends no category, and the collected one does not come back
+  until `resetDeviceConfig()`.
+- **Clear and reset:** `clearDeviceConfig()` pauses collection; `resetDeviceConfig()` resumes it
+  (only if your app enabled it).
+- `disableDeviceCollection()` on a request omits the whole `device` object, carrier and category
+  included.
 
 ### 4. Extract Content
 
