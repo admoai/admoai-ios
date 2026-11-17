@@ -148,7 +148,9 @@ struct DeviceCategoryClassifierTests {
     }
 
     /// The end-to-end platform read (`UIDevice` → `DeviceIdiom` → category), which only a
-    /// simulator or device exercises: run with `xcodebuild test` on iPhone and iPad simulators.
+    /// simulator or device exercises: run with `xcodebuild test` on iPhone, iPad and Mac Catalyst.
+    /// The expected value follows the classifier's own precedence, so this proves the wiring;
+    /// the pure scenarios above prove the mapping.
     @Test("the platform's own idiom reaches the request")
     func platformIdiomReachesRequest() throws {
         let expected: String?

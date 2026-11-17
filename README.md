@@ -123,7 +123,7 @@ produce values the engine accepts.
   `SDKConfig(baseUrl: ..., apiVersion: "2025-11-01")`. On older versions the values travel as
   plain custom targeting, as before.
 - They take effect once AdMoai has enabled audience signals for your workspace. Until then,
-  leave device-category collection off (see below).
+  send no device category: do not enable collection or call `setDeviceCategory` (see below).
 
 #### Standard signals
 
@@ -186,7 +186,7 @@ let builder = try sdk.createRequestBuilder()
 - **Checked by AdMoai:** a code must be registered in your workspace; registered codes are at most
   32 characters, so a longer code is never accepted. A request carries at most **20** codes.
   Archived codes are still accepted. The engine refuses the whole request with `422`, surfaced as
-  `APIError.validationError` whose `AdMoaiError.code` is:
+  `APIError.validationError`, whose `[AdMoaiError]` contains the `code`:
 
   | Code | When |
   |---|---|
@@ -217,15 +217,27 @@ so `sdk.setDeviceCarrier("wifi")` sends no `carrier`.
 that only upgrades the SDK sends exactly what it sent before (a workspace without audience
 signals refuses `device.category`).
 
+Opt in to automatic collection, here on an iPhone:
+
 ```swift
-sdk.enableDeviceCategoryCollection()   // opt in to automatic collection
-sdk.setDeviceCategory(.tablet)         // or state it yourself; this always wins
-sdk.setDeviceCategory(nil)             // remove it: no category is sent
+sdk.enableDeviceCategoryCollection()
 ```
 
 ```json
 "device": { ..., "category": "phone" }
 ```
+
+Or state it yourself; a manual value always wins:
+
+```swift
+sdk.setDeviceCategory(.tablet)
+```
+
+```json
+"device": { ..., "category": "tablet" }
+```
+
+`sdk.setDeviceCategory(nil)` removes it: the `device` object carries no `category`.
 
 - **Collected (opt-in):** phone idiom → `phone`; pad idiom → `tablet`; Mac (including iOS and Mac
   Catalyst apps running on a Mac), TV, CarPlay and Vision → `other`; absent when the platform
@@ -235,8 +247,9 @@ sdk.setDeviceCategory(nil)             // remove it: no category is sent
   collected value.
 - **Absent:** `setDeviceCategory(nil)` sends no category, and the collected one does not come back
   until `resetDeviceConfig()`.
-- **Clear and reset:** `clearDeviceConfig()` pauses collection; `resetDeviceConfig()` resumes it
-  (only if your app enabled it).
+- **Clear and reset:** `clearDeviceConfig()` clears every device field, including the manual
+  carrier and category, and pauses collection. `resetDeviceConfig()` restores the system values
+  and discards the manual ones, collecting the category again only if your app enabled it.
 - `disableDeviceCollection()` on a request omits the whole `device` object, carrier and category
   included.
 

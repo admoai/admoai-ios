@@ -1,3 +1,4 @@
+import AdMoai
 import Foundation
 import ManifestExpectations
 import Testing
@@ -26,7 +27,8 @@ struct ManifestRequestKeysTests {
 
     @Test
     func testDeviceCategoryAllowlistIsExact() {
-        #expect(ManifestRequestKeys.deviceCategories == ["phone", "tablet", "other"])
+        // Pinned to the SDK's own enum, so a new DeviceCategory case cannot leave the runner behind.
+        #expect(ManifestRequestKeys.deviceCategories == Set(DeviceCategory.allCases.map(\.rawValue)))
     }
 
     private struct Holder: Decodable { let value: ManifestCustomValue }

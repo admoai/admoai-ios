@@ -37,12 +37,11 @@ struct ManifestIntegrityTests {
         }
     }
 
-    /// `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format
-    /// `expect.creative` keys, 5 the live Carousel `slides`, `clickKeys` and `slideTracking`, 6 the `request.device`
-    /// key and list
-    /// values for `request.custom[].value`); the live runner
-    /// refuses any other version and FixtureScenariosTests interprets them, so both are
-    /// pinned here against the vendored copy.
+    /// `schemaVersion` 2 added `fixtureScenarios`; 3 added their `slideTracking`; 4 the live
+    /// standard-format `expect.creative` keys; 5 the live Carousel `slides`, `clickKeys` and
+    /// `slideTracking`; 6 the `request.device` key and list values for `request.custom[].value`.
+    /// The live runner refuses any other version and FixtureScenariosTests interprets them, so
+    /// both are pinned here against the vendored copy.
     @Test
     func testFixtureScenariosAreStructurallyValid() throws {
         let data = try Data(contentsOf: manifestURL())
