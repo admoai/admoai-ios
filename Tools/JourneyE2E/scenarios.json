@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 5,
-  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object.",
+  "schemaVersion": 6,
+  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object. From schemaVersion 6 (package 2.0.0) a live request may carry `device` (`carrier`, `category`: the app's manual device configuration, an empty object allowed) and a `custom` value may be an array of strings (publisher_segments); a runner that does not send them must refuse schemaVersion 6.",
   "scenarios": [
     {
       "id": "L1",
@@ -2053,6 +2053,504 @@
             "assetContext": null
           }
         }
+      }
+    },
+    {
+      "id": "AS1",
+      "title": "a Standard audience value the Ad targets serves it on the default version",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          },
+          {
+            "key": "trip_frequency_30d",
+            "value": "0"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS2",
+      "title": "a Standard audience value the Ad targets serves it on version 2025-11-01",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          },
+          {
+            "key": "trip_frequency_30d",
+            "value": "0"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS3",
+      "title": "a Standard audience value outside the Ad's selection does not serve it",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "45_54"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS4",
+      "title": "an omitted Standard audience value never satisfies a rule, so the targeted Ad does not serve",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS5",
+      "title": "a Standard audience value outside the canonical catalog is rejected, not coerced",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25-34"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10029
+        }
+      }
+    },
+    {
+      "id": "AS6",
+      "title": "a device carrier and category change nothing: the Ad is still served",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          }
+        ],
+        "device": {
+          "carrier": "Example Mobile",
+          "category": "phone"
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS7",
+      "title": "a device on wifi on a tablet is served like any other",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          }
+        ],
+        "device": {
+          "carrier": "wifi",
+          "category": "tablet"
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS8",
+      "title": "no manual device configuration: the Ad is still served",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          }
+        ],
+        "device": {}
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS9",
+      "title": "a publisher segment the Ad targets serves it",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport_commuter"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS10",
+      "title": "publisher segments match any-of: one targeted code among several serves the Ad",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport_commuter",
+              "beach_goer"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS11",
+      "title": "a registered publisher segment the Ad does not target does not serve it",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "beach_goer"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS12",
+      "title": "an empty publisher segment list never satisfies a rule, so the targeted Ad does not serve",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": []
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "noAd",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS13",
+      "title": "a raw custom list with a repeated code is rejected, not deduplicated",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport_commuter",
+              "airport_commuter"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10073
+        }
+      }
+    },
+    {
+      "id": "AS14",
+      "title": "a publisher segment code the workspace has not registered is rejected",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "not_registered"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10029
+        }
+      }
+    },
+    {
+      "id": "AS15",
+      "title": "an array for a scalar Standard key is rejected",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": [
+              "25_34"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10030
+        }
+      }
+    },
+    {
+      "id": "AS16",
+      "title": "a string for publisher_segments is rejected, not wrapped into a list",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": "airport_commuter"
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10030
+        }
+      }
+    },
+    {
+      "id": "AS17",
+      "title": "a raw custom list of more than 20 registered codes is rejected, not truncated",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "sdk_segment_01",
+              "sdk_segment_02",
+              "sdk_segment_03",
+              "sdk_segment_04",
+              "sdk_segment_05",
+              "sdk_segment_06",
+              "sdk_segment_07",
+              "sdk_segment_08",
+              "sdk_segment_09",
+              "sdk_segment_10",
+              "sdk_segment_11",
+              "sdk_segment_12",
+              "sdk_segment_13",
+              "sdk_segment_14",
+              "sdk_segment_15",
+              "sdk_segment_16",
+              "sdk_segment_17",
+              "sdk_segment_18",
+              "sdk_segment_19",
+              "sdk_segment_20",
+              "sdk_segment_21"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10076
+        }
+      }
+    },
+    {
+      "id": "AS18",
+      "title": "a malformed publisher segment code is rejected",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport-commuter"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "error",
+        "error": {
+          "kind": "validation",
+          "status": 422,
+          "code": 10029
+        }
+      }
+    },
+    {
+      "id": "AS19",
+      "title": "exactly 20 registered publisher segment codes are accepted and serve the Ad that targets one of them",
+      "request": {
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport_commuter",
+              "sdk_segment_01",
+              "sdk_segment_02",
+              "sdk_segment_03",
+              "sdk_segment_04",
+              "sdk_segment_05",
+              "sdk_segment_06",
+              "sdk_segment_07",
+              "sdk_segment_08",
+              "sdk_segment_09",
+              "sdk_segment_10",
+              "sdk_segment_11",
+              "sdk_segment_12",
+              "sdk_segment_13",
+              "sdk_segment_14",
+              "sdk_segment_15",
+              "sdk_segment_16",
+              "sdk_segment_17",
+              "sdk_segment_18",
+              "sdk_segment_19"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
       }
     }
   ],
