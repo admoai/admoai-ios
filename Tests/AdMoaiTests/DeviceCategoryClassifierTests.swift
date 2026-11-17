@@ -155,10 +155,16 @@ struct DeviceCategoryClassifierTests {
         #if targetEnvironment(macCatalyst)
             expected = "other"
         #elseif canImport(UIKit)
-            switch UIDevice.current.userInterfaceIdiom {
-            case .phone: expected = "phone"
-            case .pad: expected = ProcessInfo.processInfo.isiOSAppOnMac ? "other" : "tablet"
-            default: expected = "other"
+            // Same precedence as the classifier: Mac hardware first, whatever idiom it reports.
+            if ProcessInfo.processInfo.isiOSAppOnMac {
+                expected = "other"
+            } else {
+                switch UIDevice.current.userInterfaceIdiom {
+                case .phone: expected = "phone"
+                case .pad: expected = "tablet"
+                case .unspecified: expected = nil
+                default: expected = "other"
+                }
             }
         #elseif os(macOS)
             expected = "other"
