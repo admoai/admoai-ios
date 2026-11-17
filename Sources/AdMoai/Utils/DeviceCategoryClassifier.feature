@@ -43,6 +43,11 @@ Feature: The device category is collected from the platform once the app opts in
     When a Mac Catalyst app runs and the host reports the pad idiom
     Then the device category is other
 
+  Scenario: the platform's own idiom reaches the request
+    Given the app enabled device-category collection
+    When the SDK runs on an iPhone, an iPad or a Mac
+    Then the request carries phone, tablet or other respectively
+
   Scenario: the default SDK sends no device category
     Given the app did not enable device-category collection
     When a request is built

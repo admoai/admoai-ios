@@ -1,4 +1,5 @@
 import Foundation
+import ManifestExpectations
 import Testing
 
 /// The shared cross-SDK scenario manifest is vendored from adhub's `@admoai/sdk-scenarios`
@@ -36,15 +37,16 @@ struct ManifestIntegrityTests {
         }
     }
 
-    /// `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format
-    /// `expect.creative` keys, 5 the live Carousel `slides`, `clickKeys` and `slideTracking`); the live runner
-    /// refuses any other version and FixtureScenariosTests interprets them, so both are
-    /// pinned here against the vendored copy.
+    /// `schemaVersion` 2 added `fixtureScenarios`; 3 added their `slideTracking`; 4 the live
+    /// standard-format `expect.creative` keys; 5 the live Carousel `slides`, `clickKeys` and
+    /// `slideTracking`; 6 the `request.device` key and list values for `request.custom[].value`.
+    /// The live runner refuses any other version and FixtureScenariosTests interprets them, so
+    /// both are pinned here against the vendored copy.
     @Test
     func testFixtureScenariosAreStructurallyValid() throws {
         let data = try Data(contentsOf: manifestURL())
         let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(root["schemaVersion"] as? Int == 5, "this SDK vendors a schemaVersion 5 manifest")
+        #expect(root["schemaVersion"] as? Int == 6, "this SDK vendors a schemaVersion 6 manifest")
 
         let fixtureScenarios = try #require(root["fixtureScenarios"] as? [[String: Any]])
         #expect(!fixtureScenarios.isEmpty, "the manifest declares fixture scenarios")
@@ -61,6 +63,26 @@ struct ManifestIntegrityTests {
                 #expect(FileManager.default.fileExists(atPath: file.path), "\(id): \(golden).json is vendored")
             }
             #expect(entry["expect"] is [String: Any], "\(id) has an expect block")
+        }
+    }
+
+    /// The live runner refuses a request key it does not execute; the vendored manifest must
+    /// not contain one, or its scenario would fail on every run.
+    @Test
+    func testEveryRequestKeyIsOneTheRunnerExecutes() throws {
+        let data = try Data(contentsOf: manifestURL())
+        let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let scenarios = try #require(root["scenarios"] as? [[String: Any]])
+        for entry in scenarios {
+            let id = (entry["id"] as? String) ?? "?"
+            let request = try #require(entry["request"] as? [String: Any])
+            #expect(ManifestRequestKeys.unknownRequestKeys(in: request).isEmpty, "\(id) request keys")
+            if let device = request["device"] as? [String: Any] {
+                #expect(ManifestRequestKeys.unknownDeviceKeys(in: device).isEmpty, "\(id) device keys")
+                if let category = device["category"] as? String {
+                    #expect(ManifestRequestKeys.deviceCategories.contains(category), "\(id) device category")
+                }
+            }
         }
     }
 }

@@ -247,6 +247,41 @@ struct DocumentedAPITests {
         #expect(creative.tracking.getCompletionUrl(key: "nope") == nil)
         #expect(creative.tracking.hasTrackingFor(type: .impression, key: "default"))
     }
+
+    // MARK: - Audience signals
+
+    // Scenario: README "Audience signals" — every call and type the guide shows
+    @Test
+    func testDocumentedAudienceSignalsSurfaceExists() throws {
+        var sdk = AdMoai(config: docConfig())
+
+        let builder = try sdk.createRequestBuilder()
+            .addPlacement(key: "home")
+            .setAgeGroup(.age25To34)
+            .setGender(.preferNotToSay)
+            .setAccountType(.personal)
+            .setSubscriptionStatus(.noSubscription)
+            .setAccountTenure(.days0To30)
+            .setTripFrequency30d(.zero)
+            .setLastTripRecency(.never)
+            .setPublisherSegments(["airport_commuter", "high_value"])
+        _ = try builder.setPublisherSegments(nil)
+        _ = builder.disableDeviceCollection()
+        #expect(throws: SDKError.self) { try builder.setPublisherSegments(["not valid"]) }
+        #expect(AudienceSignals.Key.allCases.count == 8)
+
+        sdk.setDeviceCarrier("Example Mobile")
+        sdk.enableDeviceCategoryCollection()
+        sdk.setDeviceCategory(.tablet)
+        sdk.setDeviceCategory(nil)
+        sdk.clearDeviceConfig()
+        sdk.resetDeviceConfig()
+
+        let refusal = APIError.validationError([])
+        if case let .validationError(errors) = refusal {
+            #expect(errors.map(\.code).isEmpty)
+        }
+    }
 }
 
 // MARK: - Support

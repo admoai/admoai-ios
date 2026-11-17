@@ -120,6 +120,21 @@ summary still reads "0 failed" and looks green.
 **Confirm §K is PASS, not SKIP, before signing off.** Snapshot and rebuild recipe:
 `Tests/AdMoaiTests/E2E/Fixtures/README.md`.
 
+## Request shapes and the unknown-key refusal
+
+- `request.custom[].value` is a string or a list of strings. A string goes through
+  `addCustomTargeting`. A list (for `publisher_segments` or any other key) is sent verbatim as an
+  array value through the generic custom path, with no local validation or dedup, so scenarios can
+  observe the engine's refusals (AS13 a code sent twice, AS18 a malformed code, AS17 more than 20
+  codes). The typed `setPublisherSegments` helper is covered by the unit tests instead.
+- `request.device` is `{ carrier?, category? }` (`category`: `phone`, `tablet`, `other`), applied
+  as the app's manual device config (`setDeviceCarrier`, `setDeviceCategory`) before the request
+  builder is created. An unknown category fails the scenario.
+- The runner refuses a scenario whose `request` has a key outside `placements, custom, session,
+  journeyOpt, apiVersion, distance, device`, or whose `request.device` has a key outside
+  `carrier, category`, before sending anything. The lists live in `ManifestRequestKeys`. Nested
+  placement and distance keys are not refused today.
+
 ## Out of scope
 
 Owned by adhub's Go service-layer tests: billing and reporting interpretation, CPT accounting,
