@@ -122,8 +122,10 @@ produce values the engine accepts.
 - Audience signals are read on decision version `2025-11-01`:
   `SDKConfig(baseUrl: ..., apiVersion: "2025-11-01")`. On older versions the values travel as
   plain custom targeting, as before.
-- They take effect once AdMoai has enabled audience signals for your workspace. Until then,
-  send no device category: do not enable collection or call `setDeviceCategory` (see below).
+- They need AdMoai to enable audience signals for your workspace first. Until then, the engine
+  refuses the typed Standard keys (`age_group`, `gender`, … and `publisher_segments`) with `422`
+  / `10028`, so do not call their setters yet. Send no device category either: do not enable
+  collection or call `setDeviceCategory` (see below).
 
 #### Standard signals
 
