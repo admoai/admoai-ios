@@ -293,6 +293,14 @@ struct DocumentedAPITests {
             let message: String = refusal.message
             _ = (code, message)
         }
+        let status: Int? = rejected.httpStatus
+        #expect(status == 400)
+        // README "Upgrading from 1.9.0"
+        switch APIError.requestRejected(status: 429, errors: []) {
+        case .requestRejected(429, _), .clientError(.tooManyRequests): break
+        case .requestRejected(410, _), .clientError(.gone): Issue.record("410 is not 429")
+        default: Issue.record("a 429 matches the back-off case")
+        }
     }
 
     // Scenario: README "Carousel" — slides in server order, read through `getContent(key:)`, and

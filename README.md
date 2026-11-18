@@ -179,7 +179,7 @@ absent signal is correct, and a guessed one misleads advertisers and reports.
 | `account_type` | The type of the profile in use (not every membership the viewer holds). `other` is a known type outside the four named ones. |
 | `subscription_status` | The one relevant current subscription or pass. `noSubscription` (`none`) means you know the viewer has no current or previous relevant subscription. If no single relevant subscription exists, leave it unset or use a segment. |
 | `account_tenure` | The age of the viewer's account with your service, not the age of the app installation. |
-| `activity_frequency_30d` | Completed activities in the 30 × 24 hours before the request. An activity is one completed use of your service: a ride, a parking session, a rental, a flight. A booking, a cancelled or a failed use does not count. `zero` (`"0"`) means you know there were none. |
+| `activity_frequency_30d` | Completed activities in the 30 × 24 hours before the request. An activity is one completed use of your service: a ride, a parking session, a ticket, a rental. A booking, a cancelled or a failed use does not count. `zero` (`"0"`) means you know there were none. |
 | `last_activity_recency` | Elapsed days since the latest completed activity. `never` means you know the viewer has never completed one. |
 
 - **Elapsed days** count completed 24-hour periods between two UTC instants,
@@ -292,13 +292,15 @@ codes and messages as `[AdMoaiError]`:
 
 - **`422`:** `APIError.validationError(errors)`, for example `10028` (a Standard key on a workspace
   without audience signals) or the segment codes above.
-- **Any other `4xx` with an engine error body:** `APIError.requestRejected(status:errors:)`, for
-  example `400` with `10009` (a field the engine does not know, such as a device field on a
-  workspace without audience signals).
-- A `4xx` without an engine error body is still `APIError.clientError(_:)` or
-  `APIError.unexpectedStatusCode(_:)`.
+- **Every other `4xx` from the engine** (`400`, `404`, `405`, `410`, `429`; the engine always sends
+  its error body): `APIError.requestRejected(status:errors:)`, for example `400` with `10009` (a
+  field the engine does not know, such as a device field on a workspace without audience
+  signals).
+- **A `4xx` without the engine's error body**, for example from a proxy or a CDN:
+  `APIError.clientError(_:)` or `APIError.unexpectedStatusCode(_:)`.
 
-`error.engineErrors` reads the codes from either case, and is empty for every other error:
+`error.engineErrors` reads the codes from either refusal, and is empty for every other error.
+`error.httpStatus` gives the HTTP status whichever case carries it, so one check covers both:
 
 ```swift
 do {
@@ -308,6 +310,21 @@ do {
     for refusal in error.engineErrors {
         print(refusal.code, refusal.message)   // e.g. 10009 The body contains an unknown field ...
     }
+    if error.httpStatus == 429 { backOff() }
+}
+```
+
+**Upgrading from 1.9.0.** Before 1.10.0, every engine `4xx` other than `422` arrived as
+`clientError(_:)`; it now arrives as `requestRejected(status:errors:)`, and `clientError` is left
+for a `4xx` without the engine's body. Move code that matched those statuses, and add the new case
+to any `switch` over `APIError` that has no `default`:
+
+```swift
+switch error {
+case .requestRejected(429, _), .clientError(.tooManyRequests): backOff()
+case .requestRejected(410, _), .clientError(.gone): stopRequesting()
+// ...
+default: break
 }
 ```
 

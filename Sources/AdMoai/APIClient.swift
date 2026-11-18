@@ -142,14 +142,14 @@ internal class AdMoaiClient {
         }
     }
 
-    /// Logs a one-line warning when the engine flags the negotiated API version as deprecated
-    /// via `X-API-Deprecated: true`, surfacing the optional `Sunset` / `X-API-Sunset` date.
     /// The engine's `errors` list from an error response, or empty when the body is empty, not
     /// JSON, or carries no errors.
     internal static func engineErrors(in data: Data) -> [AdMoaiError] {
         (try? JSONDecoder().decode(APIResponseBody<[AdMoaiError]>.self, from: data))?.errors ?? []
     }
 
+    /// Logs a one-line warning when the engine flags the negotiated API version as deprecated
+    /// via `X-API-Deprecated: true`, surfacing the optional `Sunset` / `X-API-Sunset` date.
     private func warnIfDeprecated(_ response: HTTPURLResponse) {
         guard
             let message = AdMoaiClient.deprecationMessage(
@@ -278,10 +278,12 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
     case serverError(Int)
     /// HTTP 422: the engine refused the request's content. The codes are in the errors.
     case validationError([AdMoaiError])
-    /// HTTP 4xx without an engine error body, so there is no code to read.
+    /// HTTP 4xx without the engine's error body (for example from a proxy or a CDN), so there is
+    /// no code to read.
     case clientError(HTTPStatus)
-    /// HTTP 4xx other than 422 whose body carries the engine's errors, for example 400 with
-    /// `10009` when the request holds a field the workspace does not accept.
+    /// HTTP 4xx other than 422 from the engine, which always sends its error body: 400 (for
+    /// example `10009`, a field the workspace does not accept), 404, 405, 410, 429. Back-off code
+    /// matches the status here, e.g. `case .requestRejected(429, _)`, or reads ``httpStatus``.
     case requestRejected(status: Int, errors: [AdMoaiError])
     case unexpectedStatusCode(Int)
     case encodingError(String)
@@ -356,6 +358,25 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             errors
         default:
             []
+        }
+    }
+
+    /// The HTTP status behind this error, so one check works whether or not the response carried
+    /// the engine's error body: 422 for ``validationError(_:)``, the status of
+    /// ``requestRejected(status:errors:)``, ``clientError(_:)``, ``serverError(_:)`` and
+    /// ``unexpectedStatusCode(_:)``. `nil` when no HTTP response was received or decoded.
+    public var httpStatus: Int? {
+        switch self {
+        case .validationError:
+            422
+        case let .requestRejected(status, _):
+            status
+        case let .clientError(status):
+            status.rawValue
+        case let .serverError(code), let .unexpectedStatusCode(code):
+            code
+        case .invalidURL, .networkError, .decodingError, .invalidResponse, .encodingError:
+            nil
         }
     }
 }

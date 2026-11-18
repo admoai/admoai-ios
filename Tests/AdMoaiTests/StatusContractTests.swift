@@ -133,6 +133,19 @@ extension MockNetworkTests {
             #expect(APIError.requestRejected(status: 422, errors: errors) != APIError.validationError(errors))
         }
 
+        // Scenario: one status check covers an error with and without the engine's body.
+        @Test
+        func testHTTPStatusIsReadableAcrossCases() {
+            #expect(APIError.requestRejected(status: 429, errors: []).httpStatus == 429)
+            #expect(APIError.clientError(.tooManyRequests).httpStatus == 429)
+            #expect(APIError.validationError([]).httpStatus == 422)
+            #expect(APIError.serverError(503).httpStatus == 503)
+            #expect(APIError.unexpectedStatusCode(418).httpStatus == 418)
+            #expect(APIError.invalidURL.httpStatus == nil)
+            #expect(APIError.invalidResponse.httpStatus == nil)
+            #expect(APIError.encodingError("x").httpStatus == nil)
+        }
+
         // Scenario: a publisher compares a thrown error against an expected case.
         @Test
         func testAPIErrorEqualityCoversEveryCase() {

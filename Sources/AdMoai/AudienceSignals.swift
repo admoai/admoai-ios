@@ -94,7 +94,7 @@ public enum AudienceSignals {
     }
 
     /// Completed activities in the 30 × 24 hours before the request. An activity is one completed
-    /// use of the service (a ride, a parking session, a rental, a flight); a booking, a cancelled
+    /// use of the service (a ride, a parking session, a ticket, a rental); a booking, a cancelled
     /// or a failed use does not count. `zero` means none are known to have happened.
     ///
     /// Sent verbatim as the value of the `activity_frequency_30d` custom targeting key.
