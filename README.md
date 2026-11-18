@@ -1128,8 +1128,9 @@ func renderCarousel(_ creative: Creative) {
 - **A slide's view is sent once for each decision response.** Scrolling back or redrawing sends
   nothing more. A new response has new signed URLs and counts again.
 - **`trackSlideClick` records the slide's view first if it was not sent yet**, then the slide's
-  `default` click, then the creative's third-party click trackers once. A slide never has more
-  clicks than views.
+  `default` click, then the creative's third-party click trackers once for that tap. A tap that
+  comes before your view check passed still counts the view, so no click arrives without its view.
+  Each tap sends its own click, so a slide tapped twice has one view and two clicks.
 - **Pass the `Slide` you rendered**, never the creative and never an index.
 - **A Carousel has no creative-level click.** Never call `fireClick` for a Carousel: it sends
   nothing.
