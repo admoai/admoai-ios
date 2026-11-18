@@ -262,8 +262,8 @@ struct DocumentedAPITests {
             .setAccountType(.personal)
             .setSubscriptionStatus(.noSubscription)
             .setAccountTenure(.days0To30)
-            .setTripFrequency30d(.zero)
-            .setLastTripRecency(.never)
+            .setActivityFrequency30d(.zero)
+            .setLastActivityRecency(.never)
             .setPublisherSegments(["airport_commuter", "high_value"])
         _ = try builder.setPublisherSegments(nil)
         _ = builder.disableDeviceCollection()
@@ -281,6 +281,67 @@ struct DocumentedAPITests {
         if case let .validationError(errors) = refusal {
             #expect(errors.map(\.code).isEmpty)
         }
+    }
+
+    // Scenario: README "Carousel" — slides in server order, read through `getContent(key:)`, and
+    // the three slide trackers
+    @Test
+    func testDocumentedCarouselSurfaceExists() throws {
+        let sdk = AdMoai(config: docConfig())
+        let json = """
+        {"contents": [{"key": "slides", "type": "slides", "value": [
+            {"slideId": "slide_b", "position": 2,
+             "contents": [{"key": "image", "value": "https://cdn.example/b.png", "type": "image"},
+                          {"key": "destination_url", "value": "https://example.com/b", "type": "url"}]},
+            {"slideId": "slide_a", "position": 1,
+             "contents": [{"key": "headline", "value": "A", "type": "text"}]}
+         ]}], "metadata": {"effectiveStandardFormatKey": "carousel"}, "advertiser": {}, "tracking": {}}
+        """
+        let creative = try JSONDecoder().decode(Creative.self, from: Data(json.utf8))
+
+        #expect(creative.metadata?.effectiveStandardFormatKey == "carousel")
+        #expect(creative.slides.map(\.slideId) == ["slide_b", "slide_a"]) // never re-sorted
+        let first = try #require(creative.slides.first)
+        let position: Int = first.position
+        #expect(position == 2)
+        #expect(first.contents.getContent(key: "image")?.value.description == "https://cdn.example/b.png")
+        #expect(first.contents.getContent(key: "destination_url")?.value.description == "https://example.com/b")
+        #expect(creative.slides[1].contents.getContent(key: "image") == nil)
+        let tracking: SlideTracking? = first.tracking
+        #expect(tracking == nil) // a slide without tracking still renders
+
+        let view: () = sdk.trackSlideView(first)
+        let views: () = sdk.trackSlideViews(creative.slides)
+        let click: () = sdk.trackSlideClick(first, in: creative)
+        _ = (view, views, click)
+    }
+
+    // Scenario: README "Branded Assets" — `metadata.assetContext`, the three content keys and
+    // `fireAssetTap`; README "Reading the pins" — `pinImage` read the same way
+    @Test
+    func testDocumentedBrandedAssetsSurfaceExists() throws {
+        let sdk = AdMoai(config: docConfig())
+        let json = """
+        {"contents": [
+            {"key": "branded_image", "value": "https://cdn.example/car.png", "type": "image"},
+            {"key": "accessible_label", "value": "Acme car", "type": "text"},
+            {"key": "destination_url", "value": "https://example.com", "type": "url"},
+            {"key": "pinImage", "value": "https://cdn.example/pin.png", "type": "image"}
+         ], "metadata": {"effectiveStandardFormatKey": "branded_assets", "assetContext": "vehicle_marker"},
+         "advertiser": {}, "tracking": {}}
+        """
+        let creative = try JSONDecoder().decode(Creative.self, from: Data(json.utf8))
+        let contents = creative.contents
+
+        #expect(creative.metadata?.assetContext == "vehicle_marker")
+        #expect(contents.getContent(key: "branded_image")?.value.description == "https://cdn.example/car.png")
+        #expect(contents.getContent(key: "accessible_label")?.value.description == "Acme car")
+        #expect(contents.getContent(key: "destination_url")?.value.description == "https://example.com")
+        #expect(contents.getContent(key: "pinImage")?.value.description == "https://cdn.example/pin.png")
+
+        let tap: () = sdk.fireAssetTap(tracking: creative.tracking)
+        let click: () = sdk.fireClick(tracking: creative.tracking)
+        _ = (tap, click)
     }
 }
 

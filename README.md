@@ -140,8 +140,8 @@ raw values are the wire strings. `nil` removes only that signal, and the last ca
 | `setAccountType` | `account_type` | `personal`, `business`, `family`, `student`, `other` |
 | `setSubscriptionStatus` | `subscription_status` | `noSubscription` → `none`, `trial`, `active`, `paused`, `expired` |
 | `setAccountTenure` | `account_tenure` | `days0To30` → `0_30d`, `days31To90` → `31_90d`, `days91To365` → `91_365d`, `days366Plus` → `366d_plus` |
-| `setTripFrequency30d` | `trip_frequency_30d` | `zero` → `0`, `trips1To2` → `1_2`, `trips3To9` → `3_9`, `trips10Plus` → `10_plus` |
-| `setLastTripRecency` | `last_trip_recency` | `never`, `days0To7` → `0_7d`, `days8To30` → `8_30d`, `days31To90` → `31_90d`, `days91Plus` → `91d_plus` |
+| `setActivityFrequency30d` | `activity_frequency_30d` | `zero` → `0`, `times1To2` → `1_2`, `times3To9` → `3_9`, `times10Plus` → `10_plus` |
+| `setLastActivityRecency` | `last_activity_recency` | `never`, `days0To7` → `0_7d`, `days8To30` → `8_30d`, `days31To90` → `31_90d`, `days91Plus` → `91d_plus` |
 
 `AudienceSignals.Key` lists the eight wire keys, and every enum is `CaseIterable`.
 
@@ -150,7 +150,7 @@ let request = sdk.createRequestBuilder()
     .addPlacement(key: "home")
     .setAgeGroup(.age25To34)
     .setSubscriptionStatus(.noSubscription)   // sent as "none"
-    .setTripFrequency30d(.zero)               // sent as the string "0"
+    .setActivityFrequency30d(.zero)               // sent as the string "0"
     .build()
 ```
 
@@ -158,7 +158,7 @@ let request = sdk.createRequestBuilder()
 "targeting": { "custom": [
   { "key": "age_group", "value": "25_34" },
   { "key": "subscription_status", "value": "none" },
-  { "key": "trip_frequency_30d", "value": "0" }
+  { "key": "activity_frequency_30d", "value": "0" }
 ] }
 ```
 
@@ -1082,6 +1082,136 @@ author-controlled. For a typed value read `creative.metadata?.skipOffsetSeconds`
 
 ---
 
+## Carousel
+
+A Carousel is one ad with two to ten slides. Each slide has its own image, destination and
+tracking. The format key is `carousel` (`creative.metadata?.effectiveStandardFormatKey`). Standard
+formats need `apiVersion: "2025-11-01"`; without it the engine skips them.
+
+### Reading the slides
+
+`creative.slides` is the list to render, in the order to render it. It is the server's order: never
+re-sort it by `position`, which is the slide's number and is for information only. The list is
+empty for any creative that is not a Carousel.
+
+| `Slide` field | Type | Notes |
+|---|---|---|
+| `slideId` | String | stable across requests; use it as the identity of your list item |
+| `position` | Int | 1-based, informational |
+| `contents` | [Content] | `image` and `destination_url` (required), `headline`, `supporting_text`, `cta_text` (optional) |
+| `tracking` | SlideTracking? | this slide's own view and click; a slide without it still renders |
+
+Shared keys such as `brand_logo` and `disclaimer` are on the creative (`creative.contents`). Show
+them once for the whole Carousel, and hide any optional element whose key is absent.
+
+```swift
+func renderCarousel(_ creative: Creative) {
+    for slide in creative.slides {                                 // server order
+        addItem(
+            id: slide.slideId,                                     // identity = slideId
+            image: slide.contents.getContent(key: "image")?.value.description,
+            headline: slide.contents.getContent(key: "headline")?.value.description)
+    }
+}
+```
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | the Carousel is on screen | `sdk.fireImpression(tracking: creative.tracking)`, once |
+| Slide view | a slide is at least 50% visible for one continuous second | `sdk.trackSlideView(slide)` |
+| Slide click | the user taps a slide and its destination opens | `sdk.trackSlideClick(slide, in: creative)` |
+
+- **Your app decides when a slide was viewed.** The SDK never fires a slide view on its own.
+  `trackSlideViews(_:)` does the same for several slides at once.
+- **A slide's view is sent once for each decision response.** Scrolling back or redrawing sends
+  nothing more. A new response has new signed URLs and counts again.
+- **`trackSlideClick` records the slide's view first if it was not sent yet**, then the slide's
+  `default` click, then the creative's third-party click trackers once for that tap. A tap that
+  comes before your view check passed still counts the view, so no click arrives without its view.
+  Each tap sends its own click, so a slide tapped twice has one view and two clicks.
+- **Pass the `Slide` you rendered**, never the creative and never an index.
+- **A Carousel has no creative-level click.** Never call `fireClick` for a Carousel: it sends
+  nothing.
+
+```swift
+func slideWasViewed(_ slide: Slide) {             // your 50% for one second check passed
+    sdk.trackSlideView(slide)
+}
+
+func slideTapped(_ slide: Slide, in creative: Creative) {
+    guard let s = slide.contents.getContent(key: "destination_url")?.value.description,
+          let url = URL(string: s) else { return }
+    UIApplication.shared.open(url) { opened in
+        if opened { sdk.trackSlideClick(slide, in: creative) }   // not fireClick
+    }
+}
+```
+
+---
+
+## Branded Assets
+
+Branded Assets is a transparent branded image that your app places in its own interface. The
+first asset context is a vehicle marker on a map. The format key is `branded_assets`, and it needs
+`apiVersion: "2025-11-01"`.
+
+### Reading the asset
+
+`creative.metadata?.assetContext` says what the asset is for: `"vehicle_marker"`. It is `nil` for
+every other format, and an unknown value is kept as sent.
+
+| Content key | Type | Required |
+|---|---|---|
+| `branded_image` | image | yes |
+| `accessible_label` | text | no |
+| `destination_url` | url | no |
+
+```swift
+let contents = creative.contents
+if creative.metadata?.assetContext == "vehicle_marker",
+   let image = contents.getContent(key: "branded_image")?.value.description {
+    let label = contents.getContent(key: "accessible_label")?.value.description
+    placeVehicleMarker(imageURL: image, accessibilityLabel: label)   // your map code
+}
+```
+
+Use `accessible_label` as the image's accessibility label when it is present. When
+`destination_url` is absent, the asset can be tapped but has nowhere to go: do not show a button
+that opens nothing.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | the asset is on screen | `sdk.fireImpression(tracking: creative.tracking)` |
+| Asset tap | the user tapped the asset | `sdk.fireAssetTap(tracking: creative.tracking)` |
+| Click | the user opens the destination | `sdk.fireClick(tracking: creative.tracking)` |
+
+**An asset tap is not a click.** `fireAssetTap` is a custom event (`asset_tap`). It sends no click
+and is never billed as one. AdMoai counts at most one asset tap for each served ad. When a tap
+opens the destination straight away, call `fireAssetTap` and then `fireClick`. When a tap only
+shows your own detail view, call `fireClick` later, and only if the user opens the destination.
+Without a `destination_url` there is no click tracker, and `fireClick` sends nothing.
+
+```swift
+func onAssetTapped(_ creative: Creative) {
+    sdk.fireAssetTap(tracking: creative.tracking)         // not a click
+    showAssetDetail(creative)                             // what your interface does for a tap
+}
+
+func onDestinationChosen(_ creative: Creative) {
+    guard let s = creative.contents.getContent(key: "destination_url")?.value.description,
+          let url = URL(string: s) else { return }        // no destination, no click
+    UIApplication.shared.open(url) { opened in
+        if opened { sdk.fireClick(tracking: creative.tracking) }
+    }
+}
+```
+
+---
+
 ## Sponsored Pin Locations
 
 An advertiser buys a **format**, not a template: a Sponsored Pin Location campaign promotes real
@@ -1257,6 +1387,9 @@ for decision in response.body.data ?? [] {
 | `distance` | Int | **metres** from the point you searched around |
 | `clickUrl` | String? | where this pin goes — already resolved, see below |
 | `tracking` | object? | this point's own beacons |
+
+The pin artwork, `pinImage`, is a creative-level content key. Read it the same way as any other
+content: `creative.contents.getContent(key: "pinImage")?.value.description`.
 
 Points come back **nearest first**. They hang off the creative, so with several winning ads each
 creative keeps its own — there is no flat list to confuse.

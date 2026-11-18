@@ -120,6 +120,12 @@ AudienceSignals.AccountType.init(rawValue:)  init  init?(rawValue: String)
 AudienceSignals.AccountType.other  case  case other
 AudienceSignals.AccountType.personal  case  case personal
 AudienceSignals.AccountType.student  case  case student
+AudienceSignals.ActivityFrequency30d  enum  enum ActivityFrequency30d
+AudienceSignals.ActivityFrequency30d.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.ActivityFrequency30d.times10Plus  case  case times10Plus
+AudienceSignals.ActivityFrequency30d.times1To2  case  case times1To2
+AudienceSignals.ActivityFrequency30d.times3To9  case  case times3To9
+AudienceSignals.ActivityFrequency30d.zero  case  case zero
 AudienceSignals.AgeGroup  enum  enum AgeGroup
 AudienceSignals.AgeGroup.age18To24  case  case age18To24
 AudienceSignals.AgeGroup.age25To34  case  case age25To34
@@ -138,20 +144,20 @@ AudienceSignals.Gender.preferNotToSay  case  case preferNotToSay
 AudienceSignals.Key  enum  enum Key
 AudienceSignals.Key.accountTenure  case  case accountTenure
 AudienceSignals.Key.accountType  case  case accountType
+AudienceSignals.Key.activityFrequency30d  case  case activityFrequency30d
 AudienceSignals.Key.ageGroup  case  case ageGroup
 AudienceSignals.Key.gender  case  case gender
 AudienceSignals.Key.init(rawValue:)  init  init?(rawValue: String)
-AudienceSignals.Key.lastTripRecency  case  case lastTripRecency
+AudienceSignals.Key.lastActivityRecency  case  case lastActivityRecency
 AudienceSignals.Key.publisherSegments  case  case publisherSegments
 AudienceSignals.Key.subscriptionStatus  case  case subscriptionStatus
-AudienceSignals.Key.tripFrequency30d  case  case tripFrequency30d
-AudienceSignals.LastTripRecency  enum  enum LastTripRecency
-AudienceSignals.LastTripRecency.days0To7  case  case days0To7
-AudienceSignals.LastTripRecency.days31To90  case  case days31To90
-AudienceSignals.LastTripRecency.days8To30  case  case days8To30
-AudienceSignals.LastTripRecency.days91Plus  case  case days91Plus
-AudienceSignals.LastTripRecency.init(rawValue:)  init  init?(rawValue: String)
-AudienceSignals.LastTripRecency.never  case  case never
+AudienceSignals.LastActivityRecency  enum  enum LastActivityRecency
+AudienceSignals.LastActivityRecency.days0To7  case  case days0To7
+AudienceSignals.LastActivityRecency.days31To90  case  case days31To90
+AudienceSignals.LastActivityRecency.days8To30  case  case days8To30
+AudienceSignals.LastActivityRecency.days91Plus  case  case days91Plus
+AudienceSignals.LastActivityRecency.init(rawValue:)  init  init?(rawValue: String)
+AudienceSignals.LastActivityRecency.never  case  case never
 AudienceSignals.SubscriptionStatus  enum  enum SubscriptionStatus
 AudienceSignals.SubscriptionStatus.active  case  case active
 AudienceSignals.SubscriptionStatus.expired  case  case expired
@@ -159,12 +165,6 @@ AudienceSignals.SubscriptionStatus.init(rawValue:)  init  init?(rawValue: String
 AudienceSignals.SubscriptionStatus.noSubscription  case  case noSubscription
 AudienceSignals.SubscriptionStatus.paused  case  case paused
 AudienceSignals.SubscriptionStatus.trial  case  case trial
-AudienceSignals.TripFrequency30d  enum  enum TripFrequency30d
-AudienceSignals.TripFrequency30d.init(rawValue:)  init  init?(rawValue: String)
-AudienceSignals.TripFrequency30d.trips10Plus  case  case trips10Plus
-AudienceSignals.TripFrequency30d.trips1To2  case  case trips1To2
-AudienceSignals.TripFrequency30d.trips3To9  case  case trips3To9
-AudienceSignals.TripFrequency30d.zero  case  case zero
 Clearable  protocol  protocol Clearable
 Clearable.clear()  static method  static func clear() -> Self
 Content  struct  struct Content
@@ -264,6 +264,7 @@ DecisionRequestBuilder.disableAppCollection()  method  func disableAppCollection
 DecisionRequestBuilder.disableDeviceCollection()  method  func disableDeviceCollection() -> DecisionRequestBuilder
 DecisionRequestBuilder.setAccountTenure(_:)  method  @discardableResult func setAccountTenure(_ value: AudienceSignals.AccountTenure?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setAccountType(_:)  method  @discardableResult func setAccountType(_ value: AudienceSignals.AccountType?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setActivityFrequency30d(_:)  method  @discardableResult func setActivityFrequency30d(_ value: AudienceSignals.ActivityFrequency30d?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setAgeGroup(_:)  method  @discardableResult func setAgeGroup(_ value: AudienceSignals.AgeGroup?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setCustomTargeting(_:)  method  func setCustomTargeting(_ custom: [Targeting.CustomKeyValue]?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setDestinationTargeting(_:)  method  @discardableResult func setDestinationTargeting(_ destinations: [Targeting.DestinationCoordinate]?) throws -> DecisionRequestBuilder
@@ -272,12 +273,11 @@ DecisionRequestBuilder.setDistanceTargeting(latitude:longitude:radius:limit:)  m
 DecisionRequestBuilder.setGender(_:)  method  @discardableResult func setGender(_ value: AudienceSignals.Gender?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setGeoTargeting(_:)  method  func setGeoTargeting(_ geoNameIds: [Int]?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setJourneyOpt(_:)  method  func setJourneyOpt(_ journeyOpt: JourneyOpt?) -> DecisionRequestBuilder
-DecisionRequestBuilder.setLastTripRecency(_:)  method  @discardableResult func setLastTripRecency(_ value: AudienceSignals.LastTripRecency?) -> DecisionRequestBuilder
+DecisionRequestBuilder.setLastActivityRecency(_:)  method  @discardableResult func setLastActivityRecency(_ value: AudienceSignals.LastActivityRecency?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setLocationTargeting(_:)  method  func setLocationTargeting(_ locations: [Targeting.LocationCoordinate]?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setPublisherSegments(_:)  method  @discardableResult func setPublisherSegments(_ codes: [String]?) throws -> DecisionRequestBuilder
 DecisionRequestBuilder.setSessionId(_:)  method  func setSessionId(_ sessionId: String?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setSubscriptionStatus(_:)  method  @discardableResult func setSubscriptionStatus(_ value: AudienceSignals.SubscriptionStatus?) -> DecisionRequestBuilder
-DecisionRequestBuilder.setTripFrequency30d(_:)  method  @discardableResult func setTripFrequency30d(_ value: AudienceSignals.TripFrequency30d?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserConsent(_:)  method  func setUserConsent(_ consent: User.Consent?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserId(_:)  method  func setUserId(_ id: String?) -> DecisionRequestBuilder
 DecisionRequestBuilder.setUserIp(_:)  method  func setUserIp(_ ip: String?) -> DecisionRequestBuilder

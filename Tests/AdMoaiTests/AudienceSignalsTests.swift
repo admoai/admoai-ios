@@ -38,9 +38,9 @@ struct AudienceSignalsTests {
     // Scenario 1
     @Test
     func typedHelperSendsTheCanonicalString() throws {
-        let request = makeBuilder().setTripFrequency30d(.zero).setAgeGroup(.age18To24).build()
+        let request = makeBuilder().setActivityFrequency30d(.zero).setAgeGroup(.age18To24).build()
         let entries = try custom(request)
-        #expect(entries.contains { $0.key == "trip_frequency_30d" && ($0.value as? String) == "0" })
+        #expect(entries.contains { $0.key == "activity_frequency_30d" && ($0.value as? String) == "0" })
         #expect(entries.contains { $0.key == "age_group" && ($0.value as? String) == "18_24" })
         let raw = try String(data: JSONEncoder().encode(request), encoding: .utf8)!
         #expect(raw.contains("\"value\":\"0\""))
@@ -51,7 +51,7 @@ struct AudienceSignalsTests {
     func everyTypedValueMatchesTheCatalog() {
         #expect(AudienceSignals.Key.allCases.map(\.rawValue) == [
             "age_group", "gender", "account_type", "subscription_status", "account_tenure",
-            "trip_frequency_30d", "last_trip_recency", "publisher_segments",
+            "activity_frequency_30d", "last_activity_recency", "publisher_segments",
         ])
         #expect(AudienceSignals.AgeGroup.allCases.map(\.rawValue) == [
             "under_18", "18_24", "25_34", "35_44", "45_54", "55_64", "65_plus",
@@ -72,8 +72,8 @@ struct AudienceSignalsTests {
             "expired",
         ])
         #expect(AudienceSignals.AccountTenure.allCases.map(\.rawValue) == ["0_30d", "31_90d", "91_365d", "366d_plus"])
-        #expect(AudienceSignals.TripFrequency30d.allCases.map(\.rawValue) == ["0", "1_2", "3_9", "10_plus"])
-        #expect(AudienceSignals.LastTripRecency.allCases.map(\.rawValue) == [
+        #expect(AudienceSignals.ActivityFrequency30d.allCases.map(\.rawValue) == ["0", "1_2", "3_9", "10_plus"])
+        #expect(AudienceSignals.LastActivityRecency.allCases.map(\.rawValue) == [
             "never", "0_7d", "8_30d", "31_90d", "91d_plus",
         ])
         #expect(DeviceCategory.allCases.map(\.rawValue) == ["phone", "tablet", "other"])

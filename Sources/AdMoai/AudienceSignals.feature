@@ -7,8 +7,8 @@ Feature: Audience signals are sent as canonical custom targeting
   values on its own: the app states them. Values are sent verbatim.
 
   Scenario: a typed helper sends the canonical string
-    When the app sets the trip frequency to "0 trips" using the typed helper
-    Then the request carries the custom targeting entry trip_frequency_30d with the JSON string "0"
+    When the app sets the activity frequency to "0 times" using the typed helper
+    Then the request carries the custom targeting entry activity_frequency_30d with the JSON string "0"
 
   Scenario: every typed value matches the catalog
     Then each typed enum offers exactly the wire values of the audience signals catalog, in catalog order

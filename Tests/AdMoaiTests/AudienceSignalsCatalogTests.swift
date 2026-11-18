@@ -46,8 +46,8 @@ struct AudienceSignalsCatalogTests {
         #expect(try AudienceSignals.AccountType.allCases.map(\.rawValue) == values("account_type"))
         #expect(try AudienceSignals.SubscriptionStatus.allCases.map(\.rawValue) == values("subscription_status"))
         #expect(try AudienceSignals.AccountTenure.allCases.map(\.rawValue) == values("account_tenure"))
-        #expect(try AudienceSignals.TripFrequency30d.allCases.map(\.rawValue) == values("trip_frequency_30d"))
-        #expect(try AudienceSignals.LastTripRecency.allCases.map(\.rawValue) == values("last_trip_recency"))
+        #expect(try AudienceSignals.ActivityFrequency30d.allCases.map(\.rawValue) == values("activity_frequency_30d"))
+        #expect(try AudienceSignals.LastActivityRecency.allCases.map(\.rawValue) == values("last_activity_recency"))
         #expect(try values("publisher_segments").isEmpty, "segments are workspace-registered, never fixed")
     }
 }

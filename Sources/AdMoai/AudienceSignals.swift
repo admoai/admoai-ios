@@ -17,8 +17,8 @@ public enum AudienceSignals {
         case accountType = "account_type"
         case subscriptionStatus = "subscription_status"
         case accountTenure = "account_tenure"
-        case tripFrequency30d = "trip_frequency_30d"
-        case lastTripRecency = "last_trip_recency"
+        case activityFrequency30d = "activity_frequency_30d"
+        case lastActivityRecency = "last_activity_recency"
         case publisherSegments = "publisher_segments"
     }
 
@@ -80,20 +80,20 @@ public enum AudienceSignals {
         case days366Plus = "366d_plus"
     }
 
-    /// How many trips the viewer took in the last 30 days.
+    /// How many times the viewer was active (a ride, a booking, a parking session) in the last 30 days.
     ///
-    /// Sent verbatim as the value of the `trip_frequency_30d` custom targeting key.
-    public enum TripFrequency30d: String, Sendable, CaseIterable {
+    /// Sent verbatim as the value of the `activity_frequency_30d` custom targeting key.
+    public enum ActivityFrequency30d: String, Sendable, CaseIterable {
         case zero = "0"
-        case trips1To2 = "1_2"
-        case trips3To9 = "3_9"
-        case trips10Plus = "10_plus"
+        case times1To2 = "1_2"
+        case times3To9 = "3_9"
+        case times10Plus = "10_plus"
     }
 
-    /// How long ago the viewer's last trip was.
+    /// How long ago the viewer's last activity was.
     ///
-    /// Sent verbatim as the value of the `last_trip_recency` custom targeting key.
-    public enum LastTripRecency: String, Sendable, CaseIterable {
+    /// Sent verbatim as the value of the `last_activity_recency` custom targeting key.
+    public enum LastActivityRecency: String, Sendable, CaseIterable {
         case never
         case days0To7 = "0_7d"
         case days8To30 = "8_30d"

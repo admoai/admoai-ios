@@ -2103,7 +2103,7 @@
             "value": "25_34"
           },
           {
-            "key": "trip_frequency_30d",
+            "key": "activity_frequency_30d",
             "value": "0"
           }
         ]
@@ -2129,7 +2129,7 @@
             "value": "25_34"
           },
           {
-            "key": "trip_frequency_30d",
+            "key": "activity_frequency_30d",
             "value": "0"
           }
         ]
