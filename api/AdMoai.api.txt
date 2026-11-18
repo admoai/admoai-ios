@@ -7,9 +7,11 @@ APIError.clientError(_:)  case  case clientError(HTTPStatus)
 APIError.decodingError(_:)  case  case decodingError(any Error)
 APIError.description  property  var description: String { get }
 APIError.encodingError(_:)  case  case encodingError(String)
+APIError.engineErrors  property  var engineErrors: [AdMoaiError] { get }
 APIError.invalidResponse  case  case invalidResponse
 APIError.invalidURL  case  case invalidURL
 APIError.networkError(_:)  case  case networkError(any Error)
+APIError.requestRejected(status:errors:)  case  case requestRejected(status: Int, errors: [AdMoaiError])
 APIError.serverError(_:)  case  case serverError(Int)
 APIError.unexpectedStatusCode(_:)  case  case unexpectedStatusCode(Int)
 APIError.validationError(_:)  case  case validationError([AdMoaiError])

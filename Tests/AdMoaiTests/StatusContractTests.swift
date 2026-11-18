@@ -55,6 +55,84 @@ extension MockNetworkTests {
             }
         }
 
+        // Scenario: a 400 the engine explains carries the engine's code to the app (admoai-ios#93).
+        @Test
+        func testBadRequestWithEngineErrorsCarriesTheCode() async throws {
+            // The exact body the engine sends when a workspace without audience signals gets a
+            // device field it does not accept (B5-ios QA run, step 4).
+            let envelope = #"""
+            {"success":false,"data":null,"errors":[{"code":10009,"message":"The body contains an unknown field `\"category\"`"}],"warnings":null}
+            """#
+            MockURLProtocol.reset(stub: .init(statusCode: 400, body: Data(envelope.utf8)))
+
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let request = sdk.createRequestBuilder().addPlacement(key: "home").build()
+
+            do {
+                _ = try await sdk.requestAds(request)
+                Issue.record("a 400 must raise")
+            } catch let error as APIError {
+                guard case let .requestRejected(status, errors) = error else {
+                    Issue.record("expected .requestRejected, got \(error)")
+                    return
+                }
+                #expect(status == 400)
+                #expect(errors.map(\.code) == [10009])
+                #expect(errors.first?.message == "The body contains an unknown field `\"category\"`")
+                #expect(error.engineErrors.map(\.code) == [10009])
+                #expect(error.description.contains("[10009]"))
+            }
+        }
+
+        // Scenario: a 4xx whose body is not the engine's envelope keeps its old error.
+        @Test(arguments: [
+            (400, "", APIError.clientError(.badRequest)),
+            (400, "<html>Bad Request</html>", APIError.clientError(.badRequest)),
+            (400, #"{"success":false,"data":null,"errors":[],"warnings":null}"#, APIError.clientError(.badRequest)),
+            (404, "", APIError.clientError(.notFound)),
+            (418, "", APIError.unexpectedStatusCode(418)),
+        ])
+        func testClientErrorWithoutEngineErrorsIsUnchanged(status: Int, body: String, expected: APIError) async throws {
+            MockURLProtocol.reset(stub: .init(statusCode: status, body: Data(body.utf8)))
+
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let request = sdk.createRequestBuilder().addPlacement(key: "home").build()
+
+            await #expect(throws: expected) {
+                _ = try await sdk.requestAds(request)
+            }
+            #expect(expected.engineErrors.isEmpty)
+        }
+
+        // Scenario: any other 4xx the engine explains carries its code too, with its own status.
+        @Test
+        func testOtherClientErrorWithEngineErrorsCarriesTheCode() async throws {
+            let envelope = #"{"success":false,"data":null,"errors":[{"code":42,"message":"slow down"}]}"#
+            MockURLProtocol.reset(stub: .init(statusCode: 429, body: Data(envelope.utf8)))
+
+            let sdk = AdMoai(config: MockURLProtocol.config(apiVersion: "2025-11-01"))
+            let request = sdk.createRequestBuilder().addPlacement(key: "home").build()
+
+            await #expect(throws: APIError.requestRejected(
+                status: 429, errors: [AdMoaiError(code: 42, message: "slow down")]
+            )) {
+                _ = try await sdk.requestAds(request)
+            }
+        }
+
+        // Scenario: a 422 is unchanged, and its codes read the same way.
+        @Test
+        func testValidationErrorExposesEngineErrors() {
+            let errors = [AdMoaiError(code: 10028, message: "audience signals are not enabled")]
+            #expect(APIError.validationError(errors).engineErrors == errors)
+            #expect(APIError.serverError(500).engineErrors.isEmpty)
+            #expect(APIError.requestRejected(status: 400, errors: errors)
+                == APIError.requestRejected(status: 400, errors: errors))
+            #expect(APIError.requestRejected(status: 400, errors: errors)
+                != APIError.requestRejected(status: 404, errors: errors))
+            #expect(APIError.requestRejected(status: 422, errors: errors) != APIError.validationError(errors))
+        }
+
         // Scenario: a publisher compares a thrown error against an expected case.
         @Test
         func testAPIErrorEqualityCoversEveryCase() {

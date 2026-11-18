@@ -77,7 +77,15 @@ internal class AdMoaiClient {
                     )
                 }
             #endif
+            // Every 4xx other than 422 used to drop its body, so a 400 the engine explained
+            // (`10009`: a field this workspace does not accept, zero ads) reached the app as a
+            // bare "Bad Request" in release builds. The engine's codes now travel with the error.
+            let refusals = (400 ... 499).contains(httpResponse.statusCode) && httpResponse.statusCode != 422
+                ? Self.engineErrors(in: data) : []
             switch httpResponse.statusCode {
+            case 400 ... 499 where !refusals.isEmpty:
+                // Logged once, by the `catch let error as APIError` below.
+                throw APIError.requestRejected(status: httpResponse.statusCode, errors: refusals)
             case 200:
                 do {
                     let rawBody = String(data: data, encoding: .utf8)
@@ -136,6 +144,12 @@ internal class AdMoaiClient {
 
     /// Logs a one-line warning when the engine flags the negotiated API version as deprecated
     /// via `X-API-Deprecated: true`, surfacing the optional `Sunset` / `X-API-Sunset` date.
+    /// The engine's `errors` list from an error response, or empty when the body is empty, not
+    /// JSON, or carries no errors.
+    internal static func engineErrors(in data: Data) -> [AdMoaiError] {
+        (try? JSONDecoder().decode(APIResponseBody<[AdMoaiError]>.self, from: data))?.errors ?? []
+    }
+
     private func warnIfDeprecated(_ response: HTTPURLResponse) {
         guard
             let message = AdMoaiClient.deprecationMessage(
@@ -262,8 +276,13 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
     case decodingError(Error)
     case invalidResponse
     case serverError(Int)
+    /// HTTP 422: the engine refused the request's content. The codes are in the errors.
     case validationError([AdMoaiError])
+    /// HTTP 4xx without an engine error body, so there is no code to read.
     case clientError(HTTPStatus)
+    /// HTTP 4xx other than 422 whose body carries the engine's errors, for example 400 with
+    /// `10009` when the request holds a field the workspace does not accept.
+    case requestRejected(status: Int, errors: [AdMoaiError])
     case unexpectedStatusCode(Int)
     case encodingError(String)
 
@@ -287,6 +306,9 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             return "Validation error: Unknown"
         case let .clientError(status):
             return "Client error: \(status.rawValue) - \(status.description)"
+        case let .requestRejected(status, errors):
+            let messages = errors.map { "[\($0.code)] \($0.message)" }
+            return "Request rejected (HTTP \(status)):\n" + messages.joined(separator: "\n")
         case let .unexpectedStatusCode(code):
             return "Unexpected status code: \(code)"
         case let .encodingError(message):
@@ -314,12 +336,26 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             lhsErrors == rhsErrors
         case let (.clientError(lhsStatus), .clientError(rhsStatus)):
             lhsStatus == rhsStatus
+        case let (.requestRejected(lhsStatus, lhsErrors), .requestRejected(rhsStatus, rhsErrors)):
+            lhsStatus == rhsStatus && lhsErrors == rhsErrors
         case let (.unexpectedStatusCode(lhsCode), .unexpectedStatusCode(rhsCode)):
             lhsCode == rhsCode
         case let (.encodingError(lhsMessage), .encodingError(rhsMessage)):
             lhsMessage == rhsMessage
         default:
             false
+        }
+    }
+
+    /// The engine's codes and messages behind this error: those of a ``validationError(_:)``
+    /// (422) or a ``requestRejected(status:errors:)`` (any other 4xx). Empty for every other
+    /// error, which carries no engine code.
+    public var engineErrors: [AdMoaiError] {
+        switch self {
+        case let .validationError(errors), let .requestRejected(_, errors):
+            errors
+        default:
+            []
         }
     }
 }
