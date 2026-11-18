@@ -281,6 +281,18 @@ struct DocumentedAPITests {
         if case let .validationError(errors) = refusal {
             #expect(errors.map(\.code).isEmpty)
         }
+
+        // README "Reading an error code"
+        let rejected: APIError = .requestRejected(status: 400, errors: [])
+        if case let .requestRejected(status, errors) = rejected {
+            #expect(status == 400)
+            #expect(errors.isEmpty)
+        }
+        for refusal in rejected.engineErrors {
+            let code: Int = refusal.code
+            let message: String = refusal.message
+            _ = (code, message)
+        }
     }
 
     // Scenario: README "Carousel" — slides in server order, read through `getContent(key:)`, and

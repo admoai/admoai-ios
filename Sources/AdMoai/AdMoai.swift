@@ -155,6 +155,14 @@ public struct AdMoai {
 
     /// States the device's mobile carrier; `nil` removes it. Trimmed, and blanks or placeholders
     /// (`--`, `unknown`, `wifi`, `wi-fi`) are treated as absent. iOS never collects it on its own.
+    ///
+    /// The carrier is the operator name of the data subscription the device is registered on now,
+    /// as the operator displays it: not the Wi-Fi provider, not the home SIM's brand while roaming.
+    /// Not targetable in V1.
+    ///
+    /// Do not call it until AdMoai has enabled audience signals for your workspace: until then the
+    /// engine refuses `device.carrier` with HTTP 400 / `10009`, and the whole request gets no ads
+    /// (thrown as ``APIError/requestRejected(status:errors:)``).
     public mutating func setDeviceCarrier(_ carrier: String?) {
         deviceConfig = deviceConfig.with(carrier: carrier, categoryOverride: deviceConfig.categoryOverride)
     }

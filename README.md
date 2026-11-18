@@ -119,13 +119,17 @@ produce values the engine accepts.
 
 **Requirements**
 
-- Audience signals are read on decision version `2025-11-01`:
-  `SDKConfig(baseUrl: ..., apiVersion: "2025-11-01")`. On older versions the values travel as
-  plain custom targeting, as before.
-- They need AdMoai to enable audience signals for your workspace first. Until then, the engine
-  refuses the typed Standard keys (`age_group`, `gender`, … and `publisher_segments`) with `422`
-  / `10028`, so do not call their setters yet. Send no device category either: do not enable
-  collection or call `setDeviceCategory` (see below).
+- **Decision version:** Standard values are validated and matched on every decision version.
+  Reporting by audience (the audience recorded with each tracking event) requires
+  `SDKConfig(baseUrl: ..., apiVersion: "2025-11-01")`.
+- **Workspace:** AdMoai must enable audience signals for your workspace first. Until then:
+  - the engine refuses the typed Standard keys (`age_group`, `gender`, … and `publisher_segments`)
+    with `422` / `10028`, so do not call their setters yet;
+  - it refuses any device field it does not know yet with `400` / `10009`, and the whole request
+    then gets no ads. So send no device fields: do not call `setDeviceCarrier`, do not enable
+    category collection, and do not call `setDeviceCategory` (see below).
+- **Refusals:** both arrive as a thrown `APIError` that carries the engine's code (see
+  [Reading an error code](#reading-an-error-code)).
 
 #### Standard signals
 
@@ -161,6 +165,27 @@ let request = sdk.createRequestBuilder()
   { "key": "activity_frequency_30d", "value": "0" }
 ] }
 ```
+
+#### What each value means
+
+Compute every value from facts your app already holds about the viewer. Neither the SDK nor the
+engine derives one value from another. **When you do not know a value, do not set it**: an
+absent signal is correct, and a guessed one misleads advertisers and reports.
+
+| Signal | Meaning |
+|---|---|
+| `age_group` | Age in completed years at the time of the request. `under18` is below 18, each numbered bucket includes both its end ages, and `age65Plus` starts at 65. Unknown age: leave it unset. |
+| `gender` | The value the viewer stated in their profile. `other` is a stated gender outside `female` and `male`. `preferNotToSay` is a choice the viewer recorded, never a default for missing data. |
+| `account_type` | The type of the profile in use (not every membership the viewer holds). `other` is a known type outside the four named ones. |
+| `subscription_status` | The one relevant current subscription or pass. `noSubscription` (`none`) means you know the viewer has no current or previous relevant subscription. If no single relevant subscription exists, leave it unset or use a segment. |
+| `account_tenure` | The age of the viewer's account with your service, not the age of the app installation. |
+| `activity_frequency_30d` | Completed activities in the 30 × 24 hours before the request. An activity is one completed use of your service: a ride, a parking session, a rental, a flight. A booking, a cancelled or a failed use does not count. `zero` (`"0"`) means you know there were none. |
+| `last_activity_recency` | Elapsed days since the latest completed activity. `never` means you know the viewer has never completed one. |
+
+- **Elapsed days** count completed 24-hour periods between two UTC instants,
+  `floor(seconds / 86400)`, so day 0 starts at the instant the account was created or the activity
+  was completed. A negative or unknown duration is not day 0: leave the signal unset.
+- **Device carrier and category are not targetable in V1.** Advertisers cannot target them yet.
 
 #### Publisher segments
 
@@ -210,14 +235,19 @@ sdk.setDeviceCarrier("Example Mobile")   // trimmed; nil removes it
 "device": { ..., "carrier": "Example Mobile" }
 ```
 
+The carrier is the name of the mobile operator the device's data subscription is registered on
+right now, as the operator displays it. It is not the Wi-Fi provider, not the home SIM's brand while
+roaming, and not a country. If you do not know it reliably, do not set it.
+
 A blank value or a placeholder (`--`, `unknown`, `wifi`, `wi-fi`, any case) is treated as absent,
 so `sdk.setDeviceCarrier("wifi")` sends no `carrier`.
 
 #### Device category
 
-`phone`, `tablet` or `other`. **Nothing is sent unless your app opts in or states it**, so an app
-that only upgrades the SDK sends exactly what it sent before (a workspace without audience
-signals refuses `device.category`).
+`phone`, `tablet` or `other`. `other` is a device known to be neither a phone nor a tablet (a Mac,
+a TV, a headset), never "unknown": when the class is not known, send no category.
+**Nothing is sent unless your app opts in or states it**, so an app that only upgrades the SDK
+sends exactly what it sent before (a workspace without audience signals refuses `device.category`).
 
 Opt in to automatic collection, here on an iPhone:
 
@@ -254,6 +284,32 @@ sdk.setDeviceCategory(.tablet)
   and discards the manual ones, collecting the category again only if your app enabled it.
 - `disableDeviceCollection()` on a request omits the whole `device` object, carrier and category
   included.
+
+#### Reading an error code
+
+When the engine refuses a request, `requestAds` throws an `APIError` that carries the engine's
+codes and messages as `[AdMoaiError]`:
+
+- **`422`:** `APIError.validationError(errors)`, for example `10028` (a Standard key on a workspace
+  without audience signals) or the segment codes above.
+- **Any other `4xx` with an engine error body:** `APIError.requestRejected(status:errors:)`, for
+  example `400` with `10009` (a field the engine does not know, such as a device field on a
+  workspace without audience signals).
+- A `4xx` without an engine error body is still `APIError.clientError(_:)` or
+  `APIError.unexpectedStatusCode(_:)`.
+
+`error.engineErrors` reads the codes from either case, and is empty for every other error:
+
+```swift
+do {
+    let response = try await sdk.requestAds(request)
+    // render response
+} catch let error as APIError {
+    for refusal in error.engineErrors {
+        print(refusal.code, refusal.message)   // e.g. 10009 The body contains an unknown field ...
+    }
+}
+```
 
 ### 4. Extract Content
 
