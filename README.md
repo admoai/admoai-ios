@@ -140,8 +140,8 @@ raw values are the wire strings. `nil` removes only that signal, and the last ca
 | `setAccountType` | `account_type` | `personal`, `business`, `family`, `student`, `other` |
 | `setSubscriptionStatus` | `subscription_status` | `noSubscription` → `none`, `trial`, `active`, `paused`, `expired` |
 | `setAccountTenure` | `account_tenure` | `days0To30` → `0_30d`, `days31To90` → `31_90d`, `days91To365` → `91_365d`, `days366Plus` → `366d_plus` |
-| `setTripFrequency30d` | `trip_frequency_30d` | `zero` → `0`, `trips1To2` → `1_2`, `trips3To9` → `3_9`, `trips10Plus` → `10_plus` |
-| `setLastTripRecency` | `last_trip_recency` | `never`, `days0To7` → `0_7d`, `days8To30` → `8_30d`, `days31To90` → `31_90d`, `days91Plus` → `91d_plus` |
+| `setActivityFrequency30d` | `activity_frequency_30d` | `zero` → `0`, `times1To2` → `1_2`, `times3To9` → `3_9`, `times10Plus` → `10_plus` |
+| `setLastActivityRecency` | `last_activity_recency` | `never`, `days0To7` → `0_7d`, `days8To30` → `8_30d`, `days31To90` → `31_90d`, `days91Plus` → `91d_plus` |
 
 `AudienceSignals.Key` lists the eight wire keys, and every enum is `CaseIterable`.
 
@@ -150,7 +150,7 @@ let request = sdk.createRequestBuilder()
     .addPlacement(key: "home")
     .setAgeGroup(.age25To34)
     .setSubscriptionStatus(.noSubscription)   // sent as "none"
-    .setTripFrequency30d(.zero)               // sent as the string "0"
+    .setActivityFrequency30d(.zero)               // sent as the string "0"
     .build()
 ```
 
@@ -158,7 +158,7 @@ let request = sdk.createRequestBuilder()
 "targeting": { "custom": [
   { "key": "age_group", "value": "25_34" },
   { "key": "subscription_status", "value": "none" },
-  { "key": "trip_frequency_30d", "value": "0" }
+  { "key": "activity_frequency_30d", "value": "0" }
 ] }
 ```
 

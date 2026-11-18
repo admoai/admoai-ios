@@ -522,18 +522,18 @@ public class DecisionRequestBuilder {
         setStandardSignal(key: .accountTenure, value: value?.rawValue)
     }
 
-    /// Sets the `trip_frequency_30d` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// Sets the `activity_frequency_30d` audience dimension; `nil` removes only that dimension. Last write wins,
     /// including against ``addCustomTargeting(key:value:)`` for the same key.
     @discardableResult
-    public func setTripFrequency30d(_ value: AudienceSignals.TripFrequency30d?) -> DecisionRequestBuilder {
-        setStandardSignal(key: .tripFrequency30d, value: value?.rawValue)
+    public func setActivityFrequency30d(_ value: AudienceSignals.ActivityFrequency30d?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .activityFrequency30d, value: value?.rawValue)
     }
 
-    /// Sets the `last_trip_recency` audience dimension; `nil` removes only that dimension. Last write wins,
+    /// Sets the `last_activity_recency` audience dimension; `nil` removes only that dimension. Last write wins,
     /// including against ``addCustomTargeting(key:value:)`` for the same key.
     @discardableResult
-    public func setLastTripRecency(_ value: AudienceSignals.LastTripRecency?) -> DecisionRequestBuilder {
-        setStandardSignal(key: .lastTripRecency, value: value?.rawValue)
+    public func setLastActivityRecency(_ value: AudienceSignals.LastActivityRecency?) -> DecisionRequestBuilder {
+        setStandardSignal(key: .lastActivityRecency, value: value?.rawValue)
     }
 
     /// Sets the publisher segments as one canonical array; `nil` removes the entry. Last write wins.
