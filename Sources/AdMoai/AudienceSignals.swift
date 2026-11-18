@@ -65,8 +65,9 @@ public enum AudienceSignals {
         case other
     }
 
-    /// The state of the viewer's one relevant current subscription or pass. Leave it unset when
-    /// no single relevant subscription exists.
+    /// The state of the viewer's one relevant current subscription or pass. When you know the
+    /// viewer has none, now or before, set `.noSubscription`. Leave it unset only when the state is
+    /// unknown, or when several subscriptions apply and none of them is the relevant one.
     ///
     /// Sent verbatim as the value of the `subscription_status` custom targeting key.
     public enum SubscriptionStatus: String, Sendable, CaseIterable {

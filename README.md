@@ -177,7 +177,7 @@ absent signal is correct, and a guessed one misleads advertisers and reports.
 | `age_group` | Age in completed years at the time of the request. `under18` is below 18, each numbered bucket includes both its end ages, and `age65Plus` starts at 65. Unknown age: leave it unset. |
 | `gender` | The value the viewer stated in their profile. `other` is a stated gender outside `female` and `male`. `preferNotToSay` is a choice the viewer recorded, never a default for missing data. |
 | `account_type` | The type of the profile in use (not every membership the viewer holds). `other` is a known type outside the four named ones. |
-| `subscription_status` | The one relevant current subscription or pass. `noSubscription` (`none`) means you know the viewer has no current or previous relevant subscription. If no single relevant subscription exists, leave it unset or use a segment. |
+| `subscription_status` | The one relevant current subscription or pass. `noSubscription` (`none`) means you know the viewer has no current or previous relevant subscription. Leave it unset only when the state is unknown, or when several subscriptions apply and none of them is the relevant one (a segment can carry those). |
 | `account_tenure` | The age of the viewer's account with your service, not the age of the app installation. |
 | `activity_frequency_30d` | Completed activities in the 30 × 24 hours before the request. An activity is one completed use of your service: a ride, a parking session, a ticket, a rental. A booking, a cancelled or a failed use does not count. `zero` (`"0"`) means you know there were none. |
 | `last_activity_recency` | Elapsed days since the latest completed activity. `never` means you know the viewer has never completed one. |
