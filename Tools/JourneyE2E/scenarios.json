@@ -962,6 +962,39 @@
       }
     },
     {
+      "id": "SP15",
+      "title": "a template based on Sponsored Pin Location serves the pins and the publisher's extra fields",
+      "comment": "A template built 'Based on a standard' from Sponsored Pin Location, with two fields of the publisher's own added, keeps the pin pipeline: the Ad is bought as a custom template with no format key, yet its shops are matched against the viewer's map, nearest first (BR-DE-10: lineage decides, in both directions). Live runs need the `sdk_sp_derived` placement of the mock seed, and the engine's standard-formats gate on for the metadata, as ST1 does.",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "sdk_sp_derived"
+          }
+        ],
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "creative": {
+          "matchedPointsAtLeast": 2,
+          "matchedPointsNearestFirst": true,
+          "matchedPointsWellFormed": true,
+          "templateKey": "sdk_sponsored_pin_expandable",
+          "metadata": {
+            "effectiveStandardFormatKey": "sponsored_pin_location",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "based_on_standard",
+            "assetContext": null
+          }
+        }
+      }
+    },
+    {
       "id": "ST1",
       "title": "a Card with only its required content serves under the Card standard",
       "request": {
