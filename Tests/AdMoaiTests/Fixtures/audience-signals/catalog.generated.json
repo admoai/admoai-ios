@@ -338,22 +338,22 @@
       ]
     },
     {
-      "key": "trip_frequency_30d",
+      "key": "activity_frequency_30d",
       "type": "multiselect",
       "order": 6,
       "optionPolicy": "fixed",
       "requestShape": "string",
       "name": {
-        "en": "Trip frequency in 30 days",
-        "es": "Frecuencia de viajes en 30 días",
-        "fr": "Fréquence des trajets sur 30 jours",
-        "pt": "Frequência de viagens em 30 dias"
+        "en": "Activity in 30 days",
+        "es": "Actividad en 30 días",
+        "fr": "Activité sur 30 jours",
+        "pt": "Atividade em 30 dias"
       },
       "description": {
-        "en": "Completed trips in the trailing 30 days.",
-        "es": "Viajes completados en los últimos 30 días.",
-        "fr": "Trajets terminés au cours des 30 derniers jours.",
-        "pt": "Viagens concluídas nos últimos 30 dias."
+        "en": "Completed activities in the trailing 30 days. An activity is one completed use of the publisher's service: a ride, a parking session, a ticket, a rental.",
+        "es": "Actividades completadas en los últimos 30 días. Una actividad es un uso completado del servicio del publisher: un viaje, una sesión de estacionamiento, un boleto, un alquiler.",
+        "fr": "Activités terminées au cours des 30 derniers jours. Une activité est une utilisation terminée du service de l'éditeur : un trajet, une session de stationnement, un billet, une location.",
+        "pt": "Atividades concluídas nos últimos 30 dias. Uma atividade é um uso concluído do serviço do publisher: uma viagem, uma sessão de estacionamento, um bilhete, um aluguel."
       },
       "values": [
         {
@@ -395,22 +395,22 @@
       ]
     },
     {
-      "key": "last_trip_recency",
+      "key": "last_activity_recency",
       "type": "multiselect",
       "order": 7,
       "optionPolicy": "fixed",
       "requestShape": "string",
       "name": {
-        "en": "Last trip recency",
-        "es": "Recencia del último viaje",
-        "fr": "Ancienneté du dernier trajet",
-        "pt": "Recência da última viagem"
+        "en": "Last activity",
+        "es": "Última actividad",
+        "fr": "Dernière activité",
+        "pt": "Última atividade"
       },
       "description": {
-        "en": "Time since the latest completed trip.",
-        "es": "Tiempo transcurrido desde el último viaje completado.",
-        "fr": "Temps écoulé depuis le dernier trajet terminé.",
-        "pt": "Tempo decorrido desde a última viagem concluída."
+        "en": "Time since the latest completed activity.",
+        "es": "Tiempo transcurrido desde la última actividad completada.",
+        "fr": "Temps écoulé depuis la dernière activité terminée.",
+        "pt": "Tempo decorrido desde a última atividade concluída."
       },
       "values": [
         {
@@ -466,7 +466,7 @@
       "order": 8,
       "optionPolicy": "workspace",
       "requestShape": "string_array",
-      "valuePattern": "^[a-zA-Z0-9_]+$",
+      "valuePattern": "^[a-zA-Z0-9_]{1,32}$",
       "name": {
         "en": "Publisher segments",
         "es": "Segmentos del publisher",

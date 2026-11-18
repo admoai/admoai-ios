@@ -3,7 +3,7 @@
 `catalog.generated.json` is a byte-for-byte copy of
 `ui/platform/lib/audience-signals/catalog.generated.json` in admoai/adhub (generated from
 `catalog.ts`, the single source of the Standard audience catalog). Vendored at adhub
-`1df3c5812`.
+`f1be5cb4f` (branch `feat/audience-signals-r1-activity-presets`, the activity presets).
 
 `AudienceSignalsCatalogTests` fails when the SDK's typed enums drift from it. To update after a
 catalog change in adhub:
