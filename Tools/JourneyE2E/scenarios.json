@@ -2090,8 +2090,9 @@
     },
     {
       "id": "AS1",
-      "title": "a Standard audience value the Ad targets serves it on the default version",
+      "title": "a Standard audience value the Ad targets serves it with no version header (the engine's default route)",
       "request": {
+        "apiVersion": "none",
         "placements": [
           {
             "key": "sdk_e2e_audience"
@@ -2202,8 +2203,9 @@
     },
     {
       "id": "AS6",
-      "title": "a device carrier and category change nothing: the Ad is still served",
+      "title": "a device carrier and category change nothing on version 2025-11-01: the Ad is still served",
       "request": {
+        "apiVersion": "2025-11-01",
         "placements": [
           {
             "key": "sdk_e2e_audience"
@@ -2274,8 +2276,9 @@
     },
     {
       "id": "AS9",
-      "title": "a publisher segment the Ad targets serves it",
+      "title": "a publisher segment the Ad targets serves it on version 2025-11-01",
       "request": {
+        "apiVersion": "2025-11-01",
         "placements": [
           {
             "key": "sdk_e2e_audience_segments"
@@ -2577,6 +2580,56 @@
               "sdk_segment_17",
               "sdk_segment_18",
               "sdk_segment_19"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS20",
+      "title": "a device carrier and category change nothing with no version header: the Ad is still served",
+      "request": {
+        "apiVersion": "none",
+        "placements": [
+          {
+            "key": "sdk_e2e_audience"
+          }
+        ],
+        "custom": [
+          {
+            "key": "age_group",
+            "value": "25_34"
+          }
+        ],
+        "device": {
+          "carrier": "Example Mobile",
+          "category": "phone"
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1
+      }
+    },
+    {
+      "id": "AS21",
+      "title": "a publisher segment the Ad targets serves it with no version header",
+      "request": {
+        "apiVersion": "none",
+        "placements": [
+          {
+            "key": "sdk_e2e_audience_segments"
+          }
+        ],
+        "custom": [
+          {
+            "key": "publisher_segments",
+            "value": [
+              "airport_commuter"
             ]
           }
         ]
