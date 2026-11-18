@@ -281,6 +281,26 @@ struct DocumentedAPITests {
         if case let .validationError(errors) = refusal {
             #expect(errors.map(\.code).isEmpty)
         }
+
+        // README "Reading an error code"
+        let rejected: APIError = .requestRejected(status: 400, errors: [])
+        if case let .requestRejected(status, errors) = rejected {
+            #expect(status == 400)
+            #expect(errors.isEmpty)
+        }
+        for refusal in rejected.engineErrors {
+            let code: Int = refusal.code
+            let message: String = refusal.message
+            _ = (code, message)
+        }
+        let status: Int? = rejected.httpStatus
+        #expect(status == 400)
+        // README "Upgrading from 1.9.0"
+        switch APIError.requestRejected(status: 429, errors: []) {
+        case .requestRejected(429, _), .clientError(.tooManyRequests): break
+        case .requestRejected(410, _), .clientError(.gone): Issue.record("410 is not 429")
+        default: Issue.record("a 429 matches the back-off case")
+        }
     }
 
     // Scenario: README "Carousel" — slides in server order, read through `getContent(key:)`, and

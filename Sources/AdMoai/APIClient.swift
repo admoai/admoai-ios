@@ -77,7 +77,15 @@ internal class AdMoaiClient {
                     )
                 }
             #endif
+            // Every 4xx other than 422 used to drop its body, so a 400 the engine explained
+            // (`10009`: a field this workspace does not accept, zero ads) reached the app as a
+            // bare "Bad Request" in release builds. The engine's codes now travel with the error.
+            let refusals = (400 ... 499).contains(httpResponse.statusCode) && httpResponse.statusCode != 422
+                ? Self.engineErrors(in: data) : []
             switch httpResponse.statusCode {
+            case 400 ... 499 where !refusals.isEmpty:
+                // Logged once, by the `catch let error as APIError` below.
+                throw APIError.requestRejected(status: httpResponse.statusCode, errors: refusals)
             case 200:
                 do {
                     let rawBody = String(data: data, encoding: .utf8)
@@ -132,6 +140,12 @@ internal class AdMoaiClient {
             self.logger.error("Network error: \(error.localizedDescription)")
             throw APIError.networkError(error)
         }
+    }
+
+    /// The engine's `errors` list from an error response, or empty when the body is empty, not
+    /// JSON, or carries no errors.
+    internal static func engineErrors(in data: Data) -> [AdMoaiError] {
+        (try? JSONDecoder().decode(APIResponseBody<[AdMoaiError]>.self, from: data))?.errors ?? []
     }
 
     /// Logs a one-line warning when the engine flags the negotiated API version as deprecated
@@ -262,8 +276,15 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
     case decodingError(Error)
     case invalidResponse
     case serverError(Int)
+    /// HTTP 422: the engine refused the request's content. The codes are in the errors.
     case validationError([AdMoaiError])
+    /// HTTP 4xx without the engine's error body (for example from a proxy or a CDN), so there is
+    /// no code to read.
     case clientError(HTTPStatus)
+    /// HTTP 4xx other than 422 from the engine, which always sends its error body: 400 (for
+    /// example `10009`, a field the workspace does not accept), 404, 405, 410, 429. Back-off code
+    /// matches the status here, e.g. `case .requestRejected(429, _)`, or reads ``httpStatus``.
+    case requestRejected(status: Int, errors: [AdMoaiError])
     case unexpectedStatusCode(Int)
     case encodingError(String)
 
@@ -287,6 +308,9 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             return "Validation error: Unknown"
         case let .clientError(status):
             return "Client error: \(status.rawValue) - \(status.description)"
+        case let .requestRejected(status, errors):
+            let messages = errors.map { "[\($0.code)] \($0.message)" }
+            return "Request rejected (HTTP \(status)):\n" + messages.joined(separator: "\n")
         case let .unexpectedStatusCode(code):
             return "Unexpected status code: \(code)"
         case let .encodingError(message):
@@ -314,12 +338,45 @@ public enum APIError: Error, CustomStringConvertible, Equatable {
             lhsErrors == rhsErrors
         case let (.clientError(lhsStatus), .clientError(rhsStatus)):
             lhsStatus == rhsStatus
+        case let (.requestRejected(lhsStatus, lhsErrors), .requestRejected(rhsStatus, rhsErrors)):
+            lhsStatus == rhsStatus && lhsErrors == rhsErrors
         case let (.unexpectedStatusCode(lhsCode), .unexpectedStatusCode(rhsCode)):
             lhsCode == rhsCode
         case let (.encodingError(lhsMessage), .encodingError(rhsMessage)):
             lhsMessage == rhsMessage
         default:
             false
+        }
+    }
+
+    /// The engine's codes and messages behind this error: those of a ``validationError(_:)``
+    /// (422) or a ``requestRejected(status:errors:)`` (any other 4xx). Empty for every other
+    /// error, which carries no engine code.
+    public var engineErrors: [AdMoaiError] {
+        switch self {
+        case let .validationError(errors), let .requestRejected(_, errors):
+            errors
+        default:
+            []
+        }
+    }
+
+    /// The HTTP status behind this error, so one check works whether or not the response carried
+    /// the engine's error body: 422 for ``validationError(_:)``, the status of
+    /// ``requestRejected(status:errors:)``, ``clientError(_:)``, ``serverError(_:)`` and
+    /// ``unexpectedStatusCode(_:)``. `nil` when no HTTP response was received or decoded.
+    public var httpStatus: Int? {
+        switch self {
+        case .validationError:
+            422
+        case let .requestRejected(status, _):
+            status
+        case let .clientError(status):
+            status.rawValue
+        case let .serverError(code), let .unexpectedStatusCode(code):
+            code
+        case .invalidURL, .networkError, .decodingError, .invalidResponse, .encodingError:
+            nil
         }
     }
 }

@@ -305,7 +305,8 @@ public struct Device: Encodable {
     public let language: String?
     /// The mobile carrier's name, when the publisher supplied one. Never collected by the SDK.
     public let carrier: String?
-    /// The device form factor, when the publisher supplied one.
+    /// The device form factor: the publisher's value, or the collected one when the app enabled
+    /// collection. Absent when neither is known. Not targetable in V1.
     public let category: DeviceCategory?
 
     public init(

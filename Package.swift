@@ -22,7 +22,11 @@ let package = Package(
             name: "AdMoai",
             // Gherkin specifications live beside the code they specify; the tests that execute
             // them are in AdMoaiTests. Not resources — nothing ships them.
-            exclude: ["ViewBeaconLedger.feature"]
+            exclude: [
+                "ViewBeaconLedger.feature",
+                "AudienceSignals.feature",
+                "Utils/DeviceCategoryClassifier.feature",
+            ]
         ),
         // The live scenario manifest's `expect.creative` interpreter: a library so the runner
         // below and `swift test` run the same code (unit tests cover its pass and fail paths).
@@ -51,7 +55,7 @@ let package = Package(
             name: "journey-e2e",
             dependencies: ["AdMoai", "ManifestExpectations"],
             path: "Tools/JourneyE2E",
-            exclude: ["README.md", "fixtures"]
+            exclude: ["README.md", "fixtures", "scenarios.json", "MANIFEST_VERSION"]
         ),
     ]
 )

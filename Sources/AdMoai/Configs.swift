@@ -121,7 +121,8 @@ public struct DeviceConfig: Clearable, Equatable {
     public let osVersion: String?
     public let timezone: String?
     public let language: String?
-    /// Carrier name, normalized: trimmed, and `nil` for blanks and placeholders (`--`, `unknown`, `wifi`).
+    /// Carrier name, normalized: trimmed, and `nil` for blanks and placeholders (`--`, `unknown`,
+    /// `wifi`, `wi-fi`).
     public let carrier: String?
     /// What the publisher stated about the category, if anything.
     enum CategoryOverride: Equatable {
