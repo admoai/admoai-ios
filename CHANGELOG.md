@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/admoai/admoai-ios/compare/v1.9.0...v1.10.0) (2026-11-19)
+
+
+### Added
+
+* device category collection ([#89](https://github.com/admoai/admoai-ios/issues/89)) ([ae6b630](https://github.com/admoai/admoai-ios/commit/ae6b630dcce3f539259c440bdf89f90e77886dc5))
+* rename the trip audience presets to activity presets ([#96](https://github.com/admoai/admoai-ios/issues/96)) ([3688100](https://github.com/admoai/admoai-ios/commit/3688100fec7f1fe531270e2e2271809aa6ee544c)), closes [#95](https://github.com/admoai/admoai-ios/issues/95)
+* scenarios runner accepts the device request key ([#92](https://github.com/admoai/admoai-ios/issues/92)) ([102faff](https://github.com/admoai/admoai-ios/commit/102faffe5411bd80296f5469020af5a3bf181146))
+* typed audience targeting helpers and device model ([#88](https://github.com/admoai/admoai-ios/issues/88)) ([406f77a](https://github.com/admoai/admoai-ios/commit/406f77a9f3a579285a91fe617120121ccddcb01d))
+
+
+### Fixed
+
+* surface the engine's error code on every 4xx and document audience value meanings ([#98](https://github.com/admoai/admoai-ios/issues/98)) ([27cb6aa](https://github.com/admoai/admoai-ios/commit/27cb6aa226045791c0f003858271749531fb6629))
+
+
+### Documentation
+
+* **readme:** state the tolerant reader guarantees next to the response model ([#83](https://github.com/admoai/admoai-ios/issues/83)) ([83beca8](https://github.com/admoai/admoai-ios/commit/83beca841a3a8deef78f4f6032a844be4931e0f4))
+
 ## [1.9.0](https://github.com/admoai/admoai-ios/compare/v1.8.0...v1.9.0) (2026-11-09)
 
 
