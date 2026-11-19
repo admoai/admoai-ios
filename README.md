@@ -1242,7 +1242,15 @@ extension Array where Element == Content {
         return string
     }
 }
+
+extension Creative {
+    /// Changes with every decision response: the signed impression URL is new each time.
+    var responseID: String { tracking.impressions?.first?.url ?? "" }
+}
 ```
+
+`responseID` is how the examples notice that a parent has swapped in a new ad without changing the
+view's identity: they reset their own state (impression sent, expanded, player) when it changes.
 
 ### Who does what
 
@@ -1319,7 +1327,7 @@ import SwiftUI
 struct NativeDisplayView: View {
     let creative: Creative
     let sdk: AdMoai
-    @State private var impressionSent = false
+    @State private var impressionSentFor: String?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -1330,7 +1338,11 @@ struct NativeDisplayView: View {
                 AsyncImage(url: URL(string: image)) { $0.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.2) }
                     .frame(height: style == "tall" ? 360 : style == "compact" ? 120 : 220)
                     .clipped()
-                if let headline = c.text("headline") { Text(headline).font(.headline) }       // hide when nil
+                if let logo = c.text("brand_logo") {                                         // hide when nil
+                    AsyncImage(url: URL(string: logo)) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                        .frame(height: 24)
+                }
+                if let headline = c.text("headline") { Text(headline).font(.headline) }
                 if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
                 if let cta = c.text("cta_text") { Text(cta).font(.callout).bold() }
             }
@@ -1341,12 +1353,15 @@ struct NativeDisplayView: View {
                     if accepted { sdk.fireClick(tracking: creative.tracking) }   // only when it opened
                 }
             }
-            .onAppear {                                          // your visibility callback
-                guard !impressionSent else { return }
-                impressionSent = true
-                sdk.fireImpression(tracking: creative.tracking)
-            }
+            .onAppear(perform: reportImpression)                 // your visibility callback
+            .onChange(of: creative.responseID) { _ in reportImpression() }   // a new ad in the same view
         }
+    }
+
+    private func reportImpression() {
+        guard impressionSentFor != creative.responseID else { return }
+        impressionSentFor = creative.responseID
+        sdk.fireImpression(tracking: creative.tracking)
     }
 }
 ```
@@ -1482,7 +1497,7 @@ struct TapToExpandView<Extra: View>: View {
     let sdk: AdMoai
     @ViewBuilder let expandedExtra: () -> Extra          // room for fields an operator adds
     @State private var expanded = false
-    @State private var impressionSent = false
+    @State private var impressionSentFor: String?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -1492,16 +1507,19 @@ struct TapToExpandView<Extra: View>: View {
             Group {
                 if expanded {
                     VStack(alignment: .leading, spacing: 8) {
-                        AsyncImage(url: URL(string: expandedImage)) { $0.resizable().scaledToFit() } placeholder: { Color.gray.opacity(0.2) }
-                        if let headline = c.text("headline") { Text(headline).font(.headline) }
-                        if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
-                        expandedExtra()
-                        if let cta = c.text("cta_text") {
-                            Button(cta) {
-                                guard let url = URL(string: destination) else { return }
-                                openURL(url) { accepted in
-                                    if accepted { sdk.fireClick(tracking: creative.tracking) }
-                                }
+                        // The expanded content opens the destination, so it works without cta_text.
+                        VStack(alignment: .leading, spacing: 8) {
+                            AsyncImage(url: URL(string: expandedImage)) { $0.resizable().scaledToFit() } placeholder: { Color.gray.opacity(0.2) }
+                            if let headline = c.text("headline") { Text(headline).font(.headline) }
+                            if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
+                            expandedExtra()
+                            if let cta = c.text("cta_text") { Text(cta).font(.callout).bold() }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard let url = URL(string: destination) else { return }
+                            openURL(url) { accepted in
+                                if accepted { sdk.fireClick(tracking: creative.tracking) }   // only when it opened
                             }
                         }
                         if let disclaimer = c.text("disclaimer") { Text(disclaimer).font(.caption2) }
@@ -1523,12 +1541,18 @@ struct TapToExpandView<Extra: View>: View {
                     }
                 }
             }
-            .onAppear {                                                      // your visibility callback
-                guard !impressionSent else { return }
-                impressionSent = true
-                sdk.fireImpression(tracking: creative.tracking)
+            .onAppear(perform: reportImpression)                             // your visibility callback
+            .onChange(of: creative.responseID) { _ in                        // a new ad in the same view
+                expanded = false                                             // never inherit the last ad's state
+                reportImpression()
             }
         }
+    }
+
+    private func reportImpression() {
+        guard impressionSentFor != creative.responseID else { return }
+        impressionSentFor = creative.responseID
+        sdk.fireImpression(tracking: creative.tracking)
     }
 }
 
@@ -1540,7 +1564,8 @@ extension TapToExpandView where Extra == EmptyView {
 }
 ```
 
-Fire the impression when the teaser is first on screen, not while you build the view.
+Fire the impression when the teaser is first on screen, not while you build the view. The expanded
+content opens the destination too, so an ad without `cta_text` can still be opened.
 
 ---
 
@@ -1634,8 +1659,8 @@ really happened.
 | Event | When | Call |
 |---|---|---|
 | Impression | The ad is on screen, before playback starts. | `sdk.fireImpression(tracking: creative.tracking)` |
-| `start`, `first_quartile`, `midpoint`, `third_quartile` | Playback reaches 0%, 25%, 50%, 75%. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "<key>")` |
-| `complete` | 98% played. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "complete")` |
+| `start`, `first_quartile`, `midpoint`, `third_quartile` | Playback itself reaches 0%, 25%, 50%, 75%. A seek past a point does not fire it. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "<key>")` |
+| `complete` | Playback itself reaches 98%. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "complete")` |
 | Click | The user taps and the destination opens. | `sdk.fireClick(tracking: creative.tracking)` |
 
 **No click without a destination.** When `destination_url` is absent the creative has no click
@@ -1645,6 +1670,7 @@ you send them and adds no `start` or quartile for you.
 ```swift
 import AVKit
 import AdMoai
+import Combine
 import SwiftUI
 
 @available(iOS 15.0, macOS 12.0, *)
@@ -1652,40 +1678,87 @@ struct StandardVideoView: View {
     let creative: Creative
     let sdk: AdMoai
     @State private var player: AVPlayer?
+    @State private var ready = false                     // the poster stays until the video can play
     @State private var observer: Any?
+    @State private var statusWatch: AnyCancellable?
     @State private var fired = Set<String>()
+    @State private var lastSeconds: Double?
+    @State private var impressionSentFor: String?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         let c = creative.contents
-        if let poster = c.text("poster_image"), let video = c.text("video_asset").flatMap(URL.init) {
-            ZStack {
-                AsyncImage(url: URL(string: poster)) { $0.resizable().scaledToFit() } placeholder: { Color.black }   // also the fallback
-                if let player { VideoPlayer(player: player) }
+        if let poster = c.text("poster_image"), c.text("video_asset") != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack {
+                    AsyncImage(url: URL(string: poster)) { $0.resizable().scaledToFit() } placeholder: { Color.black }   // also the fallback
+                    if ready, let player { VideoPlayer(player: player) }   // never over the poster until it can play
+                }
+                if let logo = c.text("brand_logo") {                       // hide each optional element when nil
+                    AsyncImage(url: URL(string: logo)) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                        .frame(height: 24)
+                }
+                if let headline = c.text("headline") { Text(headline).font(.headline) }
+                if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
+                if let cta = c.text("cta_text"), c.text("destination_url") != nil { Text(cta).font(.callout).bold() }
+                if let disclaimer = c.text("disclaimer") { Text(disclaimer).font(.caption2) }
             }
+            .contentShape(Rectangle())
             .onTapGesture {
                 guard let s = c.text("destination_url"), let url = URL(string: s) else { return }   // no destination: no tap, no click
                 openURL(url) { accepted in
                     if accepted { sdk.fireClick(tracking: creative.tracking) }
                 }
             }
-            .onAppear {                                                  // your visibility callback
-                guard player == nil else { return }
-                sdk.fireImpression(tracking: creative.tracking)          // before playback
-                let p = AVPlayer(url: video)
-                observer = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { time in
-                    guard let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }
-                    let progress = time.seconds / d
-                    for (key, threshold) in [("start", 0.0), ("first_quartile", 0.25), ("midpoint", 0.5),
-                                             ("third_quartile", 0.75), ("complete", 0.98)]
-                    where progress >= threshold && fired.insert(key).inserted {
-                        sdk.fireVideoEvent(tracking: creative.tracking, key: key)
-                    }
-                }
-                player = p
-                p.play()
+            .onAppear(perform: start)                            // your visibility callback
+            .onDisappear(perform: stop)                          // off screen: stop playing and counting
+            .onChange(of: creative.responseID) { _ in            // a new ad in the same view
+                stop()
+                fired = []
+                start()
             }
         }
+    }
+
+    private func start() {
+        guard player == nil, let s = creative.contents.text("video_asset"), let video = URL(string: s) else { return }
+        if impressionSentFor != creative.responseID {
+            impressionSentFor = creative.responseID
+            sdk.fireImpression(tracking: creative.tracking)      // before playback
+        }
+        let tracking = creative.tracking                         // this ad's tracking, even if the view is reused
+        let p = AVPlayer(url: video)
+        statusWatch = p.currentItem?.publisher(for: \.status).sink { ready = ($0 == .readyToPlay) }   // failed: poster again
+        lastSeconds = nil
+        observer = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { time in
+            guard p.timeControlStatus == .playing,               // only real playback counts
+                  let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }
+            let now = time.seconds
+            defer { lastSeconds = now }
+            // Count only playback that moved forward a little since the last tick; a seek is a jump.
+            guard let last = lastSeconds else { fire("start", tracking); return }
+            guard now > last, now - last <= 1.0 else { return }
+            for (key, threshold) in [("first_quartile", 0.25), ("midpoint", 0.5),
+                                     ("third_quartile", 0.75), ("complete", 0.98)]
+            where last / d < threshold && now / d >= threshold {
+                fire(key, tracking)
+            }
+        }
+        player = p
+        p.play()
+    }
+
+    private func fire(_ key: String, _ tracking: Tracking) {
+        if fired.insert(key).inserted { sdk.fireVideoEvent(tracking: tracking, key: key) }
+    }
+
+    private func stop() {
+        player?.pause()
+        if let observer { player?.removeTimeObserver(observer) }
+        observer = nil
+        statusWatch = nil
+        player = nil
+        ready = false
     }
 }
 ```
@@ -1697,7 +1770,7 @@ struct StandardVideoView: View {
 An operator can create a template **based on** a standard and add fields of their own. The format
 stays the standard's; the creative simply carries more keys. The response then has:
 
-- every content key of the standard, in the standard's order, and
+- every content key of the standard that is set, in the standard's order, and
 - the operator's extra keys, after them.
 
 The format key and version are the standard's, and `templateSource` is `based_on_standard`: a
@@ -1720,8 +1793,8 @@ and `creative.matchedPoints` carries the pins, with the operator's extra keys in
 ### Worked example
 
 An operator built the template `promo_expandable` on Tap-to-expand and added a text field
-`expanded_headline` that should appear in the expanded view. The response contains the eight
-Tap-to-expand keys followed by `expanded_headline`, with `effectiveStandardFormatKey` =
+`expanded_headline` that should appear in the expanded view. The response contains the
+Tap-to-expand keys that are set (the three required ones and any optional ones) followed by `expanded_headline`, with `effectiveStandardFormatKey` =
 `expandable_banner` and `templateSource` = `based_on_standard`. `TapToExpandView` is the one from
 [Tap-to-expand](#tap-to-expand); the extra key goes in its `expandedExtra` slot.
 
