@@ -107,10 +107,20 @@ extension MockNetworkTests {
 
         /// BR-SDK-05 under a race: thread A claims the view and stalls before dispatching it;
         /// thread B's click must wait for it rather than dispatch first.
-        @Test func aClickRacingAnotherThreadsViewStillDispatchesTheViewFirst() throws {
+        @Test func aClickRacingAnotherThreadsViewStillDispatchesTheViewFirst() async throws {
             let creative = try creative(slides: [slideJSON(1)])
             let sdk = sdk()
             MockURLProtocol.reset()
+            let dispatched = raceAClickAgainstAnotherThreadsView(sdk: sdk, creative: creative)
+            // The view, the click and its two third-party fan-outs must all land here: one still in
+            // flight would reach the next test after its `reset()` and fail it.
+            await expectRequests(4)
+            let first = dispatched.filter { $0.hasPrefix("https://t/") }
+            #expect(first == ["https://t/slide1/view", "https://t/slide1/click"])
+        }
+
+        /// Runs the two threads of the race above and returns the dispatch order.
+        private func raceAClickAgainstAnotherThreadsView(sdk: AdMoai, creative: Creative) -> [String] {
             let dispatched = DispatchLog()
             let aInside = DispatchSemaphore(value: 0)
             let release = DispatchSemaphore(value: 0)
@@ -141,8 +151,7 @@ extension MockNetworkTests {
             _ = bDone.wait(timeout: .now() + 0.3)
             release.signal()
             _ = group.wait(timeout: .now() + 3)
-            let first = dispatched.urls.filter { $0.hasPrefix("https://t/") }
-            #expect(first == ["https://t/slide1/view", "https://t/slide1/click"])
+            return dispatched.urls
         }
 
         @Test func aTapOnASlideWithoutAClickTrackerStillCountsItsView() async throws {
