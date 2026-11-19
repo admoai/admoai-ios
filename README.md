@@ -13,6 +13,10 @@ The AdMoai iOS SDK is a lightweight wrapper around the Decision Engine API, enab
 ## Features
 
 - **Native Ads** – Multiple template types (wide, image+text, text-only, carousel)
+- **Admoai standard formats** – Native Display, Carousel, Tap-to-expand, Branded Assets, Standard Video
+  and Sponsored Pin Locations, plus templates based on a standard. Read
+  [Admoai standard formats](#admoai-standard-formats): the SDK draws none of them, and it never
+  fires a beacon on its own
 - **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
 - **Journey Ads** – Single-advertiser experiences spanning a session. Read
   [Journey Ads](#journey-ads) before integrating: it is the one feature that
@@ -1155,6 +1159,203 @@ author-controlled. For a typed value read `creative.metadata?.skipOffsetSeconds`
 
 ---
 
+## Admoai standard formats
+
+Admoai defines six standard ad formats. Each has a fixed set of content keys and a fixed set of
+tracking events. The decision response tells your app what to show; your app draws it and reports
+what the user did. **The SDK draws none of them**: it decodes the response and gives you the
+tracking helpers.
+
+| Format | Format key | What it is | Section |
+|---|---|---|---|
+| Native Display | `card` | One image with optional text and one destination. | [Native Display](#native-display) |
+| Carousel | `carousel` | Two to ten slides, each with its own destination. | [Carousel](#carousel) |
+| Tap-to-expand | `expandable_banner` | A small teaser that expands into a larger view. | [Tap-to-expand](#tap-to-expand) |
+| Branded Assets | `branded_assets` | A transparent branded image, for example a vehicle marker on a map. | [Branded Assets](#branded-assets) |
+| Standard Video | `standard_video` | A video with a poster image and playback tracking. | [Standard Video](#standard-video) |
+| Sponsored Pin Locations | `sponsored_pin_location` | An advertiser's real places, shown as pins on your map. | [Sponsored Pin Locations](#sponsored-pin-locations) |
+
+An operator can also create a template **based on** a standard and add fields of their own. See
+[Templates based on a standard](#templates-based-on-a-standard).
+
+### What you need
+
+- **SDK 1.9.0 or newer.** Older versions decode the response but do not expose the format metadata
+  or the Carousel slides, and have no slide, expand, close or asset-tap helpers.
+- **`apiVersion: "2025-11-01"` in `SDKConfig`**, as in [Quick Start](#1-initialize-the-sdk). The SDK
+  sends the version header only when `apiVersion` is set. Without it the engine answers with its
+  default version: it skips standard-format campaigns (warning `10025`, so the placement returns no
+  ad from them) and serves a template based on a standard without its format metadata.
+
+### Detecting the format
+
+Every creative served as a standard format has these fields on `creative.metadata`. All are
+optional (`nil` when absent).
+
+| Property | Meaning |
+|---|---|
+| `effectiveStandardFormatKey` | The standard the creative follows: one of the format keys above. |
+| `effectiveStandardFormatVersion` | The version of that standard, a whole number starting at 1. A published version never changes. |
+| `templateSource` | `admoai_standard` (the standard itself) or `based_on_standard` (an operator's template built on it). |
+| `assetContext` | Branded Assets only: what the asset is for, today `vehicle_marker`. |
+
+Choose the renderer from the format key, and always have a default case:
+
+```swift
+switch creative.metadata?.effectiveStandardFormatKey {
+case "card":                   renderNativeDisplay(creative)
+case "carousel":               renderCarousel(creative)
+case "expandable_banner":      renderTapToExpand(creative)
+case "branded_assets":         renderBrandedAsset(creative)
+case "standard_video":         renderStandardVideo(creative)
+case "sponsored_pin_location": renderPins(creative)
+default:                       renderExistingWay(creative)   // absent, or a value this app does not know
+}
+```
+
+The fields are absent on ads that do not use a standard format, so your existing rendering does not
+change. For a template based on a standard, the key and version are the standard's, not the
+operator's template's: a derived Carousel still reports `carousel`. In the default case do not
+crash and do not throw; if your app cannot render the creative, show nothing for the slot and fire
+no event. Do not branch on `templateSource` or the version to hide an ad.
+
+### Optional content: absent means not set
+
+Some content keys are optional. When an operator leaves one empty, Admoai leaves it out of the
+response: it never sends an empty string, an empty image or a placeholder. So a missing key is
+normal and never an error. Hide the view for it; do not show a blank label, an empty image view or
+a default text. Lay the ad out so it looks right without each optional key.
+
+The examples in the format sections use this helper. It returns a string value, or `nil` when the
+key is absent, empty or not a string:
+
+```swift
+import AdMoai
+import Foundation
+
+extension Array where Element == Content {
+    func text(_ key: String) -> String? {
+        guard let value = getContent(key: key)?.value,
+              let data = try? JSONEncoder().encode(value),
+              let string = try? JSONDecoder().decode(String.self, from: data),
+              !string.isEmpty else { return nil }
+        return string
+    }
+}
+```
+
+### Who does what
+
+| Admoai | Your app |
+|---|---|
+| Decides which ad is served and which format it uses. | Draws the format. |
+| Sends the content for each key, and only the keys that have a value. | Treats a missing key as "not set". |
+| Signs every tracking URL and removes duplicate events on the server. | Calls the tracking helper at the right moment, and passes it the object it received. |
+| | Opens the destination when the user taps, and fires the click only when it opened. |
+
+Never build or edit a tracking URL. Fire impressions from your own visibility callback, only when
+the ad is really on screen.
+
+### Tolerant-reader rules
+
+1. **Ignore unknown fields.** Admoai adds fields over time without a new API version.
+2. **Strings with a fixed set of values are open sets**: format keys, template sources, content types, styles and tracking keys. A value you do not know must not crash your app.
+3. **No exhaustive `switch` without a `default`** on a server string.
+4. **Absent is not an error.**
+5. **Find a content entry by its `key`, never by its index.** The exception is Carousel slides, which you render in the order sent.
+6. **One bad entry is not a bad ad.** The SDK drops a malformed entry and keeps the rest; do the same in your own parsing.
+
+### Tracking at a glance
+
+| Format | Fire | Never fire |
+|---|---|---|
+| Native Display | `fireImpression`, `fireClick` | |
+| Carousel | `fireImpression`, `trackSlideView`, `trackSlideClick` | `fireClick` |
+| Tap-to-expand | `fireImpression`, `fireExpand`, `fireClose`, `fireClick` | `fireClick` on expand |
+| Branded Assets | `fireImpression`, `fireAssetTap`, `fireClick` | `fireClick` for a tap that opens nothing |
+| Standard Video | `fireImpression`, `fireVideoEvent`, `fireClick` | a skip event, `fireClick` without a destination |
+| Sponsored Pin Locations | see [Sponsored Pin Locations](#sponsored-pin-locations) | |
+
+The SDK never fires anything on its own.
+
+---
+
+## Native Display
+
+Native Display is one image with optional text and one destination. The format key is `card`.
+It needs `apiVersion: "2025-11-01"`.
+
+### Content keys
+
+| Key | Type | Required |
+|---|---|---|
+| `image` | image | Yes |
+| `destination_url` | url | Yes |
+| `brand_logo` | image | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+
+The simplest valid ad is an image and a destination. Hide any optional element whose key is absent.
+
+`creative.template?.style` is `compact`, `default` or `tall`; each response carries exactly one.
+An operator can allow several styles on one ad and each decision picks one, so support all three.
+`style` is optional: fall back to `default`.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The ad is on screen. | `sdk.fireImpression(tracking: creative.tracking)` |
+| Click | The user taps and the destination opens. | `sdk.fireClick(tracking: creative.tracking)` |
+
+Native Display has one click, with the key `default`; `fireClick` uses it when you pass no key.
+
+```swift
+import AdMoai
+import SwiftUI
+
+@available(iOS 15.0, macOS 12.0, *)
+struct NativeDisplayView: View {
+    let creative: Creative
+    let sdk: AdMoai
+    @State private var impressionSent = false
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let c = creative.contents
+        let style = creative.template?.style ?? "default"        // compact | default | tall
+        if let image = c.text("image"), let destination = c.text("destination_url") {
+            VStack(alignment: .leading, spacing: 8) {
+                AsyncImage(url: URL(string: image)) { $0.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.2) }
+                    .frame(height: style == "tall" ? 360 : style == "compact" ? 120 : 220)
+                    .clipped()
+                if let headline = c.text("headline") { Text(headline).font(.headline) }       // hide when nil
+                if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
+                if let cta = c.text("cta_text") { Text(cta).font(.callout).bold() }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard let url = URL(string: destination) else { return }
+                openURL(url) { accepted in
+                    if accepted { sdk.fireClick(tracking: creative.tracking) }   // only when it opened
+                }
+            }
+            .onAppear {                                          // your visibility callback
+                guard !impressionSent else { return }
+                impressionSent = true
+                sdk.fireImpression(tracking: creative.tracking)
+            }
+        }
+    }
+}
+```
+
+On iOS 14 replace `AsyncImage` with your image loader. In a scrolling list, `onAppear` is the
+minimum; use your own visibility rule when the ad can be partly off screen.
+
+---
+
 ## Carousel
 
 A Carousel is one ad with two to ten slides. Each slide has its own image, destination and
@@ -1224,6 +1425,125 @@ func slideTapped(_ slide: Slide, in creative: Creative) {
 
 ---
 
+## Tap-to-expand
+
+Tap-to-expand is a small teaser that the user can open into a larger view. The format key is
+`expandable_banner`, the template style is `expandable`, and it needs `apiVersion: "2025-11-01"`.
+
+### Content keys
+
+| Key | Type | Required |
+|---|---|---|
+| `teaser_image` | image | Yes |
+| `expanded_image` | image | Yes |
+| `destination_url` | url | Yes |
+| `teaser_headline` | text | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+| `disclaimer` | text | No |
+
+`teaser_image` and `teaser_headline` belong to the compact state. `expanded_image`, `headline`,
+`supporting_text`, `cta_text` and `disclaimer` belong to the expanded state. Both states arrive in
+the same creative.
+
+### How to render it
+
+1. Show the teaser in the compact state, with `teaser_image` and `teaser_headline` when present.
+2. When the user taps the teaser, expand to the larger view with the expanded keys.
+3. Give the user a way to close the expanded view.
+4. Open `destination_url` only when the user taps the call to action or the expanded content, never
+   when they expand.
+
+You choose how the expansion looks and animates.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The teaser is on screen. | `sdk.fireImpression(tracking: creative.tracking)` |
+| Expand | The ad actually expanded. | `sdk.fireExpand(tracking: creative.tracking)` |
+| Close | The expanded view actually closed. | `sdk.fireClose(tracking: creative.tracking)` |
+| Click | The user taps through and the destination opens. | `sdk.fireClick(tracking: creative.tracking)` |
+
+**Expanding is not a click.** `fireExpand` and `fireClose` are custom events (`expand`, `close`).
+They send no click and are never billed as one. Only `fireClick` records a click, and only when the
+destination opens. Call `fireExpand` and `fireClose` when the state has really changed, not when a
+gesture starts that may be cancelled. Admoai counts at most one expand and one close for each
+served ad, so a second call does no harm.
+
+```swift
+import AdMoai
+import SwiftUI
+
+@available(iOS 15.0, macOS 12.0, *)
+struct TapToExpandView<Extra: View>: View {
+    let creative: Creative
+    let sdk: AdMoai
+    @ViewBuilder let expandedExtra: () -> Extra          // room for fields an operator adds
+    @State private var expanded = false
+    @State private var impressionSent = false
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let c = creative.contents
+        if let teaser = c.text("teaser_image"), let expandedImage = c.text("expanded_image"),
+           let destination = c.text("destination_url") {
+            Group {
+                if expanded {
+                    VStack(alignment: .leading, spacing: 8) {
+                        AsyncImage(url: URL(string: expandedImage)) { $0.resizable().scaledToFit() } placeholder: { Color.gray.opacity(0.2) }
+                        if let headline = c.text("headline") { Text(headline).font(.headline) }
+                        if let body = c.text("supporting_text") { Text(body).font(.subheadline) }
+                        expandedExtra()
+                        if let cta = c.text("cta_text") {
+                            Button(cta) {
+                                guard let url = URL(string: destination) else { return }
+                                openURL(url) { accepted in
+                                    if accepted { sdk.fireClick(tracking: creative.tracking) }
+                                }
+                            }
+                        }
+                        if let disclaimer = c.text("disclaimer") { Text(disclaimer).font(.caption2) }
+                        Button("Close") {
+                            expanded = false
+                            sdk.fireClose(tracking: creative.tracking)       // the view is now closed
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        AsyncImage(url: URL(string: teaser)) { $0.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.2) }
+                            .frame(height: 100).clipped()
+                        if let title = c.text("teaser_headline") { Text(title).font(.headline) }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        expanded = true
+                        sdk.fireExpand(tracking: creative.tracking)          // the view is now expanded
+                    }
+                }
+            }
+            .onAppear {                                                      // your visibility callback
+                guard !impressionSent else { return }
+                impressionSent = true
+                sdk.fireImpression(tracking: creative.tracking)
+            }
+        }
+    }
+}
+
+@available(iOS 15.0, macOS 12.0, *)
+extension TapToExpandView where Extra == EmptyView {
+    init(creative: Creative, sdk: AdMoai) {
+        self.init(creative: creative, sdk: sdk) { EmptyView() }
+    }
+}
+```
+
+Fire the impression when the teaser is first on screen, not while you build the view.
+
+---
+
 ## Branded Assets
 
 Branded Assets is a transparent branded image that your app places in its own interface. The
@@ -1282,6 +1602,152 @@ func onDestinationChosen(_ creative: Creative) {
     }
 }
 ```
+
+---
+
+## Standard Video
+
+Standard Video is a video with a poster image and optional text. The format key is
+`standard_video`, it has one style (`default`), and it needs `apiVersion: "2025-11-01"`. It is
+delivered as JSON video, so everything in [Video Ad Support](#video-ad-support) and
+[Video Tracking Events](#video-tracking-events) applies; this section lists only what the standard
+adds. There is no VAST.
+
+- `creative.metadata?.format` is `video` and `creative.delivery` is `json`. The file URL is in `video_asset`.
+- The ad is never skippable: the response has no skippable setting and no skip offset. Add no skip control and fire no skip event.
+
+| Key | Type | Required |
+|---|---|---|
+| `video_asset` | video | Yes |
+| `poster_image` | image | Yes |
+| `brand_logo` | image | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+| `destination_url` | url | No |
+| `disclaimer` | text | No |
+
+`creative.metadata?.duration` and `aspectRatio` can also be present. Show `poster_image` first. If the
+video cannot load or play, keep showing it instead of a black view, and fire only the events that
+really happened.
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The ad is on screen, before playback starts. | `sdk.fireImpression(tracking: creative.tracking)` |
+| `start`, `first_quartile`, `midpoint`, `third_quartile` | Playback reaches 0%, 25%, 50%, 75%. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "<key>")` |
+| `complete` | 98% played. | `sdk.fireVideoEvent(tracking: creative.tracking, key: "complete")` |
+| Click | The user taps and the destination opens. | `sdk.fireClick(tracking: creative.tracking)` |
+
+**No click without a destination.** When `destination_url` is absent the creative has no click
+tracker: show no tappable call to action, and `fireClick` sends nothing. Admoai stores the events as
+you send them and adds no `start` or quartile for you.
+
+```swift
+import AVKit
+import AdMoai
+import SwiftUI
+
+@available(iOS 15.0, macOS 12.0, *)
+struct StandardVideoView: View {
+    let creative: Creative
+    let sdk: AdMoai
+    @State private var player: AVPlayer?
+    @State private var observer: Any?
+    @State private var fired = Set<String>()
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let c = creative.contents
+        if let poster = c.text("poster_image"), let video = c.text("video_asset").flatMap(URL.init) {
+            ZStack {
+                AsyncImage(url: URL(string: poster)) { $0.resizable().scaledToFit() } placeholder: { Color.black }   // also the fallback
+                if let player { VideoPlayer(player: player) }
+            }
+            .onTapGesture {
+                guard let s = c.text("destination_url"), let url = URL(string: s) else { return }   // no destination: no tap, no click
+                openURL(url) { accepted in
+                    if accepted { sdk.fireClick(tracking: creative.tracking) }
+                }
+            }
+            .onAppear {                                                  // your visibility callback
+                guard player == nil else { return }
+                sdk.fireImpression(tracking: creative.tracking)          // before playback
+                let p = AVPlayer(url: video)
+                observer = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { time in
+                    guard let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 else { return }
+                    let progress = time.seconds / d
+                    for (key, threshold) in [("start", 0.0), ("first_quartile", 0.25), ("midpoint", 0.5),
+                                             ("third_quartile", 0.75), ("complete", 0.98)]
+                    where progress >= threshold && fired.insert(key).inserted {
+                        sdk.fireVideoEvent(tracking: creative.tracking, key: key)
+                    }
+                }
+                player = p
+                p.play()
+            }
+        }
+    }
+}
+```
+
+---
+
+## Templates based on a standard
+
+An operator can create a template **based on** a standard and add fields of their own. The format
+stays the standard's; the creative simply carries more keys. The response then has:
+
+- every content key of the standard, in the standard's order, and
+- the operator's extra keys, after them.
+
+The format key and version are the standard's, and `templateSource` is `based_on_standard`: a
+derived Carousel reports `carousel`, a derived Tap-to-expand reports `expandable_banner`. The
+standard's own keys and tracking events behave exactly as in its section above, and an extra key
+never replaces a standard key. (`creative.template?.key` is the operator's template key, not the
+standard's, so never choose a renderer from it.)
+
+So your app should:
+
+1. **Pick the renderer from `effectiveStandardFormatKey`**, as in [Detecting the format](#detecting-the-format), and render the standard part with that format's renderer.
+2. **Read the extra keys by name** (`contents.text("expanded_headline")`) and show the ones you know how to show. Extra keys use the same `key`, `type` and `value` shape as every other key; read `type` to decide how to show a value.
+3. **Treat extra keys as optional**, unless your own template contract says otherwise.
+4. **Ignore extra keys you do not know.** Do not fail, do not show an error and do not drop the ad.
+5. **Leave custom tracking events alone** unless your app has a reason to fire one. Operators can add their own; fire one with `sdk.fireCustomEvent(tracking: creative.tracking, key: "<key>")` when the user does the matching action.
+
+A template based on Sponsored Pin Locations works the same way: it reports `sponsored_pin_location`
+and `creative.matchedPoints` carries the pins, with the operator's extra keys in `creative.contents`.
+
+### Worked example
+
+An operator built the template `promo_expandable` on Tap-to-expand and added a text field
+`expanded_headline` that should appear in the expanded view. The response contains the eight
+Tap-to-expand keys followed by `expanded_headline`, with `effectiveStandardFormatKey` =
+`expandable_banner` and `templateSource` = `based_on_standard`. `TapToExpandView` is the one from
+[Tap-to-expand](#tap-to-expand); the extra key goes in its `expandedExtra` slot.
+
+```swift
+import AdMoai
+import SwiftUI
+
+@available(iOS 15.0, macOS 12.0, *)
+@ViewBuilder
+func adView(for creative: Creative, sdk: AdMoai) -> some View {
+    switch creative.metadata?.effectiveStandardFormatKey {
+    case "expandable_banner":
+        // Standard part: the standard renderer. Extra part: read by name, shown only when set.
+        TapToExpandView(creative: creative, sdk: sdk) {
+            if let extra = creative.contents.text("expanded_headline") {
+                Text(extra).font(.title3)
+            }
+        }
+    default:
+        EmptyView()                                  // nothing to render: no view, no event
+    }
+}
+```
+
+Because the format key is the standard's, the same `case` renders the plain standard Tap-to-expand
+(no `expanded_headline`, so the extra view is simply absent) and every operator template based on it.
 
 ---
 
