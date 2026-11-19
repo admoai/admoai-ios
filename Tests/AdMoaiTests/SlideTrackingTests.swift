@@ -67,8 +67,10 @@ extension MockNetworkTests {
 
         /// Waits for `count` requests, then proves nothing more arrives.
         private func expectRequests(_ count: Int) async {
-            await MockURLProtocol.waitForRequests(count)
-            _ = await MockURLProtocol.waitForRequests(count + 1, timeout: 0.2)
+            let arrived = await MockURLProtocol.waitForRequests(count)
+            #expect(arrived, "expected \(count) requests, got \(MockURLProtocol.capturedRequests.count)")
+            let extra = await MockURLProtocol.waitForRequests(count + 1, timeout: 0.2)
+            #expect(!extra, "expected exactly \(count) requests, got \(MockURLProtocol.capturedRequests.count)")
         }
 
         @Test func aSlideViewIsSentOncePerResponse() async throws {
