@@ -995,6 +995,37 @@
       }
     },
     {
+      "id": "SP16",
+      "title": "a Journey screen on a template based on Sponsored Pin Location serves the advertiser's matched shops",
+      "comment": "The Journey counterpart of SP15. A Journey screen whose assigned template is built 'Based on a standard' from Sponsored Pin Location is recorded as a custom template with no format key, yet its deal's shops are matched against the viewer's map, nearest first (BR-DE-10: lineage decides, in both directions). Live runs need the `sdk_sp_journey_derived` placement of the mock seed.",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "sdk_sp_journey_derived"
+          }
+        ],
+        "session": "auto",
+        "journeyOpt": "in",
+        "distance": {
+          "latitude": -33.4175,
+          "longitude": -70.6065,
+          "radius": 20000
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "journey": true,
+          "matchedPointsAtLeast": 2,
+          "matchedPointsNearestFirst": true,
+          "matchedPointsWellFormed": true,
+          "templateKey": "sdk_sponsored_pin_expandable"
+        }
+      }
+    },
+    {
       "id": "ST1",
       "title": "a Card with only its required content serves under the Card standard",
       "request": {
