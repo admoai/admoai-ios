@@ -1,0 +1,9 @@
+{
+  "type": "request_external_url",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "purpose": "privacy_policy",
+    "url": "https://advertiser.example.invalid/privacy"
+  }
+}
