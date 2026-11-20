@@ -35,7 +35,9 @@ AdMoai.clearUserConfig()  method  mutating func clearUserConfig()
 AdMoai.config  property  var config: SDKConfig { get }
 AdMoai.createRequestBuilder()  method  func createRequestBuilder() -> DecisionRequestBuilder
 AdMoai.deviceConfig  property  var deviceConfig: DeviceConfig { get }
+AdMoai.disableInteractiveExperiences()  method  func disableInteractiveExperiences()
 AdMoai.enableDeviceCategoryCollection()  method  mutating func enableDeviceCategoryCollection()
+AdMoai.enableInteractiveExperiences(valueProvider:)  method  func enableInteractiveExperiences(valueProvider: any LeadFormValueProvider)
 AdMoai.fireAssetTap(tracking:)  method  func fireAssetTap(tracking: Tracking)
 AdMoai.fireClick(tracking:key:)  method  func fireClick(tracking: Tracking, key: String = "default")
 AdMoai.fireClose(tracking:)  method  func fireClose(tracking: Tracking)
@@ -48,6 +50,8 @@ AdMoai.fireTracking(url:)  method  func fireTracking(url: String)
 AdMoai.fireVideoEvent(tracking:key:)  method  func fireVideoEvent(tracking: Tracking, key: String)
 AdMoai.getHttpRequest(_:)  method  func getHttpRequest(_ request: DecisionRequest) throws -> HTTPRequest
 AdMoai.init(config:userConfig:sessionId:)  init  init(config: SDKConfig, userConfig: UserConfig? = nil, sessionId: String? = nil)
+AdMoai.interactiveExperiencesEnabled  property  var interactiveExperiencesEnabled: Bool { get }
+AdMoai.makeLeadFormController(for:presentation:)  method  @MainActor func makeLeadFormController(for experience: LeadGenerationExperience, presentation: LeadFormPresentation) -> LeadFormController?
 AdMoai.requestAds(_:)  method  func requestAds(_ request: DecisionRequest) async throws -> APIResponse<DecisionResponse>
 AdMoai.resetAppConfig()  method  mutating func resetAppConfig()
 AdMoai.resetDeviceConfig()  method  mutating func resetDeviceConfig()
@@ -383,6 +387,42 @@ JourneyOpt.init(from:)  init  init(from decoder: any Decoder) throws
 JourneyOpt.init(rawValue:)  init  init?(rawValue: String)
 JourneyOpt.optIn  case  case optIn
 JourneyOpt.optOut  case  case optOut
+LeadFormController  class  @MainActor final class LeadFormController
+LeadFormController.delegate  property  @MainActor weak var delegate: (any LeadFormControllerDelegate)?
+LeadFormController.dispose()  method  @MainActor func dispose()
+LeadFormController.open()  method  @MainActor func open()
+LeadFormController.prepare()  method  @MainActor func prepare()
+LeadFormController.presentation  property  @MainActor let presentation: LeadFormPresentation
+LeadFormController.retry()  method  @MainActor func retry()
+LeadFormController.state  property  @MainActor var state: LeadFormState { get }
+LeadFormControllerDelegate  protocol  @MainActor protocol LeadFormControllerDelegate : AnyObject
+LeadFormControllerDelegate.leadFormController(_:didChange:)  method  @MainActor func leadFormController(_ controller: LeadFormController, didChange state: LeadFormState)
+LeadFormControllerDelegate.leadFormController(_:openExternalURL:purpose:)  method  @MainActor func leadFormController(_ controller: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose)
+LeadFormControllerDelegate.leadFormController(_:openExternalURL:purpose:)  method  @MainActor func leadFormController(_: LeadFormController, openExternalURL _: URL, purpose _: LeadFormLinkPurpose)
+LeadFormControllerDelegate.leadFormControllerDidRequestClose(_:)  method  @MainActor func leadFormControllerDidRequestClose(_ controller: LeadFormController)
+LeadFormLinkPurpose  enum  enum LeadFormLinkPurpose
+LeadFormLinkPurpose.init(rawValue:)  init  init?(rawValue: String)
+LeadFormLinkPurpose.privacyPolicy  case  case privacyPolicy
+LeadFormLinkPurpose.websiteCta  case  case websiteCta
+LeadFormPresentation  enum  enum LeadFormPresentation
+LeadFormPresentation.fullScreen  case  case fullScreen
+LeadFormPresentation.init(rawValue:)  init  init?(rawValue: String)
+LeadFormPresentation.inline  case  case inline
+LeadFormState  enum  enum LeadFormState
+LeadFormState.activating  case  case activating
+LeadFormState.disposed  case  case disposed
+LeadFormState.expired  case  case expired
+LeadFormState.failed(retryable:)  case  case failed(retryable: Bool)
+LeadFormState.idle  case  case idle
+LeadFormState.prepared  case  case prepared
+LeadFormState.preparing  case  case preparing
+LeadFormState.readyToShow  case  case readyToShow
+LeadFormState.submitted(leadId:)  case  case submitted(leadId: String)
+LeadFormState.submitting  case  case submitting
+LeadFormState.visible  case  case visible
+LeadFormValueProvider  protocol  protocol LeadFormValueProvider : AnyObject
+LeadFormValueProvider.availableKeys  property  var availableKeys: Set<StandardAttributeKey> { get }
+LeadFormValueProvider.value(for:)  method  func value(for key: StandardAttributeKey) async -> String?
 LeadGenerationExperience  struct  struct LeadGenerationExperience
 LeadGenerationExperience.customMirror  property  var customMirror: Mirror { get }
 LeadGenerationExperience.debugDescription  property  var debugDescription: String { get }

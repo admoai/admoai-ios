@@ -1,4 +1,4 @@
-@_spi(InteractiveExperience) @testable import AdMoai
+@testable import AdMoai
 import Foundation
 import Testing
 
