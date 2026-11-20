@@ -339,9 +339,12 @@ enum LeadFormBridge {
 
     enum Limits {
         static let maxMessageBytes = 16384
-        /// Declared only: the hidden-form bound and the prefill lookup are a later item.
+        /// How many forms per app may be preparing or prepared while never opened.
         static let maxHiddenPreparedForms = 2
+        /// How long the controller waits for the app's values before it sends `prefill`.
         static let prefillLookupTimeoutMs = 1500
+        /// `prefill.values` bound, in Unicode scalars: a longer value is not sent.
+        static let maxPrefillValueLength = 256
         static let instanceIdPattern = "^form_instance_[0-9A-HJKMNP-TV-Z]{26}$"
         static let channelPattern = "^[A-Za-z0-9_-]{16,64}$"
         /// The bridge versions this SDK speaks.
@@ -360,7 +363,7 @@ enum LeadFormBridge {
             ]),
             Rule(type: "activate", direction: .appToRuntime, after: ["prepared"]),
             Rule(type: "prefill", direction: .appToRuntime, after: ["activated"], fields: [
-                Field(name: "values", kind: .stringMap, maxLength: 256, fromPrefillKeys: true),
+                Field(name: "values", kind: .stringMap, maxLength: maxPrefillValueLength, fromPrefillKeys: true),
             ]),
             Rule(type: "became_visible", direction: .appToRuntime, after: ["prefill_applied"]),
             Rule(type: "became_hidden", direction: .appToRuntime, after: ["became_visible"]),

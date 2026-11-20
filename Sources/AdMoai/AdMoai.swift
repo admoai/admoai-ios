@@ -209,6 +209,9 @@ public struct AdMoai {
         consent: User.Consent? = nil
     ) {
         let current = userConfig
+        if let id, id != current.id {
+            interactiveExperienceBox.userDidChange()
+        }
         self.userConfig = UserConfig(
             id: id ?? current.id,
             ip: ip ?? current.ip,
@@ -218,6 +221,9 @@ public struct AdMoai {
     }
 
     public mutating func clearUserConfig() {
+        if userConfig.id != nil {
+            interactiveExperienceBox.userDidChange()
+        }
         self.userConfig = .clear()
     }
 
@@ -312,12 +318,19 @@ public struct AdMoai {
     }
 
     public func fireTracking(url: String) {
+        dispatchTracking(url: url, completion: nil)
+    }
+
+    /// ``fireTracking(url:)`` with an outcome, for the callers that retry. `completion` is called
+    /// once: `false` for an invalid URL (nothing was sent) or a failed send, see ``BeaconSession/fire(_:completion:)``.
+    internal func dispatchTracking(url: String, completion: ((Bool) -> Void)?) {
         // Require an absolute http(s) URL — `URL(string:)` alone accepts relative/scheme-less
         // strings. On failure, log a redacted reason only; NEVER log the URL/query, which
         // carries the sensitive opaque `e=` token.
         guard Self.isAbsoluteHttpURL(url), let parsedURL = URL(string: url)
         else {
             config.logger.error("Ignoring invalid tracking URL (expected an absolute http(s) URL)")
+            completion?(false)
             return
         }
         var request = URLRequest(
@@ -330,7 +343,7 @@ public struct AdMoai {
         if let apiVersion = config.apiVersion {
             request.setValue(apiVersion, forHTTPHeaderField: "X-Tracking-Version")
         }
-        session.fire(request)
+        session.fire(request, completion: completion)
     }
 
     /// Fires the canonical impression beacon and fans out every third-party impression
