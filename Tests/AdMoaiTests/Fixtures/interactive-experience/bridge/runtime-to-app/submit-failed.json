@@ -1,0 +1,9 @@
+{
+  "type": "submit_failed",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "errorCode": "temporary_failure",
+    "retryable": true
+  }
+}

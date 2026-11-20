@@ -1,0 +1,9 @@
+{
+  "type": "submitted",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "leadId": "lead_01KG000000000000000000W001",
+    "submittedAt": "2026-11-12T15:04:05Z"
+  }
+}

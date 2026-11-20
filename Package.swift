@@ -26,6 +26,7 @@ let package = Package(
                 "ViewBeaconLedger.feature",
                 "AudienceSignals.feature",
                 "InteractiveExperience.feature",
+                "LeadFormBridge.feature",
                 "Utils/DeviceCategoryClassifier.feature",
             ]
         ),
