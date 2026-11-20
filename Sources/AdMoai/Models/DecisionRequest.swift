@@ -11,6 +11,9 @@ public struct DecisionRequest: Encodable {
     public let sessionId: String?
     /// Journey Takeover Ads: publisher opt-in/opt-out for the current session.
     public let journeyOpt: JourneyOpt?
+    /// Present only when the app opted in to interactive experiences on a platform that can show
+    /// them: it declares support and the names (never the values) of the contact values the app holds.
+    public let interactiveExperience: InteractiveExperienceCapability?
 
     init(
         placements: [Placement],
@@ -19,7 +22,8 @@ public struct DecisionRequest: Encodable {
         device: Device? = nil,
         app: App? = nil,
         sessionId: String? = nil,
-        journeyOpt: JourneyOpt? = nil
+        journeyOpt: JourneyOpt? = nil,
+        interactiveExperience: InteractiveExperienceCapability? = nil
     ) {
         self.placements = placements
         self.targeting = targeting
@@ -28,10 +32,11 @@ public struct DecisionRequest: Encodable {
         self.app = app
         self.sessionId = sessionId
         self.journeyOpt = journeyOpt
+        self.interactiveExperience = interactiveExperience
     }
 
     private enum CodingKeys: String, CodingKey {
-        case placements, targeting, user, device, app, sessionId, journeyOpt
+        case placements, targeting, user, device, app, sessionId, journeyOpt, interactiveExperience
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -57,6 +62,7 @@ public struct DecisionRequest: Encodable {
         if let journeyOpt {
             try container.encode(journeyOpt.rawValue, forKey: .journeyOpt)
         }
+        try container.encodeIfPresent(interactiveExperience, forKey: .interactiveExperience)
     }
 
     /// Returns a PII-safe reason token when `sessionId` would be rejected by the engine's

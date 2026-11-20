@@ -68,6 +68,7 @@ public class DecisionRequestBuilder {
     private let userConfig: UserConfig
     private let logger: Logger?
     private let apiVersion: String?
+    private let interactiveExperienceBox: InteractiveExperienceBox?
 
     internal init(
         appConfig: AppConfig,
@@ -75,7 +76,8 @@ public class DecisionRequestBuilder {
         userConfig: UserConfig,
         sessionId: String? = nil,
         apiVersion: String? = nil,
-        logger: Logger? = nil
+        logger: Logger? = nil,
+        interactiveExperienceBox: InteractiveExperienceBox? = nil
     ) {
         self.appConfig = appConfig
         self.deviceConfig = deviceConfig
@@ -84,6 +86,7 @@ public class DecisionRequestBuilder {
         self.sessionId = DecisionRequest.normalizedSessionId(sessionId)
         self.apiVersion = apiVersion
         self.logger = logger
+        self.interactiveExperienceBox = interactiveExperienceBox
 
         self.app = App(
             name: appConfig.name,
@@ -739,6 +742,13 @@ public class DecisionRequestBuilder {
                 "Journey context (sessionId/journeyOpt) was set but SDKConfig.apiVersion is nil; the engine will not process Journey. Set apiVersion to the Journey engine version (e.g. \"2025-11-01\")."
             )
         }
+        // Read the key names once, now; a value is never requested while building.
+        let interactiveExperience = interactiveExperienceBox?.capability()
+        if interactiveExperience != nil, (apiVersion ?? "") < "2025-11-01" {
+            logger?.warning(
+                "Interactive experiences are enabled but SDKConfig.apiVersion is older than 2025-11-01 or nil; Lead Generation is only served on 2025-11-01."
+            )
+        }
         return DecisionRequest(
             placements: placements,
             targeting: targeting,
@@ -746,7 +756,8 @@ public class DecisionRequestBuilder {
             device: collectDeviceData ? deviceForBuild() : nil,
             app: collectAppData ? app : nil,
             sessionId: sessionId,
-            journeyOpt: journeyOpt
+            journeyOpt: journeyOpt,
+            interactiveExperience: interactiveExperience
         )
     }
 }
