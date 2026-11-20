@@ -37,7 +37,16 @@ public enum LeadFormState: Equatable {
     case disposed
 }
 
-/// Receives the controller's state changes and the form's request to be closed. Held weakly.
+/// Why the form asks the app to open a web address.
+@_spi(InteractiveExperience)
+public enum LeadFormLinkPurpose: String, Equatable, Sendable {
+    /// The form's privacy policy, available any time the form is shown.
+    case privacyPolicy = "privacy_policy"
+    /// The advertiser's website, offered only after the form was submitted.
+    case websiteCta = "website_cta"
+}
+
+/// Receives the controller's state changes and the form's requests. Held weakly.
 ///
 /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
 @_spi(InteractiveExperience)
@@ -45,6 +54,16 @@ public enum LeadFormState: Equatable {
 public protocol LeadFormControllerDelegate: AnyObject {
     func leadFormController(_ controller: LeadFormController, didChange state: LeadFormState)
     func leadFormControllerDidRequestClose(_ controller: LeadFormController)
+    /// The form asks the app to open `url` (always `https`). Open it outside the form, for example
+    /// in an `SFSafariViewController`: the form and the answers typed so far stay as they are.
+    /// Do not add the form's identifiers or any value to it.
+    func leadFormController(_ controller: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose)
+}
+
+@_spi(InteractiveExperience)
+public extension LeadFormControllerDelegate {
+    /// Ignores the request: the link is not opened.
+    func leadFormController(_: LeadFormController, openExternalURL _: URL, purpose _: LeadFormLinkPurpose) {}
 }
 
 // MARK: - Transport seam
@@ -82,12 +101,20 @@ protocol LeadFormTransport: AnyObject {
 /// taps, and reports its state.
 ///
 /// Create it with ``AdMoai/makeLeadFormController(for:presentation:)``. Call ``dispose()`` when the
-/// form is no longer needed: the controller is not released by its owner alone being released
-/// while a page is loading.
+/// form is no longer needed; releasing the controller also tears the page down, but without telling
+/// it.
 ///
-/// Links and form events the page requests are validated and ignored in this item: they are handled
-/// in a later item. Contact values come from the provider in a later item: for now `prefill` is sent
-/// with no values.
+/// When the form is activated the controller asks the app's ``LeadFormValueProvider`` for the
+/// values the form requests (it waits 1.5 seconds in all) and sends them to the form once. The
+/// values are never logged, never passed to the delegate and not kept. Form events fire the
+/// tracking URL the activation listed, once each; links the form requests reach the delegate.
+///
+/// At most two forms per app prepare in the background without having been opened: a further
+/// ``prepare()`` waits (state stays `idle`) until one is opened, disposed or fails. ``open()``
+/// never waits.
+///
+/// When the app disables interactive experiences, switches the provider, or changes the user id,
+/// every live controller is disposed.
 ///
 /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
 @_spi(InteractiveExperience)
@@ -106,6 +133,10 @@ public final class LeadFormController {
     private let experience: LeadGenerationExperience
     private let logger: Logger
     private let now: () -> Date
+    private let optIn: InteractiveExperienceBox
+    private let generation: Int
+    private let prefillTimeoutMs: Int
+    private let tracking: LeadFormTracking
 
     private var exchanged = Set<String>()
     private var context = LeadFormBridge.Context()
@@ -119,6 +150,7 @@ public final class LeadFormController {
     /// What the page was last told: it has heard `became_visible` and not yet `became_hidden`.
     private var pageThinksVisible = false
     private var hasBeenVisible = false
+    private var prefillStarted = false
     private var isDisposed = false
 
     init(
@@ -126,27 +158,72 @@ public final class LeadFormController {
         presentation: LeadFormPresentation,
         transport: LeadFormTransport,
         logger: Logger,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        optIn: InteractiveExperienceBox = InteractiveExperienceBox(),
+        prefillTimeoutMs: Int = LeadFormBridge.Limits.prefillLookupTimeoutMs,
+        fireTracking: @escaping LeadFormTracking.Send = { _, done in done(true) },
+        retryDelaysMs: [Int] = LeadFormTracking.defaultRetryDelaysMs
     ) {
         self.experience = experience
         self.presentation = presentation
         self.transport = transport
         self.logger = logger
         self.now = now
+        self.optIn = optIn
+        self.prefillTimeoutMs = prefillTimeoutMs
+        generation = optIn.generation
+        tracking = LeadFormTracking(send: fireTracking, retryDelaysMs: retryDelaysMs, logger: logger)
         channel = Self.mintChannel()
         transport.onMessage = { [weak self] text in self?.receive(text) }
         transport.onLoadFailed = { [weak self] in self?.loadFailed($0) }
+        optIn.register(self)
+    }
+
+    deinit {
+        // Dropping the controller must not leave a page running. `teardown` is main-actor work and
+        // a deinit is not, so it is handed over; the gate learns the slot is free the same way.
+        let transport = transport
+        let gate = optIn.hiddenFormGate
+        Task { @MainActor in
+            transport.onMessage = nil
+            transport.onLoadFailed = nil
+            transport.teardown()
+            gate.slotMayHaveFreed()
+        }
     }
 
     // MARK: Commands
 
     /// Starts preparing the form in the background. Harmless when already started.
+    ///
+    /// Preparing in the background is bounded: when two other forms are already preparing or
+    /// prepared without having been opened, this one stays `idle` and starts when one of them is
+    /// opened, disposed or fails.
     public func prepare() {
         guard !isDisposed, state == .idle else { return }
         guard now() < experience.expiresAt else {
             set(.expired)
             return
         }
+        if optIn.hiddenFormGate.acquire(self) {
+            startPreparing()
+        }
+    }
+
+    /// The gate has a slot for this form after it waited.
+    func startQueuedPrepare() {
+        guard !isDisposed, state == .idle else {
+            optIn.hiddenFormGate.release(self)
+            return
+        }
+        guard now() < experience.expiresAt else {
+            set(.expired)
+            return
+        }
+        startPreparing()
+    }
+
+    private func startPreparing() {
         set(.preparing)
         transport.load(launchURL())
     }
@@ -155,10 +232,16 @@ public final class LeadFormController {
     /// (the same load is reused, never a second one).
     public func open() {
         guard !isDisposed else { return }
+        // Opening is not hidden prewarm: the form stops counting against the bound, or leaves its queue.
+        optIn.hiddenFormGate.release(self)
         switch state {
         case .idle:
             openRequested = true
-            prepare()
+            guard now() < experience.expiresAt else {
+                set(.expired)
+                return
+            }
+            startPreparing()
         case .preparing:
             openRequested = true
             expireIfPastDeadline()
@@ -226,6 +309,7 @@ public final class LeadFormController {
         transport.onLoadFailed = nil
         transport.teardown()
         state = .disposed
+        optIn.hiddenFormGate.release(self)
         delegate?.leadFormController(self, didChange: .disposed)
     }
 
@@ -353,7 +437,8 @@ public final class LeadFormController {
             activated = true
             requestedKeys = Set(keys)
             context.activatedEvents = Set(events.keys)
-            send(.prefill(values: [:]))
+            tracking.activated(events: events)
+            startPrefill()
         case .prefillApplied:
             guard state == .activating, activated else { return }
             set(.readyToShow)
@@ -374,8 +459,10 @@ public final class LeadFormController {
             set(code == .expired ? .expired : .failed(errorCode: code.rawValue, retryable: false))
         case .requestClose:
             delegate?.leadFormControllerDidRequestClose(self)
-        case .requestExternalURL, .event:
-            break
+        case let .requestExternalURL(purpose, url):
+            delegate?.leadFormController(self, openExternalURL: url, purpose: purpose.linkPurpose)
+        case let .event(name):
+            tracking.event(name)
         case .submitting:
             guard hasBeenVisible, state == .visible || state == .readyToShow else { return }
             set(.submitting)
@@ -447,9 +534,46 @@ public final class LeadFormController {
         }
     }
 
+    // MARK: Prefill
+
+    /// Asks the app's provider for the requested values it holds, then sends `prefill` once.
+    /// With nothing to ask, it is sent at once.
+    private func startPrefill() {
+        guard !prefillStarted else { return }
+        prefillStarted = true
+        let generation = generation
+        guard let provider = optIn.provider(forGeneration: generation) else {
+            send(.prefill(values: [:]))
+            return
+        }
+        let keys = requestedKeys.intersection(provider.availableKeys)
+        guard !keys.isEmpty else {
+            send(.prefill(values: [:]))
+            return
+        }
+        let timeoutMs = prefillTimeoutMs
+        Task { [weak self] in
+            let values = await LeadFormPrefill.lookup(keys: keys, provider: provider, timeoutMs: timeoutMs)
+            self?.sendPrefill(values, generation: generation)
+        }
+    }
+
+    /// A result for an older opt-in or user, or for a form that ended, is discarded unsent.
+    private func sendPrefill(_ values: [StandardAttributeKey: String], generation: Int) {
+        guard !isDisposed, generation == optIn.generation, state == .activating else { return }
+        send(.prefill(values: values))
+    }
+
     private func set(_ newState: LeadFormState) {
         guard !isDisposed, newState != state else { return }
         state = newState
+        switch newState {
+        case .failed, .expired:
+            // A form that can no longer be shown stops counting against the hidden-form bound.
+            optIn.hiddenFormGate.release(self)
+        default:
+            break
+        }
         delegate?.leadFormController(self, didChange: newState)
     }
 
@@ -495,10 +619,84 @@ public extension AdMoai {
                 experience: experience,
                 presentation: presentation,
                 transport: SecureFormWebView(launchURL: experience.launchUrl, logger: config.logger),
-                logger: config.logger
+                logger: config.logger,
+                optIn: interactiveExperienceBox,
+                fireTracking: { url, done in dispatchTracking(url: url.absoluteString, completion: done) }
             )
         #else
             return nil
         #endif
+    }
+}
+
+extension ExternalURLPurpose {
+    var linkPurpose: LeadFormLinkPurpose {
+        switch self {
+        case .privacyPolicy: .privacyPolicy
+        case .websiteCta: .websiteCta
+        }
+    }
+}
+
+// MARK: - Hidden-form bound
+
+/// Counts the forms that are preparing or prepared without ever having been opened, and queues the
+/// ones past the bound. Owned by ``InteractiveExperienceBox``, so every copy of `AdMoai` shares it.
+@MainActor
+final class HiddenFormGate {
+    private struct Entry {
+        weak var controller: LeadFormController?
+    }
+
+    private let limit: Int
+    private var counted: [Entry] = []
+    private var queued: [Entry] = []
+
+    nonisolated init(limit: Int = LeadFormBridge.Limits.maxHiddenPreparedForms) {
+        self.limit = limit
+    }
+
+    /// True when `controller` may start preparing now (it holds a slot); false when it was queued
+    /// and ``LeadFormController/startQueuedPrepare()`` will be called when a slot frees.
+    func acquire(_ controller: LeadFormController) -> Bool {
+        prune()
+        if counted.contains(where: { $0.controller === controller }) {
+            return true
+        }
+        if counted.count < limit {
+            counted.append(Entry(controller: controller))
+            return true
+        }
+        if !queued.contains(where: { $0.controller === controller }) {
+            queued.append(Entry(controller: controller))
+        }
+        return false
+    }
+
+    /// `controller` was opened, disposed or failed: it holds no slot and waits for none.
+    func release(_ controller: LeadFormController) {
+        counted.removeAll { $0.controller === controller }
+        queued.removeAll { $0.controller === controller }
+        promote()
+    }
+
+    /// A counted controller was released from memory, which frees its slot without a call.
+    func slotMayHaveFreed() {
+        promote()
+    }
+
+    private func prune() {
+        counted.removeAll { $0.controller == nil }
+        queued.removeAll { $0.controller == nil }
+    }
+
+    private func promote() {
+        prune()
+        while counted.count < limit, !queued.isEmpty {
+            let next = queued.removeFirst()
+            guard let controller = next.controller else { continue }
+            counted.append(next)
+            controller.startQueuedPrepare()
+        }
     }
 }

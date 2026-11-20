@@ -14,11 +14,30 @@ public enum StandardAttributeKey: String, CaseIterable, Codable, Sendable {
 /// The SDK reads `availableKeys` each time a request is built, so it must answer from memory,
 /// without reading or fetching any value. Only key names leave the device.
 ///
+/// ``value(for:)`` is called only after the viewer opened a form, only for the keys that form
+/// requests and `availableKeys` holds. Values go to that form's page and nowhere else.
+///
 /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`. It becomes plain public
 /// once the form controller, value lookup, and close and link handling ship.
 @_spi(InteractiveExperience)
 public protocol LeadFormValueProvider: AnyObject {
     var availableKeys: Set<StandardAttributeKey> { get }
+
+    /// The value the app holds for `key`, or `nil` to leave that field empty.
+    ///
+    /// Answer from what the app already has: never fetch from a server just for this. The SDK waits
+    /// 1.5 seconds in all for every key it asks about; a value that arrives later is discarded.
+    /// A value is dropped when blank, longer than 256 characters, or, for `gender`, not one of
+    /// `female`, `male`, `other`, `prefer_not_to_say`.
+    func value(for key: StandardAttributeKey) async -> String?
+}
+
+@_spi(InteractiveExperience)
+public extension LeadFormValueProvider {
+    /// Holds no values: every field stays empty.
+    func value(for key: StandardAttributeKey) async -> String? {
+        nil
+    }
 }
 
 // MARK: - Opt-in state
@@ -28,10 +47,23 @@ public protocol LeadFormValueProvider: AnyObject {
 /// `AdMoai` is a struct, so an opt-in stored inline would fork across copies; the box makes every
 /// copy share one opt-in, the way ``SessionBox`` shares the Journey session. It holds the provider
 /// strongly; ``AdMoai/disableInteractiveExperiences()`` releases it.
+///
+/// It is also the one place that knows every live form controller (weakly) and how many hidden
+/// forms are being prepared, so the bound on those and the disposal on a user or opt-in change
+/// cover every copy of `AdMoai`. They are NOT process-wide across two separate `AdMoai(config:)`
+/// values, which have separate boxes: an app has one.
 internal final class InteractiveExperienceBox: @unchecked Sendable {
+    private struct LiveController {
+        weak var controller: LeadFormController?
+    }
+
     private let lock = NSLock()
     private var provider: LeadFormValueProvider?
     private var supportsSecureFormView: Bool
+    private var currentGeneration = 0
+    private var live: [LiveController] = []
+    /// At most `maxHiddenPreparedForms` forms prepared while never opened.
+    let hiddenFormGate = HiddenFormGate()
 
     init() {
         // The secure form surface is a WKWebView hosted in UIKit: a platform without both (macOS,
@@ -58,13 +90,61 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
         }
     }
 
+    /// Opts in with `newValue`, or out with `nil`. A different provider instance (or none) starts a
+    /// new generation and disposes every live controller; the same instance changes nothing.
     func set(_ newValue: LeadFormValueProvider?) {
         lock.lock()
         let previous = provider
+        let changed = previous !== newValue
         provider = newValue
         lock.unlock()
+        if changed {
+            invalidate()
+        }
         // The replaced provider is released only now: its deinit may call back into the SDK.
         withExtendedLifetime(previous) {}
+    }
+
+    /// The opt-in the lookups and forms created now belong to. Bumped by every change that makes
+    /// an in-flight value lookup stale.
+    var generation: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentGeneration
+    }
+
+    /// The provider to ask for values, only while `generation` is still current: a lookup that
+    /// started for another opt-in or user gets nothing.
+    func provider(forGeneration generation: Int) -> LeadFormValueProvider? {
+        lock.lock()
+        defer { lock.unlock() }
+        return generation == currentGeneration ? provider : nil
+    }
+
+    func register(_ controller: LeadFormController) {
+        lock.lock()
+        defer { lock.unlock() }
+        live.removeAll { $0.controller == nil }
+        live.append(LiveController(controller: controller))
+    }
+
+    /// The app switched or cleared its user: forms and lookups prepared for the old one end.
+    func userDidChange() {
+        invalidate()
+    }
+
+    /// Starts a new generation and disposes every live controller on the main actor. The bump is
+    /// immediate, so a lookup that completes before the disposal runs is already discarded.
+    private func invalidate() {
+        lock.lock()
+        currentGeneration += 1
+        let controllers = live.compactMap(\.controller)
+        live.removeAll()
+        lock.unlock()
+        guard !controllers.isEmpty else { return }
+        Task { @MainActor in
+            controllers.forEach { $0.dispose() }
+        }
     }
 
     /// Opted in AND the platform has a secure form view.

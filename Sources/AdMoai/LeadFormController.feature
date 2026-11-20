@@ -3,9 +3,10 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   I want the form ready when I tap, shown only when it can be used, and never leaking what I type or what the app knows
   So that opening a form feels instant, a failed one recovers or steps aside, and nothing personal reaches the app's code
 
-  The controller only reports a state and, once submitted, the lead id and when it was accepted. Links and form events the
-  page requests are validated and ignored in this item. Contact values are supplied in a later
-  item: prefill is sent empty for now.
+  The controller only reports a state and, once submitted, the lead id and when it was accepted. Contact values come from
+  the app's provider and go to the form once; they are never logged, never passed to the app's
+  delegate and not kept (see LeadFormPrefill.feature). Form events fire their listed address once
+  (see LeadFormTracking.feature).
 
   Scenario: The whole happy path
     Given an opted-in app and a prepared form descriptor
@@ -155,3 +156,61 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   Scenario: An activation after the deadline never happens
     Given the viewer tapped while preparing, or the app retries an activation, after the descriptor expired
     Then the state is expired and no activate is sent
+
+  Scenario: The form receives the values the app holds for the keys it requested
+    Given the app holds email and phone and the form requests email and gender
+    When the form is activated
+    Then prefill carries the email, trimmed, and the gender when it is one of the form's options
+    And phone, which the form did not request, is never sent
+
+  Scenario: Blank, over-long and invalid-gender values are not sent
+    Given the app answers with a blank name, a 257-character name and a gender the form does not offer
+    Then prefill carries none of them
+
+  Scenario: A value that arrives after the deadline is never sent
+    Given the app answers for one key after 1.5 seconds
+    Then prefill carries the other values and the late one is never sent
+
+  Scenario: With nothing to ask, prefill is sent at once and empty
+    Given the form requests keys the app does not hold
+    Then prefill is sent immediately with no values
+
+  Scenario: A user change during a lookup ends the form and drops the value
+    Given the app is still answering for user A
+    When the app switches to user B
+    Then the form is disposed and user A's value is never sent to any form
+
+  Scenario: Changing the provider, disabling, or switching or clearing the user disposes every form
+    When the app enables interactive experiences with another provider, disables them, or changes or clears the user id
+    Then every live form is disposed
+    And enabling again with the same provider, or changing only the timezone, disposes nothing
+
+  Scenario: The form can ask the app to open its links outside the form
+    When the form requests its privacy policy, and, after the submission, the advertiser's website
+    Then the app is asked to open each https address with its purpose
+    And the website is refused before the submission and an http address is always refused
+    And an app that does not handle links simply does not open them
+
+  Scenario: Form events reach the advertiser once
+    When the form reports form_open and form_start, form_open again after being hidden and shown, and an event it did not list
+    Then each listed event's address is requested once and nothing else is
+
+  Scenario: At most two forms prepare in the background without being opened
+    Given two forms are preparing and never opened
+    When a third and a fourth are prepared
+    Then they stay idle and wait
+    And each starts, in order, when a prepared form is opened, disposed, fails or is released
+
+  Scenario: Opening a waiting form always proceeds
+    Given a form is waiting for a slot
+    When the viewer taps it
+    Then it prepares and activates, leaves the queue, and the forms behind it keep waiting
+
+  Scenario: A waiting form whose descriptor expired never loads
+    Given a form waited for a slot past its expiry
+    When a slot frees
+    Then its state is expired and nothing is loaded
+
+  Scenario: Releasing a controller tears its page down
+    When the app releases a controller without disposing it
+    Then its page is torn down and its slot is freed

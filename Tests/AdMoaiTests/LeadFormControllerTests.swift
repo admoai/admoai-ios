@@ -56,6 +56,80 @@ struct LeadFormControllerTests {
     /// The `submittedAt` the tests' `submitted` messages carry (2026-11-12T15:04:05Z).
     private static let submittedAt = Date(timeIntervalSince1970: 1_794_495_845)
 
+    /// Collects the tracking URLs the controller fires; the beacon always reports delivered.
+    private final class Fired: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [URL] = []
+
+        func add(_ url: URL) {
+            lock.lock()
+            items.append(url)
+            lock.unlock()
+        }
+
+        var urls: [URL] {
+            lock.lock()
+            defer { lock.unlock() }
+            return items
+        }
+    }
+
+    /// Holds the given values; `delaysMs` makes a key answer late.
+    private final class FakeProvider: LeadFormValueProvider {
+        let values: [StandardAttributeKey: String?]
+        let delaysMs: [StandardAttributeKey: Int]
+
+        init(_ values: [StandardAttributeKey: String?], delaysMs: [StandardAttributeKey: Int] = [:]) {
+            self.values = values
+            self.delaysMs = delaysMs
+        }
+
+        var availableKeys: Set<StandardAttributeKey> {
+            Set(values.keys)
+        }
+
+        func value(for key: StandardAttributeKey) async -> String? {
+            if let delay = delaysMs[key] {
+                try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000)
+            }
+            return values[key] ?? nil
+        }
+    }
+
+    /// Implements only what K2 conformers did: the link method is the default no-op.
+    private final class StateOnlyDelegate: LeadFormControllerDelegate {
+        func leadFormController(_: LeadFormController, didChange _: LeadFormState) {}
+        func leadFormControllerDidRequestClose(_: LeadFormController) {}
+    }
+
+    private static func waitUntil(_ condition: @MainActor () -> Bool) async {
+        for _ in 0 ..< 400 where !condition() {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+    }
+
+    private final class LinkRecorder: LeadFormControllerDelegate {
+        var links: [(url: URL, purpose: LeadFormLinkPurpose)] = []
+
+        func leadFormController(_: LeadFormController, didChange _: LeadFormState) {}
+        func leadFormControllerDidRequestClose(_: LeadFormController) {}
+        func leadFormController(_: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose) {
+            links.append((url, purpose))
+        }
+    }
+
+    private static func experience(expiresIn: TimeInterval = 3600) -> LeadGenerationExperience {
+        LeadGenerationExperience(
+            formId: "form_1",
+            preparedVersionId: "form_version_01KG000000000000000000V002",
+            formInstanceId: instanceId,
+            launchUrl: URL(string: "https://forms.example.invalid/launch?x=1")!,
+            expiresAt: Date().addingTimeInterval(expiresIn),
+            prefillAttributeKeys: [.email],
+            preparationToken: secret
+        )
+    }
+
     private struct Sent: Equatable {
         let type: String
         let payload: [String: JSONValue]
@@ -67,8 +141,22 @@ struct LeadFormControllerTests {
         let recorder = Recorder()
         let controller: LeadFormController
         let clock = Clock()
+        let box: InteractiveExperienceBox
+        let fired = Fired()
 
-        init(presentation: LeadFormPresentation = .fullScreen, expiresIn: TimeInterval = 3600) {
+        init(
+            presentation: LeadFormPresentation = .fullScreen,
+            expiresIn: TimeInterval = 3600,
+            box: InteractiveExperienceBox = InteractiveExperienceBox(),
+            provider: LeadFormValueProvider? = nil,
+            prefillTimeoutMs: Int = LeadFormBridge.Limits.prefillLookupTimeoutMs,
+            retryDelaysMs: [Int] = [5, 5]
+        ) {
+            self.box = box
+            if let provider {
+                box.set(provider)
+            }
+            let fired = fired
             let clock = clock
             let experience = LeadGenerationExperience(
                 formId: "form_1",
@@ -84,7 +172,14 @@ struct LeadFormControllerTests {
                 presentation: presentation,
                 transport: transport,
                 logger: Logger(subsystem: "test", category: "LeadFormControllerTests"),
-                now: { clock.date }
+                now: { clock.date },
+                optIn: box,
+                prefillTimeoutMs: prefillTimeoutMs,
+                fireTracking: { url, done in
+                    fired.add(url)
+                    done(true)
+                },
+                retryDelaysMs: retryDelaysMs
             )
             controller.delegate = recorder
         }
@@ -117,16 +212,23 @@ struct LeadFormControllerTests {
             runtime("prepared", ["preparedVersionId": .string("form_version_01KG000000000000000000V002")])
         }
 
-        func activated() {
+        func activated(keys: [String] = ["email"]) {
             let url = { (tag: String) in JSONValue.string("https://api.example.invalid/track?t=\(tag)") }
             runtime("activated", [
                 "formVersionId": .string("form_version_01KG000000000000000000V003"),
-                "requestedAttributeKeys": .array([.string("email")]),
+                "requestedAttributeKeys": .array(keys.map { .string($0) }),
                 "events": .array([
                     .object(["name": .string("form_open"), "url": url("a")]),
                     .object(["name": .string("form_start"), "url": url("b")]),
                 ]),
             ])
+        }
+
+        var prefillValues: [String: JSONValue]? {
+            guard case let .object(values)? = sent.first(where: { $0.type == "prefill" })?.payload["values"] else {
+                return nil
+            }
+            return values
         }
 
         /// Prepare, tap, activate and show.
@@ -721,5 +823,295 @@ struct LeadFormControllerTests {
         retried.controller.retry()
         #expect(retried.controller.state == .expired)
         #expect(retried.sentTypes == ["initialize", "activate"])
+    }
+
+    // Scenario 33
+    @Test func theFormReceivesTheValuesTheAppHoldsForTheKeysItRequested() async {
+        let provider = FakeProvider([.email: "  ana@example.invalid ", .phone: "+34123", .gender: "other"])
+        let h = Harness(provider: provider)
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated(keys: ["email", "gender"])
+        await Self.waitUntil { h.prefillValues != nil }
+        #expect(h.sentTypes == ["initialize", "activate", "prefill"])
+        #expect(h.prefillValues == ["email": .string("ana@example.invalid"), "gender": .string("other")])
+        h.runtime("prefill_applied")
+        #expect(h.controller.state == .readyToShow)
+        #expect(h.recorder.states == [.preparing, .prepared, .activating, .readyToShow])
+    }
+
+    // Scenario 34
+    @Test func valuesThatAreBlankTooLongOrNotAGenderOptionAreNotSent() async {
+        let provider = FakeProvider([
+            .firstName: "   ", .lastName: String(repeating: "x", count: 257), .email: "a@b.co",
+            .gender: "unicorn", .phone: nil,
+        ])
+        let h = Harness(provider: provider)
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated(keys: ["firstName", "lastName", "email", "gender", "phone"])
+        await Self.waitUntil { h.prefillValues != nil }
+        #expect(h.prefillValues == ["email": .string("a@b.co")])
+    }
+
+    // Scenario 35
+    @Test func aValueThatArrivesAfterTheDeadlineIsNeverSent() async {
+        let provider = FakeProvider(
+            [.email: "fast@example.invalid", .phone: "+34123"], delaysMs: [.phone: 300]
+        )
+        let h = Harness(provider: provider, prefillTimeoutMs: 40)
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated(keys: ["email", "phone"])
+        await Self.waitUntil { h.prefillValues != nil }
+        #expect(h.prefillValues == ["email": .string("fast@example.invalid")])
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        #expect(h.sentTypes.filter { $0 == "prefill" }.count == 1)
+    }
+
+    // Scenario 36
+    @Test func withNothingToAskPrefillIsSentAtOnceAndEmpty() {
+        let provider = FakeProvider([.phone: "+34123"])
+        let h = Harness(provider: provider)
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated(keys: ["email"])
+        #expect(h.sentTypes == ["initialize", "activate", "prefill"])
+        #expect(h.prefillValues == [:])
+    }
+
+    // Scenario 37
+    @Test func aUserChangeDuringALookupDisposesTheFormAndDropsTheValue() async {
+        let provider = FakeProvider([.email: "userA@example.invalid"], delaysMs: [.email: 80])
+        let h = Harness(provider: provider)
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated()
+        h.box.userDidChange()
+        await Self.waitUntil { h.controller.state == .disposed }
+        #expect(h.controller.state == .disposed)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        #expect(h.sentTypes == ["initialize", "activate", "dispose"])
+        #expect(!h.transport.sentTexts.contains { $0.contains("userA") })
+        #expect(h.transport.teardowns == 1)
+    }
+
+    // Scenario 38
+    @Test func changingTheProviderOrDisablingDisposesEveryFormButTheSameProviderDoesNot() async {
+        let sdk = AdMoai(config: SDKConfig(baseUrl: "https://api.mock.admoai.com", apiVersion: "2025-11-01"))
+        let first = FakeProvider([:])
+        sdk.enableInteractiveExperiences(valueProvider: first)
+        let a = Harness(box: sdk.interactiveExperienceBox)
+        let b = Harness(box: sdk.interactiveExperienceBox)
+        sdk.enableInteractiveExperiences(valueProvider: first)
+        await Task.yield()
+        #expect(a.controller.state == .idle)
+
+        sdk.enableInteractiveExperiences(valueProvider: FakeProvider([:]))
+        await Self.waitUntil { a.controller.state == .disposed && b.controller.state == .disposed }
+        #expect(a.controller.state == .disposed)
+        #expect(b.controller.state == .disposed)
+
+        let c = Harness(box: sdk.interactiveExperienceBox)
+        sdk.disableInteractiveExperiences()
+        await Self.waitUntil { c.controller.state == .disposed }
+        #expect(c.controller.state == .disposed)
+    }
+
+    // Scenario 38
+    @Test func switchingOrClearingTheUserDisposesFormsButANewConsentOrSameIdDoesNot() async {
+        var sdk = AdMoai(config: SDKConfig(baseUrl: "https://api.mock.admoai.com", apiVersion: "2025-11-01"))
+        sdk.setUserConfig(id: "user-a")
+        let box = sdk.interactiveExperienceBox
+        let h = Harness(box: box)
+        sdk.setUserConfig(id: "user-a", timezone: "Europe/Madrid")
+        sdk.setUserConfig(timezone: "Europe/Paris")
+        await Task.yield()
+        #expect(h.controller.state == .idle)
+
+        sdk.setUserConfig(id: "user-b")
+        await Self.waitUntil { h.controller.state == .disposed }
+        #expect(h.controller.state == .disposed)
+
+        let other = Harness(box: box)
+        sdk.clearUserConfig()
+        await Self.waitUntil { other.controller.state == .disposed }
+        #expect(other.controller.state == .disposed)
+    }
+
+    // Scenario 39
+    @Test func theFormAsksTheAppToOpenItsLinksOutsideTheForm() {
+        let h = Harness()
+        let delegate = LinkRecorder()
+        h.controller.delegate = delegate
+        h.reachVisible()
+        h.runtime(
+            "request_external_url",
+            ["purpose": .string("privacy_policy"), "url": .string("https://example.invalid/privacy")]
+        )
+        // Before the form was submitted, the website is refused and the delegate hears nothing.
+        h.runtime(
+            "request_external_url",
+            ["purpose": .string("website_cta"), "url": .string("https://example.invalid/site")]
+        )
+        h.runtime(
+            "request_external_url",
+            ["purpose": .string("privacy_policy"), "url": .string("http://example.invalid/privacy")]
+        )
+        #expect(delegate.links.map(\.purpose) == [.privacyPolicy])
+        #expect(delegate.links.first?.url.absoluteString == "https://example.invalid/privacy")
+        h.runtime("submitting")
+        h.runtime(
+            "submitted",
+            ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
+        )
+        h.runtime(
+            "request_external_url",
+            ["purpose": .string("website_cta"), "url": .string("https://example.invalid/site")]
+        )
+        #expect(delegate.links.map(\.purpose) == [.privacyPolicy, .websiteCta])
+        #expect(h.controller.state == .submitted(leadId: "lead_01KG000000000000000000W001", submittedAt: Self.submittedAt))
+
+        // A delegate written before links existed still compiles and ignores them.
+        let old = Harness()
+        let stateOnly = StateOnlyDelegate()
+        old.controller.delegate = stateOnly
+        old.reachVisible()
+        old.runtime(
+            "request_external_url",
+            ["purpose": .string("privacy_policy"), "url": .string("https://example.invalid/privacy")]
+        )
+        #expect(old.controller.state == .visible)
+    }
+
+    // Scenario 40
+    @Test func aFormEventFiresItsActivationUrlOncePerForm() async {
+        let h = Harness()
+        h.reachVisible()
+        #expect(h.fired.urls.isEmpty, "preparing, activating and prefill fire nothing")
+        h.runtime("event", ["name": .string("form_open")])
+        await Self.waitUntil { h.fired.urls.count == 1 }
+        #expect(h.fired.urls.map(\.absoluteString) == ["https://api.example.invalid/track?t=a"])
+        h.controller.surfaceDidBecomeHidden()
+        h.controller.surfaceDidBecomeVisible()
+        h.runtime("event", ["name": .string("form_open")])
+        h.runtime("event", ["name": .string("form_start")])
+        await Self.waitUntil { h.fired.urls.count == 2 }
+        #expect(h.fired.urls.map(\.absoluteString) == [
+            "https://api.example.invalid/track?t=a", "https://api.example.invalid/track?t=b",
+        ])
+        // The page names events only: one that activation did not list is refused, fires nothing.
+        h.runtime("event", ["name": .string("website_cta_click")])
+        h.runtime("event", ["name": .string("form_open"), "url": .string("https://evil.invalid/x")])
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        #expect(h.fired.urls.count == 2)
+    }
+
+    // Scenario 41
+    @Test func atMostTwoHiddenFormsPrepareAndTheRestWaitForASlot() {
+        let box = InteractiveExperienceBox()
+        let first = Harness(box: box)
+        let second = Harness(box: box)
+        let third = Harness(box: box)
+        let fourth = Harness(box: box)
+        for h in [first, second, third, fourth] {
+            h.controller.prepare()
+        }
+        #expect(first.controller.state == .preparing)
+        #expect(second.controller.state == .preparing)
+        #expect(third.controller.state == .idle)
+        #expect(third.transport.loads.isEmpty)
+        third.controller.prepare()
+        #expect(third.transport.loads.isEmpty)
+
+        // Opening one frees its slot: the next in line starts, in order.
+        first.controller.open()
+        #expect(third.controller.state == .preparing)
+        #expect(third.transport.loads.count == 1)
+        #expect(fourth.controller.state == .idle)
+
+        // Disposing frees one too.
+        second.controller.dispose()
+        #expect(fourth.controller.state == .preparing)
+
+        // A failure frees one.
+        let fifth = Harness(box: box)
+        fifth.controller.prepare()
+        #expect(fifth.controller.state == .idle)
+        third.transport.onLoadFailed?()
+        #expect(third.controller.state == .failed(retryable: true))
+        #expect(fifth.controller.state == .preparing)
+    }
+
+    // Scenario 42
+    @Test func openingAWaitingFormAlwaysProceedsAndLeavesTheQueue() {
+        let box = InteractiveExperienceBox()
+        let a = Harness(box: box)
+        let b = Harness(box: box)
+        let waiting = Harness(box: box)
+        let behind = Harness(box: box)
+        for h in [a, b, waiting, behind] {
+            h.controller.prepare()
+        }
+        waiting.controller.open()
+        #expect(waiting.controller.state == .preparing)
+        #expect(waiting.transport.loads.count == 1)
+        // Leaving the queue freed no slot: the form behind it still waits.
+        #expect(behind.controller.state == .idle)
+        a.controller.dispose()
+        #expect(behind.controller.state == .preparing)
+        #expect(waiting.transport.loads.count == 1)
+
+        // A form never prepared in the background is opened directly, whatever the bound.
+        let direct = Harness(box: box)
+        direct.controller.open()
+        #expect(direct.controller.state == .preparing)
+    }
+
+    // Scenario 43
+    @Test func aWaitingFormThatExpiredNeverLoads() {
+        let box = InteractiveExperienceBox()
+        let a = Harness(box: box)
+        let b = Harness(box: box)
+        let late = Harness(expiresIn: 60, box: box)
+        for h in [a, b, late] {
+            h.controller.prepare()
+        }
+        late.clock.date += 120
+        a.controller.dispose()
+        #expect(late.controller.state == .expired)
+        #expect(late.transport.loads.isEmpty)
+    }
+
+    // Scenario 44
+    @Test func releasingAControllerTearsItsPageDownAndFreesItsSlot() async {
+        let box = InteractiveExperienceBox()
+        let waiting = Harness(box: box)
+        let transport = FakeTransport()
+        let other = Harness(box: box)
+        var held: LeadFormController? = LeadFormController(
+            experience: Self.experience(),
+            presentation: .inline,
+            transport: transport,
+            logger: Logger(subsystem: "test", category: "LeadFormControllerTests"),
+            optIn: box
+        )
+        weak var released = held
+        held?.prepare()
+        #expect(transport.loads.count == 1)
+        other.controller.prepare()
+        waiting.controller.prepare()
+        #expect(waiting.controller.state == .idle)
+        held = nil
+        await Self.waitUntil { released == nil && transport.teardowns == 1 }
+        #expect(released == nil)
+        #expect(transport.teardowns == 1)
+        await Self.waitUntil { waiting.controller.state == .preparing }
+        #expect(waiting.controller.state == .preparing)
     }
 }
