@@ -5,16 +5,20 @@ import Foundation
 /// The seven standard contact values a Lead Generation form can ask the app for. No other key exists.
 ///
 /// The cases are the interactive experience contract's `prefillKeys`, in the contract's order.
-public enum FormValueKey: String, CaseIterable, Codable, Sendable {
+public enum StandardAttributeKey: String, CaseIterable, Codable, Sendable {
     case firstName, lastName, fullName, email, phone, age, gender
 }
 
-/// Supplied by the app when it opts in. The SDK reads `availableKeys` when each request is built
-/// (names only, never values). `value(for:)` is only called later, after the viewer opened a
-/// form, and only for keys that form uses. Return nil to leave the field empty.
-public protocol FormValueProvider: AnyObject {
-    var availableKeys: Set<FormValueKey> { get }
-    func value(for key: FormValueKey) async -> String?
+/// Supplied by the app when it opts in.
+///
+/// The SDK reads `availableKeys` each time a request is built, so it must answer from memory,
+/// without reading or fetching any value. Only key names leave the device.
+///
+/// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`. It becomes plain public
+/// once the form controller, value lookup, and close and link handling ship.
+@_spi(InteractiveExperience)
+public protocol LeadFormValueProvider: AnyObject {
+    var availableKeys: Set<StandardAttributeKey> { get }
 }
 
 // MARK: - Opt-in state
@@ -26,7 +30,7 @@ public protocol FormValueProvider: AnyObject {
 /// strongly; ``AdMoai/disableInteractiveExperiences()`` releases it.
 internal final class InteractiveExperienceBox: @unchecked Sendable {
     private let lock = NSLock()
-    private var provider: FormValueProvider?
+    private var provider: LeadFormValueProvider?
     private var supportsSecureFormView: Bool
 
     init() {
@@ -54,7 +58,7 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
         }
     }
 
-    func set(_ newValue: FormValueProvider?) {
+    func set(_ newValue: LeadFormValueProvider?) {
         lock.lock()
         defer { lock.unlock() }
         provider = newValue
@@ -77,7 +81,7 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
         let keys = current.availableKeys
         return InteractiveExperienceCapability(
             supported: true,
-            availableAttributeKeys: FormValueKey.allCases.filter { keys.contains($0) }
+            availableAttributeKeys: StandardAttributeKey.allCases.filter { keys.contains($0) }
         )
     }
 }
@@ -89,8 +93,8 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
 public struct InteractiveExperienceCapability: Encodable, Equatable, Sendable {
     /// Always true when the extension is present.
     public let supported: Bool
-    /// Deduplicated, in ``FormValueKey`` declaration order.
-    public let availableAttributeKeys: [FormValueKey]
+    /// Deduplicated, in ``StandardAttributeKey`` declaration order.
+    public let availableAttributeKeys: [StandardAttributeKey]
 }
 
 // MARK: - Response side
@@ -108,9 +112,10 @@ public struct LeadGenerationExperience: Equatable {
     public let formId: String
     public let preparedVersionId: String
     public let formInstanceId: String
-    public let launchUrl: URL
+    /// Never public: the form is opened by the SDK, not by the app. Not a secret, so it is printed.
+    let launchUrl: URL
     public let expiresAt: Date
-    public let prefillAttributeKeys: [FormValueKey]
+    public let prefillAttributeKeys: [StandardAttributeKey]
     /// Never public and never printed: it authorises opening this form instance.
     let preparationToken: String
 }
@@ -192,7 +197,7 @@ extension InteractiveExperience {
         let launchUrl: String?
         let preparationToken: String?
         let expiresAt: String?
-        let prefillAttributeKeys: [FormValueKey]
+        let prefillAttributeKeys: [StandardAttributeKey]
 
         /// Throws only when the value is not an object.
         init(from decoder: Decoder) throws {
@@ -204,10 +209,10 @@ extension InteractiveExperience {
             launchUrl = try? c.decode(String.self, forKey: .launchUrl)
             preparationToken = try? c.decode(String.self, forKey: .preparationToken)
             expiresAt = try? c.decode(String.self, forKey: .expiresAt)
-            var seen = Set<FormValueKey>()
+            var seen = Set<StandardAttributeKey>()
             prefillAttributeKeys =
                 ((try? c.decode([SafelyDecodable<String>].self, forKey: .prefillAttributeKeys)) ?? [])
-                    .compactMap { $0.value.flatMap(FormValueKey.init(rawValue:)) }
+                    .compactMap { $0.value.flatMap(StandardAttributeKey.init(rawValue:)) }
                     .filter { seen.insert($0).inserted }
         }
 
@@ -255,16 +260,22 @@ public extension AdMoai {
     /// ``disableInteractiveExperiences()``.
     ///
     /// Lead Generation is served only on API version `2025-11-01`.
-    func enableInteractiveExperiences(valueProvider: FormValueProvider) {
+    ///
+    /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`. It becomes plain public
+    /// once the form controller, value lookup, and close and link handling ship.
+    @_spi(InteractiveExperience)
+    func enableInteractiveExperiences(valueProvider: LeadFormValueProvider) {
         interactiveExperienceBox.set(valueProvider)
     }
 
     /// Opts out: requests stop declaring support and the provider is released.
+    @_spi(InteractiveExperience)
     func disableInteractiveExperiences() {
         interactiveExperienceBox.set(nil)
     }
 
     /// Whether this app opted in AND the platform has a secure form view.
+    @_spi(InteractiveExperience)
     var interactiveExperiencesEnabled: Bool {
         interactiveExperienceBox.isEnabled
     }
