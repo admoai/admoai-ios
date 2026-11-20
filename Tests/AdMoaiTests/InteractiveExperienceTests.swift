@@ -1,4 +1,4 @@
-@testable import AdMoai
+@_spi(InteractiveExperience) @testable import AdMoai
 import Foundation
 import Testing
 
@@ -16,19 +16,18 @@ struct InteractiveExperienceTests {
         return sdk
     }
 
-    /// Records every call so a test can prove no value was ever requested.
-    private final class SpyProvider: FormValueProvider {
-        var availableKeys: Set<FormValueKey>
-        private(set) var valueCalls = 0
+    /// Counts how often the SDK reads the key names. The protocol has no way to ask for a value.
+    private final class SpyProvider: LeadFormValueProvider {
+        var keys: Set<StandardAttributeKey>
         private(set) var keyReads = 0
 
-        init(_ keys: Set<FormValueKey>) {
-            availableKeys = keys
+        var availableKeys: Set<StandardAttributeKey> {
+            keyReads += 1
+            return keys
         }
 
-        func value(for _: FormValueKey) async -> String? {
-            valueCalls += 1
-            return "must-never-be-read"
+        init(_ keys: Set<StandardAttributeKey>) {
+            self.keys = keys
         }
     }
 
@@ -149,7 +148,7 @@ struct InteractiveExperienceTests {
             try fixtureObject("decision/request-supported-with-keys.json")["interactiveExperience"] as? [String: Any]
         #expect(try sameJSON(extensionJSON(request), expected))
         #expect(request.interactiveExperience?.availableAttributeKeys == [.fullName, .email, .phone])
-        #expect(provider.valueCalls == 0)
+        #expect(provider.keyReads == 1)
     }
 
     // Scenario 3
@@ -169,7 +168,7 @@ struct InteractiveExperienceTests {
         sdk.enableInteractiveExperiences(valueProvider: provider)
 
         let first = build(sdk)
-        provider.availableKeys = [.phone]
+        provider.keys = [.phone]
         let second = build(sdk)
 
         #expect(first.interactiveExperience?.availableAttributeKeys == [.email])
@@ -216,8 +215,8 @@ struct InteractiveExperienceTests {
         let catalog = try fixtureObject("standard-fields.json")
         let prefillKeys = try #require(catalog["prefillKeys"] as? [String])
         let fieldKeys = try #require((catalog["fields"] as? [[String: Any]])?.compactMap { $0["key"] as? String })
-        #expect(FormValueKey.allCases.map(\.rawValue) == prefillKeys)
-        #expect(FormValueKey.allCases.map(\.rawValue) == fieldKeys)
+        #expect(StandardAttributeKey.allCases.map(\.rawValue) == prefillKeys)
+        #expect(StandardAttributeKey.allCases.map(\.rawValue) == fieldKeys)
     }
 
     // Scenario 9

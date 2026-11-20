@@ -16,7 +16,7 @@ Feature: Interactive experiences are opt-in and decoded safely
     Given the app opted in with a provider holding email, fullName and phone
     When the app builds a decision request
     Then the interactiveExperience extension is the one in request-supported-with-keys.json
-    And the provider was never asked for a value
+    And the provider was asked once for its key names, and the protocol offers no way to ask for a value
 
   Scenario: An opted-in app with no values still declares support
     Given the app opted in with a provider holding no values

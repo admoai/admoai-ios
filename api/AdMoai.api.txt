@@ -35,9 +35,7 @@ AdMoai.clearUserConfig()  method  mutating func clearUserConfig()
 AdMoai.config  property  var config: SDKConfig { get }
 AdMoai.createRequestBuilder()  method  func createRequestBuilder() -> DecisionRequestBuilder
 AdMoai.deviceConfig  property  var deviceConfig: DeviceConfig { get }
-AdMoai.disableInteractiveExperiences()  method  func disableInteractiveExperiences()
 AdMoai.enableDeviceCategoryCollection()  method  mutating func enableDeviceCategoryCollection()
-AdMoai.enableInteractiveExperiences(valueProvider:)  method  func enableInteractiveExperiences(valueProvider: FormValueProvider)
 AdMoai.fireAssetTap(tracking:)  method  func fireAssetTap(tracking: Tracking)
 AdMoai.fireClick(tracking:key:)  method  func fireClick(tracking: Tracking, key: String = "default")
 AdMoai.fireClose(tracking:)  method  func fireClose(tracking: Tracking)
@@ -50,7 +48,6 @@ AdMoai.fireTracking(url:)  method  func fireTracking(url: String)
 AdMoai.fireVideoEvent(tracking:key:)  method  func fireVideoEvent(tracking: Tracking, key: String)
 AdMoai.getHttpRequest(_:)  method  func getHttpRequest(_ request: DecisionRequest) throws -> HTTPRequest
 AdMoai.init(config:userConfig:sessionId:)  init  init(config: SDKConfig, userConfig: UserConfig? = nil, sessionId: String? = nil)
-AdMoai.interactiveExperiencesEnabled  property  var interactiveExperiencesEnabled: Bool { get }
 AdMoai.requestAds(_:)  method  func requestAds(_ request: DecisionRequest) async throws -> APIResponse<DecisionResponse>
 AdMoai.resetAppConfig()  method  mutating func resetAppConfig()
 AdMoai.resetDeviceConfig()  method  mutating func resetDeviceConfig()
@@ -344,18 +341,6 @@ DistanceBounds.init(north:south:east:west:)  init  init(north: Double, south: Do
 DistanceBounds.north  property  let north: Double
 DistanceBounds.south  property  let south: Double
 DistanceBounds.west  property  let west: Double
-FormValueKey  enum  enum FormValueKey
-FormValueKey.age  case  case age
-FormValueKey.email  case  case email
-FormValueKey.firstName  case  case firstName
-FormValueKey.fullName  case  case fullName
-FormValueKey.gender  case  case gender
-FormValueKey.init(rawValue:)  init  init?(rawValue: String)
-FormValueKey.lastName  case  case lastName
-FormValueKey.phone  case  case phone
-FormValueProvider  protocol  protocol FormValueProvider : AnyObject
-FormValueProvider.availableKeys  property  var availableKeys: Set<FormValueKey> { get }
-FormValueProvider.value(for:)  method  func value(for key: FormValueKey) async -> String?
 Format  enum  enum Format
 Format.init(rawValue:)  init  init?(rawValue: String)
 Format.native  case  case native
@@ -390,7 +375,7 @@ InteractiveExperience.description  property  var description: String { get }
 InteractiveExperience.leadGeneration(_:)  case  case leadGeneration(LeadGenerationExperience)
 InteractiveExperience.unsupported(type:)  case  case unsupported(type: String?)
 InteractiveExperienceCapability  struct  struct InteractiveExperienceCapability
-InteractiveExperienceCapability.availableAttributeKeys  property  let availableAttributeKeys: [FormValueKey]
+InteractiveExperienceCapability.availableAttributeKeys  property  let availableAttributeKeys: [StandardAttributeKey]
 InteractiveExperienceCapability.supported  property  let supported: Bool
 JourneyOpt  enum  enum JourneyOpt
 JourneyOpt.fromWire(_:)  static method  static func fromWire(_ raw: String?) -> JourneyOpt?
@@ -405,8 +390,7 @@ LeadGenerationExperience.description  property  var description: String { get }
 LeadGenerationExperience.expiresAt  property  let expiresAt: Date
 LeadGenerationExperience.formId  property  let formId: String
 LeadGenerationExperience.formInstanceId  property  let formInstanceId: String
-LeadGenerationExperience.launchUrl  property  let launchUrl: URL
-LeadGenerationExperience.prefillAttributeKeys  property  let prefillAttributeKeys: [FormValueKey]
+LeadGenerationExperience.prefillAttributeKeys  property  let prefillAttributeKeys: [StandardAttributeKey]
 LeadGenerationExperience.preparedVersionId  property  let preparedVersionId: String
 MatchedPoint  struct  struct MatchedPoint
 MatchedPoint.address  property  let address: String?
@@ -485,6 +469,15 @@ SlideTracking  struct  struct SlideTracking
 SlideTracking.clicks  property  let clicks: [TrackingItem]?
 SlideTracking.init(from:)  init  init(from decoder: any Decoder) throws
 SlideTracking.views  property  let views: [TrackingItem]?
+StandardAttributeKey  enum  enum StandardAttributeKey
+StandardAttributeKey.age  case  case age
+StandardAttributeKey.email  case  case email
+StandardAttributeKey.firstName  case  case firstName
+StandardAttributeKey.fullName  case  case fullName
+StandardAttributeKey.gender  case  case gender
+StandardAttributeKey.init(rawValue:)  init  init?(rawValue: String)
+StandardAttributeKey.lastName  case  case lastName
+StandardAttributeKey.phone  case  case phone
 Swift::Array.getContent(key:)  method  func getContent(key: String) -> Content?
 Swift::Array.hasContents()  method  func hasContents() -> Bool
 Swift::Array.isType(key:type:)  method  func isType(key: String, type: String) -> Bool
