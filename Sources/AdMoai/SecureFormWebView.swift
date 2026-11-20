@@ -1,0 +1,258 @@
+import Foundation
+#if canImport(WebKit)
+    import WebKit
+    #if canImport(OSLog)
+        import OSLog
+    #endif
+
+    /// scheme + host + port of a URL or a WebKit security origin, compared the way a browser does
+    /// (port 0, or an absent one, is the scheme's default).
+    struct FormOrigin: Equatable {
+        let scheme: String
+        let host: String
+        let port: Int
+
+        init?(url: URL) {
+            guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty else {
+                return nil
+            }
+            self.init(scheme: scheme, host: host, port: url.port ?? 0)
+        }
+
+        init(scheme: String, host: String, port: Int) {
+            self.scheme = scheme.lowercased()
+            self.host = host.lowercased()
+            switch (port, self.scheme) {
+            case (0, "https"): self.port = 443
+            case (0, "http"): self.port = 80
+            default: self.port = port
+            }
+        }
+
+        init(_ origin: WKSecurityOrigin) {
+            self.init(scheme: origin.protocol, host: origin.host, port: origin.port)
+        }
+    }
+
+    /// The secure surface of a Lead Generation form: a WKWebView with no persistent storage that
+    /// accepts one page, the launch URL's origin, in its main frame, and talks to it only through
+    /// the `AdmoaiBridge` object.
+    @MainActor
+    final class SecureFormWebView: NSObject, LeadFormTransport {
+        static let handlerName = "AdmoaiBridge"
+
+        let webView: WKWebView
+        var onMessage: ((String) -> Void)?
+        var onLoadFailed: (() -> Void)?
+        /// Counts, for tests and for support: how many page messages / navigations were refused.
+        private(set) var refusedMessageCount = 0
+        private(set) var cancelledNavigationCount = 0
+
+        private let origin: FormOrigin?
+        private let logger: Logger
+        private var isTornDown = false
+
+        init(launchURL: URL, logger: Logger) {
+            origin = FormOrigin(url: launchURL)
+            self.logger = logger
+
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .nonPersistent()
+            configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+            let controller = WKUserContentController()
+            controller.addUserScript(WKUserScript(
+                source: Self.bridgeScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            ))
+            configuration.userContentController = controller
+            webView = WKWebView(frame: .zero, configuration: configuration)
+            if #available(iOS 16.4, macOS 13.3, *) {
+                webView.isInspectable = false
+            }
+            super.init()
+            // The content controller retains its handler; a weak proxy keeps that from retaining us.
+            controller.add(WeakScriptMessageHandler(self), contentWorld: .page, name: Self.handlerName)
+            webView.navigationDelegate = self
+            webView.uiDelegate = self
+        }
+
+        // MARK: LeadFormTransport
+
+        func load(_ url: URL) {
+            guard !isTornDown else { return }
+            webView.load(URLRequest(url: url))
+        }
+
+        /// Delivers one JSON string to the page as the `data` of a `message` event. The text travels
+        /// as a call argument, never inside script source.
+        func send(_ message: String) {
+            guard !isTornDown else { return }
+            webView.callAsyncJavaScript(
+                "window.AdmoaiBridge.__deliver(data)",
+                arguments: ["data": message],
+                in: nil,
+                in: .page,
+                completionHandler: nil
+            )
+        }
+
+        func teardown() {
+            guard !isTornDown else { return }
+            isTornDown = true
+            onMessage = nil
+            onLoadFailed = nil
+            let controller = webView.configuration.userContentController
+            controller.removeScriptMessageHandler(forName: Self.handlerName, contentWorld: .page)
+            controller.removeAllUserScripts()
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            webView.uiDelegate = nil
+        }
+
+        // MARK: Filter
+
+        /// A page message reaches the bridge only from the main frame, from the launch origin, as text.
+        nonisolated static func accepts(isMainFrame: Bool, origin: FormOrigin, expected: FormOrigin?,
+                                        body: Any) -> String?
+        {
+            guard isMainFrame, origin == expected, let text = body as? String else { return nil }
+            return text
+        }
+
+        /// The navigation rule: the launch origin, in the main frame, over https; nothing else.
+        nonisolated static func allowsNavigation(to url: URL?, inMainFrame: Bool, launchOrigin: FormOrigin?) -> Bool {
+            guard inMainFrame, let url, let target = FormOrigin(url: url),
+                  target.scheme == "https" else { return false }
+            return target == launchOrigin
+        }
+
+        fileprivate func receive(_ message: WKScriptMessage) {
+            guard !isTornDown else { return }
+            let frame = message.frameInfo
+            guard let text = Self.accepts(
+                isMainFrame: frame.isMainFrame,
+                origin: FormOrigin(frame.securityOrigin),
+                expected: origin,
+                body: message.body
+            ) else {
+                refusedMessageCount += 1
+                logger.warning("Lead form surface refused a page message from an unexpected frame or origin")
+                return
+            }
+            onMessage?(text)
+        }
+
+        // MARK: Page-side object
+
+        /// Defines `window.AdmoaiBridge`: `postMessage(text)` to the app, and a `message` event
+        /// target (`onmessage`, `addEventListener`) the app delivers to through `__deliver`.
+        private static let bridgeScript = """
+        (function () {
+          if (window.AdmoaiBridge) { return; }
+          var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.AdmoaiBridge;
+          var listeners = [];
+          var bridge = {
+            onmessage: null,
+            postMessage: function (text) {
+              if (typeof text === 'string' && handler) { handler.postMessage(text); }
+            },
+            addEventListener: function (type, listener) {
+              if (type === 'message' && typeof listener === 'function' && listeners.indexOf(listener) < 0) {
+                listeners.push(listener);
+              }
+            },
+            removeEventListener: function (type, listener) {
+              var index = listeners.indexOf(listener);
+              if (type === 'message' && index >= 0) { listeners.splice(index, 1); }
+            },
+            __deliver: function (data) {
+              var event = new MessageEvent('message', { data: data });
+              if (typeof bridge.onmessage === 'function') {
+                try { bridge.onmessage(event); } catch (e) {}
+              }
+              listeners.slice().forEach(function (listener) {
+                try { listener.call(bridge, event); } catch (e) {}
+              });
+            }
+          };
+          Object.defineProperty(window, 'AdmoaiBridge', { value: bridge, writable: false, configurable: false });
+        })();
+        """
+    }
+
+    // MARK: - Delegates
+
+    extension SecureFormWebView: WKNavigationDelegate, WKUIDelegate {
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            let allowed = Self.allowsNavigation(
+                to: navigationAction.request.url,
+                inMainFrame: navigationAction.targetFrame?.isMainFrame == true,
+                launchOrigin: origin
+            )
+            if !allowed {
+                cancelledNavigationCount += 1
+                logger.warning("Lead form surface cancelled a navigation outside the form's origin")
+            }
+            decisionHandler(allowed ? .allow : .cancel)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFailProvisionalNavigation navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            reportLoadFailure(error)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            reportLoadFailure(error)
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            logger.warning("Lead form surface lost its web content process")
+            onLoadFailed?()
+        }
+
+        /// A navigation the surface itself cancelled is not a failure of the form.
+        private func reportLoadFailure(_ error: Error) {
+            let nsError = error as NSError
+            let cancelled = nsError.code == NSURLErrorCancelled
+                || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102)
+            guard !cancelled else { return }
+            logger.warning("Lead form surface could not load the form page")
+            onLoadFailed?()
+        }
+
+        /// No popups: the form never opens another window.
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
+            nil
+        }
+    }
+
+    /// Forwards to its target without retaining it.
+    @MainActor
+    private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+        private weak var target: SecureFormWebView?
+
+        init(_ target: SecureFormWebView) {
+            self.target = target
+        }
+
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            target?.receive(message)
+        }
+    }
+#endif
