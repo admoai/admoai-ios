@@ -74,11 +74,17 @@ struct LeadFormBridgeTests {
         ).encoded()
     }
 
-    private func outgoing(_ string: String) throws
+    private func outgoing(_ string: String, exchanged: Set<String>? = nil) throws
         -> Result<(LeadFormBridge.Rule, [String: LeadFormBridge.Value]), BridgeRejection>
     {
         let id = try identity()
-        return LeadFormBridge.validate(string, direction: .appToRuntime, instanceId: id.instanceId, channel: id.channel)
+        return LeadFormBridge.validate(
+            string,
+            direction: .appToRuntime,
+            instanceId: id.instanceId,
+            channel: id.channel,
+            exchanged: exchanged
+        )
     }
 
     private func isRefused(_ result: Result<some Any, BridgeRejection>) -> BridgeRejection? {
@@ -135,6 +141,7 @@ struct LeadFormBridgeTests {
         let token = "REDACTED_PREPARATION_TOKEN"
         let expected: [String: AppMessage] = [
             "activate": .activate,
+            "back": .back,
             "became-hidden": .becameHidden,
             "became-visible": .becameVisible,
             "dispose": .dispose,
@@ -176,9 +183,17 @@ struct LeadFormBridgeTests {
         }
         #expect(StandardAttributeKey(rawValue: "homeAddress") == nil)
         #expect(LeadFormPresentation(rawValue: "modal") == nil)
+        // back-before-visible has a valid shape and is refused by order: only these were exchanged.
+        let beforeVisible: Set = [
+            "bridge_ready", "initialize", "prepared", "activate", "activated", "prefill", "prefill_applied",
+        ]
         for path in try files(in: "bridge/invalid/app-to-runtime") {
-            #expect(try isRefused(outgoing(text(path))) != nil, "\(path) must be refused")
+            let exchanged = path.hasSuffix("back-before-visible.json") ? beforeVisible : nil
+            #expect(try isRefused(outgoing(text(path), exchanged: exchanged)) != nil, "\(path) must be refused")
         }
+        let back = try text("bridge/app-to-runtime/back.json")
+        #expect(try isRefused(outgoing(back, exchanged: beforeVisible)) == .outOfOrder(type: "back"))
+        #expect(try isRefused(outgoing(back, exchanged: beforeVisible.union(["became_visible"]))) == nil)
     }
 
     // Scenario 5

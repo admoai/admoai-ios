@@ -223,6 +223,8 @@ enum AppMessage: Equatable, CustomStringConvertible, CustomDebugStringConvertibl
     case prefill(values: [StandardAttributeKey: String])
     case becameVisible
     case becameHidden
+    /// The viewer pressed the system back button while the form was visible.
+    case back
     case retryPrepare
     case dispose
 
@@ -233,6 +235,7 @@ enum AppMessage: Equatable, CustomStringConvertible, CustomDebugStringConvertibl
         case .prefill: "prefill"
         case .becameVisible: "became_visible"
         case .becameHidden: "became_hidden"
+        case .back: "back"
         case .retryPrepare: "retry_prepare"
         case .dispose: "dispose"
         }
@@ -260,7 +263,7 @@ enum AppMessage: Equatable, CustomStringConvertible, CustomDebugStringConvertibl
                 $0.key.rawValue,
                 JSONValue.string($0.value)
             ) }))]
-        case .activate, .becameVisible, .becameHidden, .retryPrepare, .dispose:
+        case .activate, .becameVisible, .becameHidden, .back, .retryPrepare, .dispose:
             [:]
         }
     }
@@ -360,6 +363,7 @@ enum LeadFormBridge {
             ]),
             Rule(type: "became_visible", direction: .appToRuntime, after: ["prefill_applied"]),
             Rule(type: "became_hidden", direction: .appToRuntime, after: ["became_visible"]),
+            Rule(type: "back", direction: .appToRuntime, after: ["became_visible"]),
             Rule(type: "retry_prepare", direction: .appToRuntime, after: ["prepare_failed"]),
             Rule(type: "dispose", direction: .appToRuntime, after: []),
             Rule(type: "bridge_ready", direction: .runtimeToApp, after: [], fields: [
