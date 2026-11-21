@@ -5,9 +5,7 @@ Feature: The SDK and the form speak one validated message protocol
 
   The contract is vendored in Tests/AdMoaiTests/Fixtures/interactive-experience/
   (bridge-messages.json, error-codes.json, bridge/**). The SDK's table of limits is asserted equal
-  to it. Messages added by the pack delta after #7127 (bridgeVersion, submitting, submit_failed,
-  the submitted order, two constants) are held in the SDK's table and excluded from that equality
-  until the pack is re-vendored. A refusal names a message type and a field, never a value.
+  to it with no exceptions. A refusal names a message type and a field, never a value.
 
   Scenario: Every valid message from the form is accepted
     Given the identity in context.json and the messages the contract says must precede it
@@ -26,6 +24,7 @@ Feature: The SDK and the form speak one validated message protocol
     When the SDK is asked to send a prefill value over 256 characters, a key the form did not request, or a gender the form does not offer
     Then it refuses before anything is sent
     And an unknown prefill key or presentation cannot even be written
+    And back is refused before the form became visible, and when it names a stage
 
   Scenario: A message from the app's own direction is refused as incoming
     Given the form sends a message only the app may send
