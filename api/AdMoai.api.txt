@@ -390,6 +390,7 @@ JourneyOpt.optOut  case  case optOut
 LeadFormController  class  @MainActor final class LeadFormController
 LeadFormController.delegate  property  @MainActor weak var delegate: (any LeadFormControllerDelegate)?
 LeadFormController.dispose()  method  @MainActor func dispose()
+LeadFormController.handleBack()  method  @MainActor func handleBack() -> Bool
 LeadFormController.open()  method  @MainActor func open()
 LeadFormController.prepare()  method  @MainActor func prepare()
 LeadFormController.presentation  property  @MainActor let presentation: LeadFormPresentation

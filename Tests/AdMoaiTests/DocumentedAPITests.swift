@@ -543,6 +543,13 @@ final class NoPrefillProvider: LeadFormValueProvider {
             presenter?.present(SFSafariViewController(url: url), animated: true)
         }
 
+        // README "Good to know": Back.
+        func backTapped() {
+            if controller?.handleBack() == true {
+                return
+            }
+        }
+
         private func closeForm(_ controller: LeadFormController) {
             controller.formView.removeFromSuperview()
             controller.dispose()
