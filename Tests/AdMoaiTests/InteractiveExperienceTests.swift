@@ -1,4 +1,4 @@
-@_spi(InteractiveExperience) @testable import AdMoai
+@_spi(InteractiveExperience) @_spi(Testing) @testable import AdMoai
 import Foundation
 import Testing
 
@@ -317,5 +317,20 @@ struct InteractiveExperienceTests {
             // The redaction must not hide everything else.
             #expect(String(describing: experience).contains("form_instance_01KG000000000000000000N001"))
         }
+    }
+
+    // Scenario 14
+    @Test func aScenarioRunnerCanDeclareWhatACapableDeviceWould() throws {
+        let sdk = AdMoai(config: Self.config)
+        sdk.interactiveExperienceBox.platformSupportsSecureFormView = false
+        let previous = sdk.platformSupportsSecureFormViewForTesting
+        #expect(previous == false)
+
+        sdk.assumeSecureFormViewForTesting(true)
+        sdk.enableInteractiveExperiences(valueProvider: SpyProvider([.email]))
+        #expect(try extensionJSON(build(sdk)) != nil)
+
+        sdk.assumeSecureFormViewForTesting(previous)
+        #expect(try hasExtensionKey(build(sdk)) == false)
     }
 }

@@ -279,4 +279,17 @@ public extension AdMoai {
     var interactiveExperiencesEnabled: Bool {
         interactiveExperienceBox.isEnabled
     }
+
+    /// For scenario runners on hosts without a secure form view (Linux, macOS CLI): declares what a
+    /// capable device would. Never call it in an app.
+    @_spi(Testing)
+    func assumeSecureFormViewForTesting(_ value: Bool) {
+        interactiveExperienceBox.platformSupportsSecureFormView = value
+    }
+
+    /// What this host's secure form view support currently is, so a runner can put it back.
+    @_spi(Testing)
+    var platformSupportsSecureFormViewForTesting: Bool {
+        interactiveExperienceBox.platformSupportsSecureFormView
+    }
 }

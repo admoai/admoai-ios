@@ -26,6 +26,31 @@ struct ManifestRequestKeysTests {
     }
 
     @Test
+    func testInteractiveExperienceKeysAreRecognisedAndUnknownOnesReported() {
+        #expect(ManifestRequestKeys.request.contains("interactiveExperience"))
+        #expect(ManifestRequestKeys.unknownInteractiveExperienceKeys(
+            in: ["supported": true, "availableAttributeKeys": [], "zeta": 1]
+        ) == ["zeta"])
+    }
+
+    @Test
+    func testInteractiveExperienceRefusalWhenNotASupportDeclaration() {
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(
+            in: ["supported": false, "availableAttributeKeys": ["email"]]
+        ) != nil)
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(in: ["availableAttributeKeys": []]) != nil)
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(
+            in: ["supported": true, "availableAttributeKeys": ["email", "homeAddress"]]
+        ) != nil)
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(
+            in: ["supported": true, "availableAttributeKeys": ["fullName", "email", "phone"]]
+        ) == nil)
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(
+            in: ["supported": true, "availableAttributeKeys": []]
+        ) == nil)
+    }
+
+    @Test
     func testDeviceCategoryAllowlistIsExact() {
         // Pinned to the SDK's own enum, so a new DeviceCategory case cannot leave the runner behind.
         #expect(ManifestRequestKeys.deviceCategories == Set(DeviceCategory.allCases.map(\.rawValue)))

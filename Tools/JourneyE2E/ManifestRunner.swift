@@ -1,4 +1,4 @@
-import AdMoai
+@_spi(InteractiveExperience) @_spi(Testing) import AdMoai
 import Foundation
 import ManifestExpectations
 #if canImport(FoundationNetworking)
@@ -24,7 +24,7 @@ import ManifestExpectations
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 6
+let supportedSchemaVersion = 7
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -50,6 +50,21 @@ struct ManifestRequest: Decodable {
     /// Sponsored Pin: a radius or a bounds search (epic #3138).
     var distance: ManifestDistance?
     var device: ManifestDevice?
+    /// The app's Lead Generation opt-in: key names only, sent through the SDK's own opt-in API.
+    var interactiveExperience: ManifestInteractiveExperience?
+}
+
+struct ManifestInteractiveExperience: Decodable {
+    let supported: Bool
+    let availableAttributeKeys: [String]
+}
+
+/// The opt-in's provider: answers from memory with the manifest's key names.
+private final class ManifestValueProvider: LeadFormValueProvider {
+    let availableKeys: Set<StandardAttributeKey>
+    init(_ keys: Set<StandardAttributeKey>) {
+        availableKeys = keys
+    }
 }
 
 /// One Sponsored Pin search, declared once in the shared manifest and expressed by each SDK
@@ -228,8 +243,16 @@ private func assertRequestKeysAreExecuted(_ request: [String: Any]) throws {
     if let device = request["device"] as? [String: Any] {
         unknown += ManifestRequestKeys.unknownDeviceKeys(in: device).map { "device.\($0)" }
     }
+    if let block = request["interactiveExperience"] as? [String: Any] {
+        unknown += ManifestRequestKeys.unknownInteractiveExperienceKeys(in: block).map { "interactiveExperience.\($0)" }
+    }
     guard unknown.isEmpty else {
         throw ClaimFailed(claim: "every request key is one this runner executes (unknown: \(unknown))")
+    }
+    if let block = request["interactiveExperience"] as? [String: Any],
+       let reason = ManifestRequestKeys.interactiveExperienceRefusal(in: block)
+    {
+        throw ClaimFailed(claim: reason)
     }
 }
 
@@ -257,6 +280,24 @@ private func runManifestScenario(
             }
             driver.sdk.setDeviceCategory(parsed)
         }
+    }
+
+    // The Lead Generation opt-in, through the SDK's own API. A runner host has no secure form
+    // view (Linux, macOS CLI), so it declares what a capable device would, and puts both back
+    // after the scenario so the next one on the shared SDK never inherits the opt-in.
+    let previousSecureFormView = driver.sdk.platformSupportsSecureFormViewForTesting
+    defer {
+        if entry.request.interactiveExperience != nil {
+            driver.sdk.disableInteractiveExperiences()
+            driver.sdk.assumeSecureFormViewForTesting(previousSecureFormView)
+        }
+    }
+    if let optIn = entry.request.interactiveExperience {
+        driver.sdk.assumeSecureFormViewForTesting(true)
+        driver.sdk.enableInteractiveExperiences(
+            valueProvider: ManifestValueProvider(Set(optIn.availableAttributeKeys
+                    .compactMap(StandardAttributeKey.init(rawValue:))))
+        )
     }
 
     let builder = driver.sdk.createRequestBuilder()
@@ -303,6 +344,17 @@ private func runManifestScenario(
     }
 
     let request = builder.build()
+
+    // The field must really be on the wire request: the SDK sorts into catalog order.
+    if let optIn = entry.request.interactiveExperience {
+        let wanted = Set(optIn.availableAttributeKeys)
+        let expected = StandardAttributeKey.allCases.filter { wanted.contains($0.rawValue) }
+        try check(
+            request.interactiveExperience?.supported == true
+                && request.interactiveExperience?.availableAttributeKeys == expected,
+            "the built request declares interactiveExperience with keys \(expected.map(\.rawValue)) (got \(String(describing: request.interactiveExperience)))"
+        )
+    }
 
     // --- error outcomes -------------------------------------------------------------------
     if entry.expect.outcome == "error" {
