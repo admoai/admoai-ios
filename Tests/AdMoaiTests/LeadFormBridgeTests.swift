@@ -277,6 +277,23 @@ struct LeadFormBridgeTests {
         )))
             == .invalidPayload(type: "prepare_failed", fault: .wrongType("retryable")))
         #expect(try isRefused(incoming(message("unheard_of"))) == .unknownType)
+
+        // A repeated key is refused at any depth, compared after decoding, and never named.
+        let envelope = "\"instanceId\":\"\(id.instanceId)\",\"channel\":\"\(id.channel)\""
+        let repeated = [
+            "{\"type\":\"request_close\",\"type\":\"request_close\",\(envelope),\"payload\":{}}",
+            "{\"type\":\"prepared\",\(envelope),\"payload\":{\"preparedVersionId\":\"a\",\"preparedVersionId\":\"b\"}}",
+            "{\"type\":\"request_close\",\(envelope),\"payload\":{\"x\":[{\"k\":1,\"k\":2}]}}",
+            "{\"type\":\"request_close\",\(envelope),\"payload\":{\"a\":1,\"\\u0061\":2}}",
+        ]
+        for text in repeated {
+            let refusal = try isRefused(incoming(text))
+            #expect(refusal == .repeatedKey, "\(text)")
+            #expect(refusal?.description == "message repeats a key")
+        }
+        #expect(!BridgeEnvelope.hasRepeatedKey("{\"a\":{\"k\":1},\"b\":{\"k\":1},\"c\":[\"a\",\"a\"],\"d\":\"a\"}"))
+        #expect(!BridgeEnvelope.hasRepeatedKey("{\"a\":\"x\\\"y\",\"b\":\"{\\\"a\\\":1}\"}"))
+        #expect(try isRefused(incoming(message("request_close"))) == nil)
     }
 
     // Scenario 9

@@ -63,6 +63,9 @@ struct BridgeEnvelope: Equatable, Codable {
         guard let root = try? JSONDecoder().decode(JSONValue.self, from: Data(string.utf8)) else {
             return .failure(.notJSON)
         }
+        // A parser keeps one of two values for a repeated key, and not every parser keeps the same
+        // one: the form and the SDK could read different messages. Refused at any depth.
+        guard !hasRepeatedKey(string) else { return .failure(.repeatedKey) }
         guard case let .object(fields) = root,
               Set(fields.keys) == ["type", "instanceId", "channel", "payload"],
               case let .string(type)? = fields["type"],
@@ -71,6 +74,53 @@ struct BridgeEnvelope: Equatable, Codable {
               case let .object(payload)? = fields["payload"]
         else { return .failure(.malformedEnvelope) }
         return .success(BridgeEnvelope(type: type, instanceId: instanceId, channel: channel, payload: payload))
+    }
+
+    /// Whether any object in already-valid JSON text repeats a key, comparing decoded key strings
+    /// (`"a"` and `"\u0061"` are the same key).
+    static func hasRepeatedKey(_ text: String) -> Bool {
+        struct Frame {
+            let isObject: Bool
+            var expectingKey: Bool
+            var keys: Set<String> = []
+        }
+        var stack: [Frame] = []
+        let bytes = Array(text.utf8)
+        var index = 0
+        while index < bytes.count {
+            switch bytes[index] {
+            case UInt8(ascii: "{"):
+                stack.append(Frame(isObject: true, expectingKey: true))
+            case UInt8(ascii: "["):
+                stack.append(Frame(isObject: false, expectingKey: false))
+            case UInt8(ascii: "}"), UInt8(ascii: "]"):
+                _ = stack.popLast()
+            case UInt8(ascii: ","):
+                if stack.last?.isObject == true {
+                    stack[stack.count - 1].expectingKey = true
+                }
+            case UInt8(ascii: ":"):
+                if stack.last?.isObject == true {
+                    stack[stack.count - 1].expectingKey = false
+                }
+            case UInt8(ascii: "\""):
+                let start = index
+                index += 1
+                while index < bytes.count, bytes[index] != UInt8(ascii: "\"") {
+                    index += bytes[index] == UInt8(ascii: "\\") ? 2 : 1
+                }
+                guard let last = stack.last, last.isObject, last.expectingKey else { break }
+                let raw = Data(bytes[start ... min(index, bytes.count - 1)])
+                guard let key = try? JSONDecoder().decode(String.self, from: raw) else { return true }
+                if !stack[stack.count - 1].keys.insert(key).inserted {
+                    return true
+                }
+            default:
+                break
+            }
+            index += 1
+        }
+        return false
     }
 }
 
@@ -93,6 +143,8 @@ enum BridgeRejection: Error, Equatable, CustomStringConvertible {
 
     case oversize
     case notJSON
+    /// An object repeats a key. Never names the key.
+    case repeatedKey
     case malformedEnvelope
     case wrongInstance
     case wrongChannel
@@ -114,6 +166,7 @@ enum BridgeRejection: Error, Equatable, CustomStringConvertible {
         switch self {
         case .oversize: "message over the size limit"
         case .notJSON: "message is not JSON"
+        case .repeatedKey: "message repeats a key"
         case .malformedEnvelope: "message envelope is malformed"
         case .wrongInstance: "message names another form instance"
         case .wrongChannel: "message names another channel"

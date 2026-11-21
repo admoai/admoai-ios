@@ -41,8 +41,8 @@ Feature: The SDK and the form speak one validated message protocol
     And an event is valid only when the form's activation listed it
 
   Scenario: Size and shape are bounded
-    Given a message over 16384 bytes, text that is not JSON, or an unknown field
-    Then the SDK refuses it
+    Given a message over 16384 bytes, text that is not JSON, an unknown field, or an object that repeats a key at any depth
+    Then the SDK refuses it, without naming the key
 
   Scenario: A page that speaks another bridge version is refused
     Given a bridge_ready naming a bridge version this SDK does not know
