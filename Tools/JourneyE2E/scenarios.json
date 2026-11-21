@@ -2729,7 +2729,6 @@
         "creative": {
           "requireMetadata": true,
           "journey": false,
-          "formatEquals": "native",
           "priorityIn": [
             "standard",
             "sponsorship",
