@@ -229,6 +229,12 @@ public final class LeadFormController {
         case let .success(message):
             exchanged.insert(message.wireType)
             handle(message)
+            // Each answer closes one `submitting`: a second answer, or one after a failure with no
+            // new `submitting`, is refused as out of order.
+            switch message {
+            case .submitted, .submitFailed: exchanged.remove("submitting")
+            default: break
+            }
         }
     }
 
@@ -301,7 +307,7 @@ public final class LeadFormController {
             guard state == .submitting else { return }
             set(surfaceVisible ? .visible : .readyToShow)
         case let .submitted(leadId, _):
-            guard state == .visible || state == .readyToShow || state == .submitting else { return }
+            guard state == .submitting else { return }
             set(.submitted(leadId: leadId))
         }
     }

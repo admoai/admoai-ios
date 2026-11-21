@@ -64,6 +64,7 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
     Given the form is submitting
     When the form reports the submission failed
     Then the state is visible and the form retries itself
+    And an answer that does not follow a new submitting is refused
 
   Scenario: A submission reports only its lead id
     When the form reports submitted
