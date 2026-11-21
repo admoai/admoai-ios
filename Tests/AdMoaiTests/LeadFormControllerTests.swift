@@ -310,6 +310,20 @@ struct LeadFormControllerTests {
             ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
         )
         #expect(h.controller.state == .submitted(leadId: "lead_01KG000000000000000000W001"))
+
+        // An answer with no unanswered submitting before it is refused.
+        let again = Harness()
+        again.reachVisible()
+        again.runtime("submitting")
+        again.runtime("submit_failed", ["errorCode": .string("unauthorized"), "retryable": .bool(false)])
+        #expect(again.controller.state == .visible)
+        again.runtime(
+            "submitted",
+            ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
+        )
+        #expect(again.controller.state == .visible, "submitted after submit_failed needs a new submitting")
+        again.runtime("submit_failed", ["errorCode": .string("temporary_failure"), "retryable": .bool(true)])
+        #expect(!again.recorder.states.contains(.submitted(leadId: "lead_01KG000000000000000000W001")))
     }
 
     // Scenario 13
