@@ -156,6 +156,7 @@ enum LeadFormErrorCode: String, CaseIterable, Equatable {
     case temporaryFailure = "temporary_failure"
     case invalidFieldValue = "invalid_field_value"
     case conflictingAcceptedPayload = "conflicting_accepted_payload"
+    case invalidRequest = "invalid_request"
 
     /// Whether trying again can help, as `error-codes.json` states per code. A form's own
     /// `retryable` flag can only narrow this, never widen it.
@@ -163,7 +164,7 @@ enum LeadFormErrorCode: String, CaseIterable, Equatable {
         switch self {
         case .rateLimited, .temporaryFailure: true
         case .unauthorized, .expired, .revoked, .formNotAvailable, .invalidFieldValue,
-             .conflictingAcceptedPayload: false
+             .conflictingAcceptedPayload, .invalidRequest: false
         }
     }
 }
@@ -408,7 +409,8 @@ enum LeadFormBridge {
             Rule(type: "submit_failed", direction: .runtimeToApp, after: ["submitting"], fields: [
                 Field(name: "errorCode", kind: .string, enumValues: [
                     "invalid_field_value", "conflicting_accepted_payload", "expired", "revoked",
-                    "rate_limited", "temporary_failure",
+                    "rate_limited", "temporary_failure", "unauthorized", "form_not_available",
+                    "invalid_request",
                 ]),
                 Field(name: "retryable", kind: .boolean),
             ]),
