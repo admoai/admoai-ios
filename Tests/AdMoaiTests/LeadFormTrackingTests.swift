@@ -78,7 +78,9 @@ struct LeadFormTrackingTests {
         tracking.event(.formStart)
         await waitUntil { attempts.all.count == 2 }
         try? await Task.sleep(nanoseconds: 50_000_000)
-        #expect(attempts.all == [Self.open, Self.start])
+        // Each address once; the two events are sent independently, so their order is not fixed.
+        #expect(attempts.all.count == 2)
+        #expect(Set(attempts.all) == [Self.open, Self.start])
     }
 
     // Scenario 3

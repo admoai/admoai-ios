@@ -291,6 +291,30 @@ public final class LeadFormController {
         return true
     }
 
+    /// Hands the viewer's back press to the form. While the form is on screen (shown, submitting,
+    /// or on its confirmation) the page does what its own Back arrow does: it goes back one stage
+    /// with the answers kept, or asks to close on its first stage and on the confirmation, which
+    /// reaches the delegate as a close request. While submitting the press is consumed and nothing
+    /// is sent, since the page would ignore it.
+    ///
+    /// iOS has no system back button; call it from your own back control or gesture when you have
+    /// one. It never closes the form by itself.
+    ///
+    /// - Returns: `true` when the form consumed the press; `false` when it belongs to the app (the
+    ///   form is not on screen, has not been shown yet, failed, expired or was disposed, or the
+    ///   message could not be sent).
+    public func handleBack() -> Bool {
+        guard !isDisposed, surfaceVisible, hasBeenVisible else { return false }
+        switch state {
+        case .submitting:
+            return true
+        case .visible, .submitted:
+            return send(.back)
+        default:
+            return false
+        }
+    }
+
     /// Ends the form: tells the page when it is listening, releases the surface. Idempotent; after
     /// it every call and every incoming message is ignored and the delegate hears nothing more.
     public func dispose() {
@@ -512,7 +536,8 @@ public final class LeadFormController {
         send(.activate)
     }
 
-    private func send(_ message: AppMessage) {
+    @discardableResult
+    private func send(_ message: AppMessage) -> Bool {
         do {
             let text = try message.encode(
                 instanceId: experience.formInstanceId,
@@ -522,6 +547,7 @@ public final class LeadFormController {
             )
             exchanged.insert(message.wireType)
             transport.send(text)
+            return true
         } catch {
             let reason = (error as? BridgeRejection)?.description ?? "not encodable"
             logger
@@ -531,6 +557,7 @@ public final class LeadFormController {
             if !isFinished {
                 set(.failed(errorCode: "bridge_error", retryable: false))
             }
+            return false
         }
     }
 

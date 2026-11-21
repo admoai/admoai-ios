@@ -214,3 +214,10 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   Scenario: Releasing a controller tears its page down
     When the app releases a controller without disposing it
     Then its page is torn down and its slot is freed
+
+  Scenario: The back press goes to the form only while it is on screen
+    Given the form is shown to the viewer
+    When the app hands it the viewer's back press
+    Then the form consumes it and goes back one stage, or asks to close on its first stage and on its confirmation
+    And while submitting the press is consumed and nothing is sent
+    And while the form is hidden, not yet shown, failed or disposed the press belongs to the app
