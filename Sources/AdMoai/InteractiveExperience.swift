@@ -16,10 +16,6 @@ public enum StandardAttributeKey: String, CaseIterable, Codable, Sendable {
 ///
 /// ``value(for:)`` is called only after the viewer opened a form, only for the keys that form
 /// requests and `availableKeys` holds. Values go to that form's page and nowhere else.
-///
-/// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`. It becomes plain public
-/// once the form controller, value lookup, and close and link handling ship.
-@_spi(InteractiveExperience)
 public protocol LeadFormValueProvider: AnyObject {
     var availableKeys: Set<StandardAttributeKey> { get }
 
@@ -32,7 +28,6 @@ public protocol LeadFormValueProvider: AnyObject {
     func value(for key: StandardAttributeKey) async -> String?
 }
 
-@_spi(InteractiveExperience)
 public extension LeadFormValueProvider {
     /// Holds no values: every field stays empty.
     func value(for key: StandardAttributeKey) async -> String? {
@@ -340,22 +335,16 @@ public extension AdMoai {
     /// ``disableInteractiveExperiences()``.
     ///
     /// Lead Generation is served only on API version `2025-11-01`.
-    ///
-    /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`. It becomes plain public
-    /// once the form controller, value lookup, and close and link handling ship.
-    @_spi(InteractiveExperience)
     func enableInteractiveExperiences(valueProvider: LeadFormValueProvider) {
         interactiveExperienceBox.set(valueProvider)
     }
 
     /// Opts out: requests stop declaring support and the provider is released.
-    @_spi(InteractiveExperience)
     func disableInteractiveExperiences() {
         interactiveExperienceBox.set(nil)
     }
 
     /// Whether this app opted in AND the platform has a secure form view.
-    @_spi(InteractiveExperience)
     var interactiveExperiencesEnabled: Bool {
         interactiveExperienceBox.isEnabled
     }

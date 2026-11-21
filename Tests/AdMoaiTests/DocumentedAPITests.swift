@@ -1,6 +1,12 @@
 @testable import AdMoai
 import Foundation
 import Testing
+#if canImport(UIKit) && canImport(SafariServices)
+    import SafariServices
+#endif
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 // Documented-API compile check
 //
@@ -363,6 +369,70 @@ struct DocumentedAPITests {
         let click: () = sdk.fireClick(tracking: creative.tracking)
         _ = (tap, click)
     }
+
+    // MARK: - Lead Generation forms
+
+    // Scenario: README "Lead Generation forms" / "Opt in" — both providers, opt-in, opt-out,
+    // re-opt-in for a new user
+    @Test
+    func testLeadGenerationOptInSurfaceExists() {
+        var sdk = AdMoai(config: docConfig())
+        #expect(!sdk.interactiveExperiencesEnabled)
+
+        let boltShift = BoltShiftProfileValues()
+        #expect(boltShift.availableKeys == [.fullName, .email, .phone])
+        sdk.enableInteractiveExperiences(valueProvider: boltShift)
+
+        // A new signed-in user: a new provider, or opt out on logout.
+        sdk.enableInteractiveExperiences(valueProvider: NoPrefillProvider())
+        #expect(NoPrefillProvider().availableKeys.isEmpty)
+        sdk.setUserConfig(id: "user_456")
+        sdk.disableInteractiveExperiences()
+        #expect(!sdk.interactiveExperiencesEnabled)
+    }
+
+    // Scenario: README "Lead Generation forms" / "Reading the creative" — the switch over
+    // `interactiveExperience` and the no-opt-in controller path
+    @Test
+    @MainActor
+    func testLeadGenerationReadingSurfaceExists() throws {
+        let sdk = AdMoai(config: docConfig())
+        let plain = try docCreative(journey: nil)
+        #expect(plain.interactiveExperience == nil)
+
+        var served: [String] = []
+        for creative in [plain] {
+            switch creative.interactiveExperience {
+            case nil:
+                served.append("native")
+            case .unsupported?:
+                break
+            case let .leadGeneration(experience)?:
+                served.append("lead")
+                // Not opted in: no controller, so the app does not show the creative.
+                #expect(sdk.makeLeadFormController(for: experience, presentation: .inline) == nil)
+                #expect(sdk.makeLeadFormController(for: experience, presentation: .fullScreen) == nil)
+            }
+        }
+        #expect(served == ["native"])
+    }
+
+    #if canImport(UIKit) && canImport(SafariServices)
+        // Scenario: README "Lead Generation forms" / "Showing the form" and "Delegate" — the
+        // documented host compiles; it is never run, so no form is opened.
+        @Test
+        @MainActor
+        func testLeadGenerationHostSurfaceExists() throws {
+            let sdk = AdMoai(config: docConfig())
+            let host = try LeadCreativeHost(
+                creative: docCreative(journey: nil),
+                sdk: sdk,
+                container: UIView(),
+                presenter: UIViewController()
+            )
+            _ = host.creativeTapped
+        }
+    #endif
 }
 
 // MARK: - Support
@@ -385,3 +455,105 @@ private func docCreative(journey: String?) throws -> Creative {
     """
     return try JSONDecoder().decode(Creative.self, from: Data(json.utf8))
 }
+
+// Scenario: README "Lead Generation forms" — the providers exactly as documented.
+final class BoltShiftProfileValues: LeadFormValueProvider {
+    private let profile: [StandardAttributeKey: String] = [
+        .fullName: "Alex Rider",
+        .email: "alex@example.com",
+        .phone: "+1 555 0100",
+    ]
+
+    var availableKeys: Set<StandardAttributeKey> {
+        Set(profile.keys)
+    }
+
+    func value(for key: StandardAttributeKey) async -> String? {
+        profile[key]
+    }
+}
+
+final class NoPrefillProvider: LeadFormValueProvider {
+    var availableKeys: Set<StandardAttributeKey> {
+        []
+    }
+}
+
+#if canImport(UIKit) && canImport(SafariServices)
+    // Scenario: README "Lead Generation forms" — the host, tap handling and delegate as documented.
+    @MainActor
+    final class LeadCreativeHost: LeadFormControllerDelegate {
+        private var controller: LeadFormController?
+        private let creative: Creative
+        private let sdk: AdMoai
+        private let container: UIView
+        private weak var presenter: UIViewController?
+
+        init(creative: Creative, sdk: AdMoai, container: UIView, presenter: UIViewController) {
+            self.creative = creative
+            self.sdk = sdk
+            self.container = container
+            self.presenter = presenter
+        }
+
+        func prepare(for experience: LeadGenerationExperience, fullScreen: Bool = false) {
+            let presentation: LeadFormPresentation = fullScreen ? .fullScreen : .inline
+            guard let controller = sdk.makeLeadFormController(for: experience, presentation: presentation) else {
+                return
+            }
+            controller.delegate = self
+            self.controller = controller
+            controller.prepare()
+        }
+
+        func creativeTapped() {
+            guard let controller else { return }
+            sdk.fireClick(tracking: creative.tracking)
+            controller.open()
+            switch controller.presentation {
+            case .inline:
+                let form = controller.formView
+                form.frame = container.bounds
+                container.addSubview(form)
+            case .fullScreen:
+                presenter?.present(controller.formViewController, animated: true)
+            }
+        }
+
+        func leadFormController(_ controller: LeadFormController, didChange state: LeadFormState) {
+            switch state {
+            case .visible:
+                break
+            case .failed(retryable: true):
+                controller.retry()
+            case .failed(retryable: false), .expired:
+                closeForm(controller)
+            case let .submitted(leadId):
+                _ = leadId
+            default:
+                break
+            }
+        }
+
+        func leadFormControllerDidRequestClose(_ controller: LeadFormController) {
+            closeForm(controller)
+        }
+
+        func leadFormController(_: LeadFormController, openExternalURL url: URL, purpose _: LeadFormLinkPurpose) {
+            presenter?.present(SFSafariViewController(url: url), animated: true)
+        }
+
+        // README "Good to know": Back.
+        func backTapped() {
+            if controller?.handleBack() == true {
+                return
+            }
+        }
+
+        private func closeForm(_ controller: LeadFormController) {
+            controller.formView.removeFromSuperview()
+            controller.dispose()
+            self.controller = nil
+        }
+    }
+#endif

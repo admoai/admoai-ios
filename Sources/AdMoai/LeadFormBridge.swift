@@ -175,7 +175,6 @@ enum ExternalURLPurpose: String, Equatable {
 }
 
 /// How the app shows the form; the wire value is the raw value.
-@_spi(InteractiveExperience)
 public enum LeadFormPresentation: String, Equatable, Sendable {
     case inline
     case fullScreen = "full_screen"

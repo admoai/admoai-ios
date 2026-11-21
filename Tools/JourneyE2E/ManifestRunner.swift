@@ -1,4 +1,4 @@
-@_spi(InteractiveExperience) @_spi(Testing) import AdMoai
+@_spi(Testing) import AdMoai
 import Foundation
 import ManifestExpectations
 #if canImport(FoundationNetworking)
