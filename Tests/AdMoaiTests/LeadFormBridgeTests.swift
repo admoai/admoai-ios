@@ -243,6 +243,14 @@ struct LeadFormBridgeTests {
         #expect(try isRefused(incoming(website, exchanged: ["became_visible", "submitted"])) == nil)
         #expect(try isRefused(incoming(privacy, exchanged: ["became_visible"])) == nil)
 
+        // Every error the submissions request can answer ends the announced submission.
+        for code in [LeadFormErrorCode.unauthorized, .formNotAvailable, .invalidRequest] {
+            let failed = try message("submit_failed", ["errorCode": .string(code.rawValue), "retryable": .bool(false)])
+            #expect(try incoming(failed, exchanged: ["submitting"]).get() ==
+                .submitFailed(code: code, retryable: false))
+            #expect(!code.isRetryable)
+        }
+
         let event = try message("event", ["name": .string("form_start")])
         let listed = LeadFormBridge.Context(activatedEvents: [.formOpen])
         #expect(try isRefused(incoming(event, exchanged: ["became_visible"], context: listed)) ==
