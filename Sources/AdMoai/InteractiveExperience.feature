@@ -75,3 +75,9 @@ Feature: Interactive experiences are opt-in and decoded safely
     Given a creative carrying a Lead Generation experience
     When the app prints, describes or dumps the creative or its experience
     Then the preparation token appears nowhere in the output
+
+  Scenario: A scenario runner on a host without a secure form view can declare what a capable device would
+    Given a platform without a secure form view and an opted-in app
+    When the runner declares that a secure form view is available
+    Then the request declares the keys the app holds
+    And when the runner puts the platform default back the request declares nothing
