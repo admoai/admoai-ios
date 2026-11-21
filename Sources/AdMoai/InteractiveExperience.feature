@@ -81,3 +81,8 @@ Feature: Interactive experiences are opt-in and decoded safely
     When the runner declares that a secure form view is available
     Then the request declares the keys the app holds
     And when the runner puts the platform default back the request declares nothing
+
+  Scenario: The SDK can never send the request bodies the contract refuses
+    Given the contract's malformed request and its request with an unknown and a repeated key
+    When an opted-in app builds requests with no keys, one key and every key
+    Then support is always a boolean and the keys always a list of catalog names, each named once

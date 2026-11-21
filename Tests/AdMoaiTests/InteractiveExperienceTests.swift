@@ -333,4 +333,33 @@ struct InteractiveExperienceTests {
         sdk.assumeSecureFormViewForTesting(previous)
         #expect(try hasExtensionKey(build(sdk)) == false)
     }
+
+    // Scenario 15
+    @Test func theSDKCanNeverSendTheRequestBodiesTheContractRefuses() throws {
+        // request-malformed-shape.json: support as a string and keys as a string. The engine answers
+        // 400; the SDK only ever writes a boolean and an array of names.
+        let malformed = try #require(
+            try fixtureObject("decision/request-malformed-shape.json")["interactiveExperience"] as? [String: Any]
+        )
+        #expect(malformed["supported"] is String && malformed["availableAttributeKeys"] is String)
+        let sdk = Self.capableSDK()
+        for keys in [Set<StandardAttributeKey>(), [.email], Set(StandardAttributeKey.allCases)] {
+            sdk.enableInteractiveExperiences(valueProvider: SpyProvider(keys))
+            let sent = try #require(try extensionJSON(build(sdk)))
+            #expect((sent["supported"] as? NSNumber).map { CFGetTypeID($0) == CFBooleanGetTypeID() } == true)
+            #expect(sent["availableAttributeKeys"] is [String])
+        }
+
+        // request-unknown-key.json: a name outside the catalog and a repeated name. The engine drops
+        // the unknown name; the SDK cannot even write one, and declares each name once.
+        let unknown = try #require(
+            try fixtureObject("decision/request-unknown-key.json")["interactiveExperience"] as? [String: Any]
+        )
+        let names = try #require(unknown["availableAttributeKeys"] as? [String])
+        #expect(names.contains { StandardAttributeKey(rawValue: $0) == nil })
+        let typed = Set(names.compactMap(StandardAttributeKey.init(rawValue:)))
+        sdk.enableInteractiveExperiences(valueProvider: SpyProvider(typed))
+        let sent = try #require(try extensionJSON(build(sdk)))
+        #expect(sent["availableAttributeKeys"] as? [String] == ["email"])
+    }
 }

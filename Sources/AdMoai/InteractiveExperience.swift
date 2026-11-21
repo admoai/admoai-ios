@@ -60,8 +60,11 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
 
     func set(_ newValue: LeadFormValueProvider?) {
         lock.lock()
-        defer { lock.unlock() }
+        let previous = provider
         provider = newValue
+        lock.unlock()
+        // The replaced provider is released only now: its deinit may call back into the SDK.
+        withExtendedLifetime(previous) {}
     }
 
     /// Opted in AND the platform has a secure form view.
