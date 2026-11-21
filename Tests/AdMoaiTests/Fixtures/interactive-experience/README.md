@@ -3,8 +3,8 @@
 `standard-fields.json` and `decision/*.json` are byte-for-byte copies of the interactive
 experience contract pack in admoai/adhub, `shared/interactiveexperience/contract/` (decision D13,
 issue #7127): the seven standard contact keys and the decision request and per-creative
-descriptor fixtures. Vendored at adhub `5566d97e2` (branch
-`feat/7127-interactive-experience-contract-pack`).
+descriptor fixtures. Identical to adhub main at `b1e28e23d` (the pack merged with #7127 and
+#7170).
 
 `InteractiveExperienceTests` fails when the SDK drifts from them: the typed keys must be the
 catalog's `prefillKeys` in order, the request extension must serialise to the fixture bodies, and
