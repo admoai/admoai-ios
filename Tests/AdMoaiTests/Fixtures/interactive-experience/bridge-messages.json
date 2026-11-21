@@ -1,0 +1,337 @@
+{
+  "maxMessageBytes": 16384,
+  "maxHiddenPreparedForms": 2,
+  "prefillLookupTimeoutMs": 1500,
+  "envelope": {
+    "type": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string",
+      "pattern": "^form_instance_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "channel": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{16,64}$"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "messages": [
+    {
+      "type": "initialize",
+      "direction": "app_to_runtime",
+      "after": [
+        "bridge_ready"
+      ],
+      "payload": {
+        "preparationToken": {
+          "type": "string",
+          "required": true,
+          "maxLength": 4096
+        },
+        "presentation": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "inline",
+            "full_screen"
+          ],
+          "description": "How the app shows the form. The form shows its own close button only on full_screen; on inline, closing is left to the publisher's own card."
+        }
+      }
+    },
+    {
+      "type": "activate",
+      "direction": "app_to_runtime",
+      "after": [
+        "prepared"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "prefill",
+      "direction": "app_to_runtime",
+      "after": [
+        "activated"
+      ],
+      "payload": {
+        "values": {
+          "type": "string_map",
+          "required": true,
+          "keysFrom": "prefillKeys",
+          "maxLength": 256
+        }
+      }
+    },
+    {
+      "type": "became_visible",
+      "direction": "app_to_runtime",
+      "after": [
+        "prefill_applied"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "became_hidden",
+      "direction": "app_to_runtime",
+      "after": [
+        "became_visible"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "back",
+      "direction": "app_to_runtime",
+      "after": [
+        "became_visible"
+      ],
+      "payload": {},
+      "description": "The viewer pressed the system back button. The page does what its own Back arrow does: it goes back one stage with answers kept, or answers request_close on the first stage and on Confirmation. Ignored while submitting."
+    },
+    {
+      "type": "retry_prepare",
+      "direction": "app_to_runtime",
+      "after": [
+        "prepare_failed"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "dispose",
+      "direction": "app_to_runtime",
+      "after": [],
+      "payload": {}
+    },
+    {
+      "type": "bridge_ready",
+      "direction": "runtime_to_app",
+      "after": [],
+      "payload": {
+        "runtimeVersion": {
+          "type": "string",
+          "required": true,
+          "maxLength": 64
+        },
+        "bridgeVersion": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "1"
+          ],
+          "description": "Protocol version the page speaks. An SDK that does not know it sends no initialize."
+        }
+      }
+    },
+    {
+      "type": "prepared",
+      "direction": "runtime_to_app",
+      "after": [
+        "initialize",
+        "retry_prepare"
+      ],
+      "payload": {
+        "preparedVersionId": {
+          "type": "string",
+          "required": true,
+          "pattern": "^form_version_[0-9A-HJKMNP-TV-Z]{26}$"
+        }
+      }
+    },
+    {
+      "type": "activated",
+      "direction": "runtime_to_app",
+      "after": [
+        "activate"
+      ],
+      "payload": {
+        "formVersionId": {
+          "type": "string",
+          "required": true,
+          "pattern": "^form_version_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "requestedAttributeKeys": {
+          "type": "string_list",
+          "required": true,
+          "itemsFrom": "prefillKeys"
+        },
+        "events": {
+          "type": "object_list",
+          "required": true,
+          "uniqueBy": "name",
+          "items": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "enum": [
+                "form_open",
+                "form_start",
+                "website_cta_click"
+              ]
+            },
+            "url": {
+              "type": "https_url",
+              "required": true
+            }
+          },
+          "description": "The tracking URL of each form event the SDK reports for this form instance, each event at most once in the list. When the form later sends an event message with that name, the SDK fires the URL listed here, once per form instance, through its own tracking transport; it never fires a URL the page sends later. form_submit is not listed: the form service reports it itself."
+        }
+      }
+    },
+    {
+      "type": "prefill_applied",
+      "direction": "runtime_to_app",
+      "after": [
+        "prefill"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "prepare_failed",
+      "direction": "runtime_to_app",
+      "after": [
+        "initialize",
+        "activate",
+        "retry_prepare"
+      ],
+      "payload": {
+        "errorCode": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "unauthorized",
+            "expired",
+            "revoked",
+            "form_not_available",
+            "rate_limited",
+            "temporary_failure"
+          ]
+        },
+        "retryable": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    },
+    {
+      "type": "fatal_error",
+      "direction": "runtime_to_app",
+      "after": [
+        "bridge_ready"
+      ],
+      "payload": {
+        "errorCode": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "expired",
+            "revoked",
+            "temporary_failure"
+          ]
+        }
+      }
+    },
+    {
+      "type": "request_close",
+      "direction": "runtime_to_app",
+      "after": [
+        "bridge_ready"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "request_external_url",
+      "direction": "runtime_to_app",
+      "after": [
+        "became_visible"
+      ],
+      "payload": {
+        "purpose": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "privacy_policy",
+            "website_cta"
+          ]
+        },
+        "url": {
+          "type": "https_url",
+          "required": true
+        }
+      }
+    },
+    {
+      "type": "event",
+      "direction": "runtime_to_app",
+      "after": [
+        "became_visible"
+      ],
+      "payload": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "form_open",
+            "form_start",
+            "website_cta_click"
+          ]
+        }
+      }
+    },
+    {
+      "type": "submitting",
+      "direction": "runtime_to_app",
+      "after": [
+        "became_visible"
+      ],
+      "payload": {}
+    },
+    {
+      "type": "submit_failed",
+      "direction": "runtime_to_app",
+      "after": [
+        "submitting"
+      ],
+      "payload": {
+        "errorCode": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "invalid_field_value",
+            "conflicting_accepted_payload",
+            "expired",
+            "revoked",
+            "rate_limited",
+            "temporary_failure",
+            "unauthorized",
+            "form_not_available",
+            "invalid_request"
+          ]
+        },
+        "retryable": {
+          "type": "boolean",
+          "required": true
+        }
+      }
+    },
+    {
+      "type": "submitted",
+      "direction": "runtime_to_app",
+      "after": [
+        "submitting"
+      ],
+      "payload": {
+        "leadId": {
+          "type": "string",
+          "required": true,
+          "pattern": "^lead_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "submittedAt": {
+          "type": "timestamp",
+          "required": true
+        }
+      }
+    }
+  ]
+}

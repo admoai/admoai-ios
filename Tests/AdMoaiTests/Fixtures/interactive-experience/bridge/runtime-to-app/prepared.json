@@ -1,0 +1,8 @@
+{
+  "type": "prepared",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "preparedVersionId": "form_version_01KG000000000000000000V002"
+  }
+}
