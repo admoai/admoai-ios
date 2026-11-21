@@ -2008,6 +2008,11 @@ extension LeadCreativeHost {
 - **Preparing is bounded.** At most two forms prepare in the background at once; a tap always
   goes ahead, even if its form was not prepared yet.
 - **A served form can be opened for 15 minutes.** After that the state is `.expired`.
+- **Back.** iOS has no system back button, but if your screen has its own back control or
+  gesture, give the press to the form first: `if controller?.handleBack() == true { return }`.
+  While the form is on screen it goes back one stage with the answers kept, or, on its first stage
+  and on the confirmation, asks to close through `leadFormControllerDidRequestClose`. It returns
+  `false`, and does nothing, when the form is not on screen.
 - **Nothing is kept on the device.** No answer and no pre-fill value is stored.
 - **Leads can reach the advertiser's webhook more than once** with the same `lead_id`.
   Receivers should de-duplicate by it.
