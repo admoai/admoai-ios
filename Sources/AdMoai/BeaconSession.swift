@@ -58,11 +58,22 @@ internal final class BeaconSession {
         observerLock.unlock()
     }
 
-    func fire(_ request: URLRequest) {
+    /// - Parameter completion: optional, for the few callers that retry (lead form events). Called
+    ///   once with `true` when the server answered with anything below 500 (a redirect included: it
+    ///   is the final response), `false` on a transport error or a 5xx. Without it nothing reaches
+    ///   the caller, exactly as before.
+    func fire(_ request: URLRequest, completion: ((Bool) -> Void)? = nil) {
         observerLock.lock()
         let observer = dispatchObserver
         observerLock.unlock()
         observer?(request)
-        session.dataTask(with: request).resume()
+        guard let completion else {
+            session.dataTask(with: request).resume()
+            return
+        }
+        session.dataTask(with: request) { _, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            completion(error == nil && status < 500)
+        }.resume()
     }
 }
