@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 6,
-  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object. From schemaVersion 6 (package 2.0.0) a live request may carry `device` (`carrier`, `category`: the app's manual device configuration, an empty object allowed) and a `custom` value may be an array of strings (publisher_segments); a runner that does not send them must refuse schemaVersion 6.",
+  "schemaVersion": 7,
+  "description": "Shared cross-SDK E2E scenario manifest. ONE definition, executed by a thin interpreter in each SDK, so the three suites cannot drift. Declarative only: given a request, expect an outcome. Sponsored Pin tracking scenarios add `pinTracking`: the point-tracking calls an app makes on the served pins, as data, and the beacons that must reach the engine. Procedural scenarios (log capture, concurrency, retry, TTL waits) stay hand-written per SDK. Mirrored byte-identically into all three repos; a checksum test fails the build if the copies diverge. Every expected value here was verified against a live local decision-engine before being written. `fixtureScenarios` (schemaVersion 2) run offline: each decodes one golden decision-wire file (ui/platform/lib/ad-formats/golden-wire in adhub, shipped in this package under fixtures/golden-wire/) after optional `edits`, and asserts what the publisher's app reads from the decoded creative. `contentKeys` is the exact set of plain content keys (slides and matched points are asserted through their own fields); a key in `contentKeysAbsent` must decode as absent (null), never as an empty string or a placeholder; a null in `metadata` means absent. A runner that does not execute fixtureScenarios must refuse schemaVersion 2. A fixture scenario may add `slideTracking` (package 1.3.0, schemaVersion 3; a runner that does not execute it must refuse schemaVersion 3): `steps` the app takes on the decoded creative (`slideView`/`slideClick` with a 1-based slide index, `newResponse`, `fireClick` with a key or null for no key, `custom` with a key) and the beacons that must be dispatched: `beacons` is the exact ordered list of first-party beacons, each named by the tracker it must be (`slide`+`view`/`click`, or creative `click`/`custom`, with `response`), and `thirdPartyBeacons` the exact multiset of third-party tracker ids dispatched (their order is not asserted). An edit `at` `tracking` targets the creative's tracking object. From schemaVersion 6 (package 2.0.0) a live request may carry `device` (`carrier`, `category`: the app's manual device configuration, an empty object allowed) and a `custom` value may be an array of strings (publisher_segments); a runner that does not send them must refuse schemaVersion 6. From schemaVersion 7 (package 4.0.0) a live request may carry `interactiveExperience` (`supported`, `availableAttributeKeys`: the app's Lead Generation opt-in and the names, never the values, of the prefill values it holds), sent through the SDK's own opt-in; a runner that does not send it must refuse schemaVersion 7.",
   "scenarios": [
     {
       "id": "L1",
@@ -2668,6 +2668,103 @@
       "expect": {
         "outcome": "served",
         "decisions": 1
+      }
+    },
+    {
+      "id": "IE1",
+      "title": "an app that declares Lead Generation support with prefill keys still gets its normal ad",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "home"
+          }
+        ],
+        "interactiveExperience": {
+          "supported": true,
+          "availableAttributeKeys": [
+            "fullName",
+            "email",
+            "phone"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "requireMetadata": true,
+          "journey": false,
+          "formatEquals": "native",
+          "priorityIn": [
+            "standard",
+            "sponsorship",
+            "house"
+          ]
+        }
+      }
+    },
+    {
+      "id": "IE2",
+      "title": "the older API version accepts the Lead Generation declaration and ignores it",
+      "request": {
+        "apiVersion": "2025-01-01",
+        "placements": [
+          {
+            "key": "home"
+          }
+        ],
+        "interactiveExperience": {
+          "supported": true,
+          "availableAttributeKeys": [
+            "fullName",
+            "email",
+            "phone"
+          ]
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "requireMetadata": true,
+          "journey": false,
+          "priorityIn": [
+            "standard",
+            "sponsorship",
+            "house"
+          ]
+        }
+      }
+    },
+    {
+      "id": "IE3",
+      "title": "an app that declares Lead Generation support with no prefill keys still gets its normal ad",
+      "request": {
+        "apiVersion": "2025-11-01",
+        "placements": [
+          {
+            "key": "home"
+          }
+        ],
+        "interactiveExperience": {
+          "supported": true,
+          "availableAttributeKeys": []
+        }
+      },
+      "expect": {
+        "outcome": "served",
+        "decisions": 1,
+        "creative": {
+          "requireMetadata": true,
+          "journey": false,
+          "formatEquals": "native",
+          "priorityIn": [
+            "standard",
+            "sponsorship",
+            "house"
+          ]
+        }
       }
     }
   ],
