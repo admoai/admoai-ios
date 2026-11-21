@@ -1,3 +1,4 @@
+import AdMoai
 import Foundation
 
 // The `request` keys of the shared scenario manifest (@admoai/sdk-scenarios) this runner
@@ -11,10 +12,14 @@ public enum ManifestRequestKeys {
     /// Every top-level key of `request` this runner executes.
     public static let request: Set<String> = [
         "placements", "custom", "session", "journeyOpt", "apiVersion", "distance", "device",
+        "interactiveExperience",
     ]
 
     /// Every key of `request.device`: the app's manual device configuration.
     public static let device: Set<String> = ["carrier", "category"]
+
+    /// Every key of `request.interactiveExperience`: the app's Lead Generation opt-in.
+    public static let interactiveExperience: Set<String> = ["supported", "availableAttributeKeys"]
 
     /// Every value `request.device.category` may take (`DeviceCategory`'s raw values).
     public static let deviceCategories: Set<String> = ["phone", "tablet", "other"]
@@ -27,6 +32,26 @@ public enum ManifestRequestKeys {
     /// Keys of `request.device` this runner does not execute.
     public static func unknownDeviceKeys(in device: [String: Any]) -> [String] {
         device.keys.filter { !Self.device.contains($0) }.sorted()
+    }
+
+    /// Keys of `request.interactiveExperience` this runner does not execute.
+    public static func unknownInteractiveExperienceKeys(in block: [String: Any]) -> [String] {
+        block.keys.filter { !interactiveExperience.contains($0) }.sorted()
+    }
+
+    /// Why this runner cannot send `request.interactiveExperience` through the SDK's opt-in, or nil
+    /// when it can. The opt-in API only ever declares support (`supported` must be `true`), and
+    /// only `StandardAttributeKey` names exist. Refused, never trimmed.
+    public static func interactiveExperienceRefusal(in block: [String: Any]) -> String? {
+        guard block["supported"] as? Bool == true else {
+            return "interactiveExperience.supported must be true: the SDK's opt-in can only declare support"
+        }
+        let keys = block["availableAttributeKeys"] as? [Any] ?? []
+        let unknown = keys.filter { ($0 as? String).flatMap(StandardAttributeKey.init(rawValue:)) == nil }
+        guard unknown.isEmpty else {
+            return "interactiveExperience.availableAttributeKeys has keys that are not a StandardAttributeKey: \(unknown)"
+        }
+        return nil
     }
 }
 
