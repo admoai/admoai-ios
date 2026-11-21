@@ -27,6 +27,9 @@ let package = Package(
                 "AudienceSignals.feature",
                 "InteractiveExperience.feature",
                 "LeadFormBridge.feature",
+                "LeadFormController.feature",
+                "SecureFormWebView.feature",
+                "LeadFormView.feature",
                 "Utils/DeviceCategoryClassifier.feature",
             ]
         ),
