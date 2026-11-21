@@ -931,4 +931,52 @@ struct LeadFormControllerTests {
         await Self.waitUntil { waiting.controller.state == .preparing }
         #expect(waiting.controller.state == .preparing)
     }
+
+    // Scenario 37
+    @Test func theBackPressGoesToTheFormOnlyWhileItIsOnScreen() {
+        let h = Harness()
+        #expect(h.controller.handleBack() == false, "nothing shown yet")
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated()
+        h.runtime("prefill_applied")
+        #expect(h.controller.handleBack() == false, "ready but not on screen")
+        h.controller.surfaceDidBecomeVisible()
+        #expect(h.controller.handleBack() == true)
+        #expect(h.sent.last == Sent(type: "back", payload: [:]))
+        h.runtime("request_close")
+        #expect(h.recorder.closeRequests == 1, "the page's answer on its first stage reaches the delegate")
+        #expect(h.controller.state == .visible, "back never closes the form by itself")
+
+        h.controller.surfaceDidBecomeHidden()
+        let sentWhileHidden = h.sentTypes.count
+        #expect(h.controller.handleBack() == false, "hidden: the press belongs to the app")
+        #expect(h.sentTypes.count == sentWhileHidden)
+
+        h.controller.surfaceDidBecomeVisible()
+        h.runtime("submitting")
+        let sentBeforeSubmitBack = h.sentTypes.count
+        #expect(h.controller.handleBack() == true, "consumed while submitting")
+        #expect(h.sentTypes.count == sentBeforeSubmitBack, "nothing is sent mid-submit; the page would ignore it")
+        h.runtime(
+            "submitted",
+            ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
+        )
+        #expect(h.controller.handleBack() == true, "on the confirmation the page answers request_close")
+        #expect(h.sentTypes.filter { $0 == "back" }.count == 2)
+
+        h.controller.dispose()
+        #expect(h.controller.handleBack() == false)
+    }
+
+    // Scenario 37
+    @Test func aFailedFormLeavesTheBackPressToTheApp() {
+        let h = Harness()
+        h.reachVisible()
+        h.bridgeReady() // the page reloaded after activation: the answers are gone
+        #expect(h.controller.state == .failed(retryable: false))
+        #expect(h.controller.handleBack() == false)
+        #expect(!h.sentTypes.contains("back"))
+    }
 }
