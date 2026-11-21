@@ -51,6 +51,8 @@ import Foundation
         private let origin: FormOrigin?
         private let logger: Logger
         private var isTornDown = false
+        /// The one navigation the surface lets through: the load the SDK itself just asked for.
+        private var expectedLoad: URL?
 
         init(launchURL: URL, logger: Logger) {
             origin = FormOrigin(url: launchURL)
@@ -81,7 +83,13 @@ import Foundation
 
         func load(_ url: URL) {
             guard !isTornDown else { return }
+            expectLoad(of: url)
             webView.load(URLRequest(url: url))
+        }
+
+        /// Arms the navigation lock for one main-frame GET of exactly `url`.
+        func expectLoad(of url: URL) {
+            expectedLoad = url
         }
 
         /// Delivers one JSON string to the page as the `data` of a `message` event. The text travels
@@ -120,11 +128,26 @@ import Foundation
             return text
         }
 
-        /// The navigation rule: the launch origin, in the main frame, over https; nothing else.
-        nonisolated static func allowsNavigation(to url: URL?, inMainFrame: Bool, launchOrigin: FormOrigin?) -> Bool {
-            guard inMainFrame, let url, let target = FormOrigin(url: url),
-                  target.scheme == "https" else { return false }
-            return target == launchOrigin
+        /// The navigation rule: only the load the SDK asked for, once: a main-frame GET over https of
+        /// exactly that address. Everything else is cancelled, including a reload, a second load of
+        /// the launch address, a form POST to it, another path on the same origin and a redirect.
+        nonisolated static func allowsNavigation(
+            to url: URL?,
+            method: String?,
+            inMainFrame: Bool,
+            expected: URL?
+        ) -> Bool {
+            guard inMainFrame, let url, let expected, url.scheme == "https",
+                  (method ?? "GET").uppercased() == "GET" else { return false }
+            return withoutFragment(url) == withoutFragment(expected)
+        }
+
+        /// WebKit may or may not keep the fragment on the request it reports; the launch address's
+        /// fragment carries no server-visible data, so the comparison leaves it out.
+        private nonisolated static func withoutFragment(_ url: URL) -> String {
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            components?.fragment = nil
+            return components?.string ?? url.absoluteString
         }
 
         fileprivate func receive(_ message: WKScriptMessage) {
@@ -191,12 +214,15 @@ import Foundation
         ) {
             let allowed = Self.allowsNavigation(
                 to: navigationAction.request.url,
+                method: navigationAction.request.httpMethod,
                 inMainFrame: navigationAction.targetFrame?.isMainFrame == true,
-                launchOrigin: origin
+                expected: expectedLoad
             )
-            if !allowed {
+            if allowed {
+                expectedLoad = nil
+            } else {
                 cancelledNavigationCount += 1
-                logger.warning("Lead form surface cancelled a navigation outside the form's origin")
+                logger.warning("Lead form surface cancelled a navigation it did not start")
             }
             decisionHandler(allowed ? .allow : .cancel)
         }

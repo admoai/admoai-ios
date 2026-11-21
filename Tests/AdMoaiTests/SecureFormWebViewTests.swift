@@ -38,6 +38,7 @@ import Testing
 
             /// Loads `html` as if served from `base`, then waits for the page to say it ran.
             func load(_ html: String, base: URL = SecureFormWebViewTests.launch) async {
+                surface.expectLoad(of: base)
                 surface.webView.loadHTMLString(
                     "<html><body>\(html)<script>window.__ready = true;</script></body></html>",
                     baseURL: base
@@ -120,19 +121,32 @@ import Testing
 
         // Scenario 5
         @Test func navigationAwayFromTheFormIsCancelled() async {
-            let launch = FormOrigin(url: Self.launch)
-            let allows = { (url: String, main: Bool) in
-                SecureFormWebView.allowsNavigation(to: URL(string: url), inMainFrame: main, launchOrigin: launch)
+            let expected = URL(string: "https://forms.example.invalid/launch?x=1#instanceId=i&channel=c")
+            let allows = { (url: String, method: String?, main: Bool) in
+                SecureFormWebView.allowsNavigation(
+                    to: URL(string: url),
+                    method: method,
+                    inMainFrame: main,
+                    expected: expected
+                )
             }
-            #expect(allows("https://forms.example.invalid/launch?x=1#a=b", true))
-            #expect(allows("https://FORMS.example.invalid:443/other", true))
-            #expect(!allows("https://forms.example.invalid/launch", false))
-            #expect(!allows("https://evil.example.invalid/", true))
-            #expect(!allows("http://forms.example.invalid/launch", true))
-            #expect(!allows("https://forms.example.invalid:8443/", true))
-            #expect(!allows("about:blank", true))
-            #expect(!allows("javascript:alert(1)", true))
-            #expect(!allows("file:///etc/passwd", true))
+            #expect(allows("https://forms.example.invalid/launch?x=1#instanceId=i&channel=c", "GET", true))
+            #expect(allows("https://forms.example.invalid/launch?x=1", nil, true), "WebKit may drop the fragment")
+            #expect(
+                !allows("https://forms.example.invalid/launch?x=1", "POST", true),
+                "a form POST to the launch address"
+            )
+            #expect(!allows("https://forms.example.invalid/launch?x=1", "GET", false))
+            #expect(!allows("https://forms.example.invalid/other", "GET", true), "another path on the same origin")
+            #expect(!allows("https://forms.example.invalid/launch?x=2", "GET", true))
+            #expect(!allows("https://evil.example.invalid/", "GET", true))
+            #expect(!allows("http://forms.example.invalid/launch?x=1", "GET", true))
+            #expect(!allows("about:blank", "GET", true))
+            #expect(!allows("javascript:alert(1)", "GET", true))
+            #expect(!allows("file:///etc/passwd", "GET", true))
+            #expect(!SecureFormWebView.allowsNavigation(
+                to: expected, method: "GET", inMainFrame: true, expected: nil
+            ), "nothing the SDK did not ask for")
 
             let h = Harness()
             await h.load("")
@@ -140,7 +154,17 @@ import Testing
             await Self.wait { h.surface.cancelledNavigationCount == 1 }
             _ = await h.evaluate("location.href = 'http://forms.example.invalid/insecure'")
             await Self.wait { h.surface.cancelledNavigationCount == 2 }
-            #expect(h.surface.cancelledNavigationCount == 2)
+            // The launch address itself: a second load, a reload and a form POST are all refused.
+            _ = await h.evaluate("location.href = 'https://forms.example.invalid/launch'")
+            await Self.wait { h.surface.cancelledNavigationCount == 3 }
+            _ = await h.evaluate("location.reload()")
+            await Self.wait { h.surface.cancelledNavigationCount == 4 }
+            _ = await h.evaluate(
+                "const f = document.createElement('form'); f.method = 'POST'; " +
+                    "f.action = 'https://forms.example.invalid/launch'; document.body.appendChild(f); f.submit()"
+            )
+            await Self.wait { h.surface.cancelledNavigationCount == 5 }
+            #expect(h.surface.cancelledNavigationCount == 5)
             #expect(h.loadFailures == 0, "a navigation the surface cancelled is not a load failure")
         }
 

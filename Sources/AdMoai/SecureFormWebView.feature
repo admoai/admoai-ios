@@ -21,7 +21,8 @@ Feature: The form runs in a locked-down web view that talks only through the bri
     Then the SDK refuses it
 
   Scenario: Navigation away from the form is cancelled
-    When the page navigates to another origin, or to a non-https address
+    Given the surface loaded the form's launch address once
+    When the page navigates anywhere: another origin, a non-https address, another path, the launch address again, a reload or a form POST
     Then the navigation is cancelled
 
   Scenario: Popups never open
