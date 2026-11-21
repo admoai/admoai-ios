@@ -7,9 +7,10 @@ descriptor fixtures. Identical to adhub main at `b1e28e23d` (the pack merged wit
 #7170).
 
 `bridge-messages.json`, `error-codes.json` and `bridge/**` (the bridge fixtures, from
-`fixtures/bridge/**`) are vendored the same way at adhub 52eb9598a (PR #7170, the bridge handshake
-delta, with `back` and every submissions error code in `submit_failed`). `bridge/context.json` is the identity the SDK minted for one controller; `bridge/invalid/**`
-are messages that must be refused. `LeadFormBridgeTests` asserts the SDK's table equals
+`fixtures/bridge/**`) are vendored the same way, also identical to adhub main at `b1e28e23d`
+(#7170 merged: `bridgeVersion`, `submitting`, `submit_failed`, `back`). `bridge/context.json` is
+the identity the SDK minted for one controller; `bridge/invalid/**` are messages that must be
+refused. `LeadFormBridgeTests` asserts the SDK's table equals
 `bridge-messages.json` with no exceptions.
 
 `InteractiveExperienceTests` fails when the SDK drifts from them: the typed keys must be the
