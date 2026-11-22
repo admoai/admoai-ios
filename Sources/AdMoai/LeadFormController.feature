@@ -3,7 +3,7 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   I want the form ready when I tap, shown only when it can be used, and never leaking what I type or what the app knows
   So that opening a form feels instant, a failed one recovers or steps aside, and nothing personal reaches the app's code
 
-  The controller only reports a state and, once submitted, the lead id. Links and form events the
+  The controller only reports a state and, once submitted, the lead id and when it was accepted. Links and form events the
   page requests are validated and ignored in this item. Contact values are supplied in a later
   item: prefill is sent empty for now.
 
@@ -66,9 +66,9 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
     Then the state is visible and the form retries itself
     And an answer that does not follow a new submitting is refused
 
-  Scenario: A submission reports only its lead id
+  Scenario: A submission reports only its lead id and when it was accepted
     When the form reports submitted
-    Then the state is submitted with the lead id and nothing else
+    Then the state is submitted with the lead id and the time the form accepted it, and nothing else
 
   Scenario: Disposing is final
     When the app disposes twice

@@ -209,8 +209,8 @@ import Testing
             #expect(SecureFormWebView.loadFailure(forStatus: 200) == nil)
             #expect(SecureFormWebView.loadFailure(forStatus: 304) == nil)
             #expect(SecureFormWebView.loadFailure(forStatus: 404) == .unavailable)
-            #expect(SecureFormWebView.loadFailure(forStatus: 410) == .transient)
-            #expect(SecureFormWebView.loadFailure(forStatus: 403) == .transient)
+            #expect(SecureFormWebView.loadFailure(forStatus: 410) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 403) == .unavailable)
             #expect(SecureFormWebView.loadFailure(forStatus: 500) == .transient)
             #expect(SecureFormWebView.loadFailure(forStatus: 503) == .transient)
         }

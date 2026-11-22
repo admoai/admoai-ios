@@ -267,12 +267,12 @@ import Foundation
             onLoadFailed?(.transient)
         }
 
-        /// The form page's own HTTP status. WebKit renders an error page as a page, so a 404 or
+        /// The form page's own HTTP status. WebKit renders an error page as a page, so a 4xx or
         /// 5xx would otherwise wait forever for a bridge_ready that never comes.
         nonisolated static func loadFailure(forStatus status: Int) -> LeadFormLoadFailure? {
             switch status {
             case ..<400: nil
-            case 404: .unavailable
+            case 400 ..< 500: .unavailable
             default: .transient
             }
         }

@@ -5,7 +5,8 @@ import Foundation
 
 // MARK: - Public surface
 
-/// Where the lead form is in its life. Carries only a state and, once submitted, the lead id:
+/// Where the lead form is in its life. Carries only a state and, once submitted, the lead id and
+/// when the form accepted it:
 /// never the preparation token, a contact value, or an answer.
 @_spi(InteractiveExperience)
 public enum LeadFormState: Equatable {
@@ -16,12 +17,12 @@ public enum LeadFormState: Equatable {
     case readyToShow
     case visible
     case submitting
-    case submitted(leadId: String)
+    case submitted(leadId: String, submittedAt: Date)
     /// The form ended with `errorCode`. Decide whether to offer a retry from `retryable`, never from
     /// the code, and never show the code to the viewer. Codes the SDK itself reports:
     /// - `form_not_available`: Lead Generation is not available for this app right now (the form
-    ///   page answered 404). Not retryable: stop offering the form on this ad.
-    /// - `temporary_failure`: the form page could not be loaded (a server error or no network).
+    ///   page answered a 4xx, such as 404). Not retryable: stop offering the form on this ad.
+    /// - `temporary_failure`: the form page could not be loaded (a 5xx or no network).
     ///   Retryable: `retry()` loads it again.
     /// - `navigation_blocked`: the page tried to leave the form, so the SDK closed it.
     /// - `renderer_gone`: the page's web content process ended. Retryable before activation.
@@ -48,10 +49,10 @@ public protocol LeadFormControllerDelegate: AnyObject {
 
 /// Why the form page could not be loaded.
 enum LeadFormLoadFailure: Equatable {
-    /// The page answered 404 (`form_not_available` while Lead Generation is off): loading it again
-    /// cannot help.
+    /// The page answered a 4xx (`404 form_not_available` while Lead Generation is off): loading it
+    /// again cannot help.
     case unavailable
-    /// No answer, or any other HTTP error: loading it again may work.
+    /// No answer, or a 5xx: loading it again may work.
     case transient
     /// The surface refused a main-frame navigation before any page committed (the launch address
     /// redirected): there is no form, and nothing would ever answer.
@@ -281,7 +282,7 @@ public final class LeadFormController {
         guard !bridgeReadySeen, [.preparing, .prepared, .activating].contains(state) else { return }
         switch failure {
         case .unavailable:
-            // The page answered 404 form_not_available and will never send bridge_ready.
+            // The page answered a 4xx (404 form_not_available) and will never send bridge_ready.
             set(.failed(errorCode: "form_not_available", retryable: false))
         case .blocked:
             set(.failed(errorCode: "navigation_blocked", retryable: false))
@@ -342,9 +343,9 @@ public final class LeadFormController {
         case .submitFailed:
             guard state == .submitting else { return }
             set(surfaceVisible ? .visible : .readyToShow)
-        case let .submitted(leadId, _):
+        case let .submitted(leadId, submittedAt):
             guard state == .submitting else { return }
-            set(.submitted(leadId: leadId))
+            set(.submitted(leadId: leadId, submittedAt: submittedAt))
         }
     }
 

@@ -50,6 +50,9 @@ struct LeadFormControllerTests {
         }
     }
 
+    /// The `submittedAt` the tests' `submitted` messages carry (2026-11-12T15:04:05Z).
+    private static let submittedAt = Date(timeIntervalSince1970: 1_794_495_845)
+
     private struct Sent: Equatable {
         let type: String
         let payload: [String: JSONValue]
@@ -309,7 +312,10 @@ struct LeadFormControllerTests {
             "submitted",
             ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
         )
-        #expect(h.controller.state == .submitted(leadId: "lead_01KG000000000000000000W001"))
+        #expect(h.controller.state == .submitted(
+            leadId: "lead_01KG000000000000000000W001",
+            submittedAt: Self.submittedAt
+        ))
 
         // An answer with no unanswered submitting before it is refused.
         let again = Harness()
@@ -323,7 +329,10 @@ struct LeadFormControllerTests {
         )
         #expect(again.controller.state == .visible, "submitted after submit_failed needs a new submitting")
         again.runtime("submit_failed", ["errorCode": .string("temporary_failure"), "retryable": .bool(true)])
-        #expect(!again.recorder.states.contains(.submitted(leadId: "lead_01KG000000000000000000W001")))
+        #expect(!again.recorder.states.contains(.submitted(
+            leadId: "lead_01KG000000000000000000W001",
+            submittedAt: Self.submittedAt
+        )))
     }
 
     // Scenario 13
@@ -341,7 +350,10 @@ struct LeadFormControllerTests {
             "submitted",
             ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
         )
-        #expect(h.recorder.states.last == .submitted(leadId: "lead_01KG000000000000000000W001"))
+        #expect(h.recorder.states.last == .submitted(
+            leadId: "lead_01KG000000000000000000W001",
+            submittedAt: Self.submittedAt
+        ))
     }
 
     // Scenario 14
