@@ -15,7 +15,7 @@ struct LeadFormControllerTests {
 
     private final class FakeTransport: LeadFormTransport {
         var onMessage: ((String) -> Void)?
-        var onLoadFailed: (() -> Void)?
+        var onLoadFailed: ((LeadFormLoadFailure) -> Void)?
         private(set) var loads: [URL] = []
         private(set) var sentTexts: [String] = []
         private(set) var teardowns = 0
@@ -475,7 +475,7 @@ struct LeadFormControllerTests {
     @Test func aPageThatCannotLoadIsReloadedOnRetry() {
         let offline = Harness()
         offline.controller.prepare()
-        offline.transport.onLoadFailed?()
+        offline.transport.onLoadFailed?(.transient)
         #expect(offline.controller.state == .failed(retryable: true))
         offline.controller.retry()
         #expect(offline.controller.state == .preparing)
@@ -491,7 +491,7 @@ struct LeadFormControllerTests {
         let lost = Harness()
         lost.controller.prepare()
         lost.bridgeReady()
-        lost.transport.onLoadFailed?()
+        lost.transport.onLoadFailed?(.transient)
         lost.controller.retry()
         #expect(lost.transport.loads.count == 2)
         #expect(!lost.sentTypes.contains("retry_prepare"))
@@ -506,7 +506,7 @@ struct LeadFormControllerTests {
         h.bridgeReady()
         h.prepared()
         h.activated()
-        h.transport.onLoadFailed?()
+        h.transport.onLoadFailed?(.transient)
         #expect(h.controller.state == .failed(retryable: false))
         h.controller.retry()
         #expect(h.transport.loads.count == 1)
@@ -538,5 +538,16 @@ struct LeadFormControllerTests {
         let controller = sdk.makeLeadFormController(for: experience, presentation: .inline)
         #expect(controller != nil)
         controller?.dispose()
+    }
+
+    // Scenario 24
+    @Test func aFormThePageServerRefusesEndsAtOnce() {
+        let h = Harness()
+        h.controller.open()
+        h.transport.onLoadFailed?(.unavailable) // e.g. 404 form_not_available, Lead Generation off
+        #expect(h.controller.state == .failed(retryable: false))
+        h.controller.retry()
+        #expect(h.transport.loads.count == 1, "nothing to reload: the server does not serve the form")
+        #expect(h.sentTypes.isEmpty)
     }
 }

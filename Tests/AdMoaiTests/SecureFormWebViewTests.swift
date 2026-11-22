@@ -27,7 +27,7 @@ import Testing
                     logger: Logger(subsystem: "test", category: "SecureFormWebViewTests")
                 )
                 surface.onMessage = { [weak self] in self?.received.append($0) }
-                surface.onLoadFailed = { [weak self] in self?.loadFailures += 1 }
+                surface.onLoadFailed = { [weak self] _ in self?.loadFailures += 1 }
             }
 
             func evaluate(_ script: String) async -> Any? {
@@ -204,6 +204,14 @@ import Testing
             h.surface.load(Self.launch) // the launch host is unreachable (.invalid)
             await Self.wait { h.loadFailures >= 1 }
             #expect(h.loadFailures >= 1)
+
+            // A page that answers with an HTTP error is a failure too, final for a 4xx.
+            #expect(SecureFormWebView.loadFailure(forStatus: 200) == nil)
+            #expect(SecureFormWebView.loadFailure(forStatus: 304) == nil)
+            #expect(SecureFormWebView.loadFailure(forStatus: 404) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 410) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 500) == .transient)
+            #expect(SecureFormWebView.loadFailure(forStatus: 503) == .transient)
         }
 
         // Scenario 8

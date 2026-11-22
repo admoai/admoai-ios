@@ -34,6 +34,15 @@ public protocol LeadFormControllerDelegate: AnyObject {
 
 // MARK: - Transport seam
 
+/// Why the form page could not be loaded.
+enum LeadFormLoadFailure: Equatable {
+    /// The server answered the page with a 4xx (for example `404 form_not_available` while Lead
+    /// Generation is off): loading it again cannot help.
+    case unavailable
+    /// No answer, a 5xx, or a lost renderer: loading it again may work.
+    case transient
+}
+
 /// What the controller needs from the surface that hosts the form page. Production is
 /// ``SecureFormWebView``; unit tests drive the controller with a fake.
 @MainActor
@@ -41,7 +50,7 @@ protocol LeadFormTransport: AnyObject {
     /// Receives each string the page posts, already filtered to the form's own frame and origin.
     var onMessage: ((String) -> Void)? { get set }
     /// The page could not be loaded, or its renderer was lost.
-    var onLoadFailed: (() -> Void)? { get set }
+    var onLoadFailed: ((LeadFormLoadFailure) -> Void)? { get set }
     func load(_ url: URL)
     func send(_ message: String)
     func teardown()
@@ -104,7 +113,7 @@ public final class LeadFormController {
         self.now = now
         channel = Self.mintChannel()
         transport.onMessage = { [weak self] text in self?.receive(text) }
-        transport.onLoadFailed = { [weak self] in self?.loadFailed() }
+        transport.onLoadFailed = { [weak self] in self?.loadFailed($0) }
     }
 
     // MARK: Commands
@@ -240,7 +249,7 @@ public final class LeadFormController {
 
     /// The page failed to load or its renderer was lost. After activation the answers typed so far
     /// are gone, so it is final; before, nothing was typed and loading again is safe.
-    private func loadFailed() {
+    private func loadFailed(_ failure: LeadFormLoadFailure) {
         guard !isDisposed, !isFinished else { return }
         if activated {
             set(.failed(retryable: false))
@@ -248,6 +257,11 @@ public final class LeadFormController {
         }
         switch state {
         case .preparing, .prepared, .activating:
+            // A page the server refused never sends bridge_ready: end the form instead of waiting.
+            guard failure == .transient else {
+                set(.failed(retryable: false))
+                return
+            }
             retryIsReload = true
             set(.failed(retryable: true))
         default:

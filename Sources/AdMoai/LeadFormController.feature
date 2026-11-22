@@ -112,3 +112,8 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   Scenario: An app that did not opt in gets no controller
     When the app asks for a controller without having opted in
     Then it gets none
+
+  Scenario: A form the page server refuses ends at once
+    Given Lead Generation is off and the form page answers 404 form_not_available
+    When the viewer taps the creative
+    Then the state is failed, not retryable, and nothing waits for a page that will never speak

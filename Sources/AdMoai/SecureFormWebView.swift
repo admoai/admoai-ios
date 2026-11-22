@@ -43,7 +43,7 @@ import Foundation
 
         let webView: WKWebView
         var onMessage: ((String) -> Void)?
-        var onLoadFailed: (() -> Void)?
+        var onLoadFailed: ((LeadFormLoadFailure) -> Void)?
         /// Counts, for tests and for support: how many page messages / navigations were refused.
         private(set) var refusedMessageCount = 0
         private(set) var cancelledNavigationCount = 0
@@ -241,7 +241,7 @@ import Foundation
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             logger.warning("Lead form surface lost its web content process")
-            onLoadFailed?()
+            onLoadFailed?(.transient)
         }
 
         /// A navigation the surface itself cancelled is not a failure of the form.
@@ -251,7 +251,34 @@ import Foundation
                 || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102)
             guard !cancelled else { return }
             logger.warning("Lead form surface could not load the form page")
-            onLoadFailed?()
+            onLoadFailed?(.transient)
+        }
+
+        /// The form page's own HTTP status. WebKit renders an error page as a page, so a 4xx or
+        /// 5xx would otherwise wait forever for a bridge_ready that never comes.
+        nonisolated static func loadFailure(forStatus status: Int) -> LeadFormLoadFailure? {
+            switch status {
+            case ..<400: nil
+            case 400 ..< 500: .unavailable
+            default: .transient
+            }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationResponse: WKNavigationResponse,
+            decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+        ) {
+            guard navigationResponse.isForMainFrame,
+                  let status = (navigationResponse.response as? HTTPURLResponse)?.statusCode,
+                  let failure = Self.loadFailure(forStatus: status)
+            else {
+                decisionHandler(.allow)
+                return
+            }
+            decisionHandler(.cancel)
+            logger.warning("Lead form surface got HTTP \(status, privacy: .public) for the form page")
+            onLoadFailed?(failure)
         }
 
         /// No popups: the form never opens another window.

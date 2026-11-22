@@ -34,8 +34,8 @@ Feature: The form runs in a locked-down web view that talks only through the bri
     Then the page's onmessage and every message listener receive that exact text as the event data
 
   Scenario: A page that cannot load, or a lost renderer, is reported
-    When the form page cannot be reached, or the web content process ends
-    Then the SDK is told the page failed
+    When the form page cannot be reached, answers with an HTTP error, or the web content process ends
+    Then the SDK is told the page failed, and that a 4xx answer will not change on a reload
     And a navigation the surface itself cancelled is not reported as a failure
 
   Scenario: The web view keeps nothing and is released
