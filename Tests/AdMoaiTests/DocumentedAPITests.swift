@@ -524,9 +524,9 @@ final class NoPrefillProvider: LeadFormValueProvider {
             switch state {
             case .visible:
                 break
-            case .failed(retryable: true):
+            case .failed(_, retryable: true):
                 controller.retry()
-            case .failed(retryable: false), .expired:
+            case .failed(_, retryable: false), .expired:
                 closeForm(controller)
             case let .submitted(leadId):
                 _ = leadId

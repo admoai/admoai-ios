@@ -4,14 +4,14 @@
 APIError  enum  enum APIError
 APIError.==(_:_:)  operator  static func == (lhs: APIError, rhs: APIError) -> Bool
 APIError.clientError(_:)  case  case clientError(HTTPStatus)
-APIError.decodingError(_:)  case  case decodingError(any Error)
+APIError.decodingError(_:)  case  case decodingError(Error)
 APIError.description  property  var description: String { get }
 APIError.encodingError(_:)  case  case encodingError(String)
 APIError.engineErrors  property  var engineErrors: [AdMoaiError] { get }
 APIError.httpStatus  property  var httpStatus: Int? { get }
 APIError.invalidResponse  case  case invalidResponse
 APIError.invalidURL  case  case invalidURL
-APIError.networkError(_:)  case  case networkError(any Error)
+APIError.networkError(_:)  case  case networkError(Error)
 APIError.requestRejected(status:errors:)  case  case requestRejected(status: Int, errors: [AdMoaiError])
 APIError.serverError(_:)  case  case serverError(Int)
 APIError.unexpectedStatusCode(_:)  case  case unexpectedStatusCode(Int)
@@ -23,7 +23,7 @@ APIResponse.response  property  let response: HTTPURLResponse
 APIResponseBody  struct  struct APIResponseBody<T> where T : Decodable
 APIResponseBody.data  property  let data: T?
 APIResponseBody.errors  property  let errors: [AdMoaiError]?
-APIResponseBody.init(from:)  init  init(from decoder: any Decoder) throws
+APIResponseBody.init(from:)  init  init(from decoder: Decoder) throws
 APIResponseBody.success  property  let success: Bool
 APIResponseBody.warnings  property  let warnings: [AdMoaiWarning]?
 AdMoai  struct  struct AdMoai
@@ -37,7 +37,7 @@ AdMoai.createRequestBuilder()  method  func createRequestBuilder() -> DecisionRe
 AdMoai.deviceConfig  property  var deviceConfig: DeviceConfig { get }
 AdMoai.disableInteractiveExperiences()  method  func disableInteractiveExperiences()
 AdMoai.enableDeviceCategoryCollection()  method  mutating func enableDeviceCategoryCollection()
-AdMoai.enableInteractiveExperiences(valueProvider:)  method  func enableInteractiveExperiences(valueProvider: any LeadFormValueProvider)
+AdMoai.enableInteractiveExperiences(valueProvider:)  method  func enableInteractiveExperiences(valueProvider: LeadFormValueProvider)
 AdMoai.fireAssetTap(tracking:)  method  func fireAssetTap(tracking: Tracking)
 AdMoai.fireClick(tracking:key:)  method  func fireClick(tracking: Tracking, key: String = "default")
 AdMoai.fireClose(tracking:)  method  func fireClose(tracking: Tracking)
@@ -81,15 +81,15 @@ AdMoaiWarning.message  property  let message: String
 Advertiser  struct  struct Advertiser
 Advertiser.id  property  let id: String?
 Advertiser.init()  init  init()
-Advertiser.init(from:)  init  init(from decoder: any Decoder) throws
+Advertiser.init(from:)  init  init(from decoder: Decoder) throws
 Advertiser.legalName  property  let legalName: String?
 Advertiser.logoUrl  property  let logoUrl: String?
 Advertiser.name  property  let name: String?
 AnyCodable  struct  struct AnyCodable
 AnyCodable.description  property  var description: String? { get }
-AnyCodable.encode(to:)  method  func encode(to encoder: any Encoder) throws
+AnyCodable.encode(to:)  method  func encode(to encoder: Encoder) throws
 AnyCodable.init(_:)  init  init(_ value: Any)
-AnyCodable.init(from:)  init  init(from decoder: any Decoder) throws
+AnyCodable.init(from:)  init  init(from decoder: Decoder) throws
 App  struct  struct App
 App.buildNumber  property  let buildNumber: String?
 App.identifier  property  let identifier: String?
@@ -175,7 +175,7 @@ AudienceSignals.SubscriptionStatus.trial  case  case trial
 Clearable  protocol  protocol Clearable
 Clearable.clear()  static method  static func clear() -> Self
 Content  struct  struct Content
-Content.init(from:)  init  init(from decoder: any Decoder) throws
+Content.init(from:)  init  init(from decoder: Decoder) throws
 Content.key  property  let key: String
 Content.type  property  let type: String
 Content.value  property  let value: AnyCodable
@@ -189,7 +189,7 @@ Creative.getVastXmlBase64(mediaType:mediaDelivery:)  method  func getVastXmlBase
 Creative.getVerificationResources()  method  func getVerificationResources() -> [VerificationScriptResource]?
 Creative.hasCompletionUrl  property  var hasCompletionUrl: Bool { get }
 Creative.hasOMVerification()  method  func hasOMVerification() -> Bool
-Creative.init(from:)  init  init(from decoder: any Decoder) throws
+Creative.init(from:)  init  init(from decoder: Decoder) throws
 Creative.interactiveExperience  property  let interactiveExperience: InteractiveExperience?
 Creative.isJourneyAd  property  var isJourneyAd: Bool { get }
 Creative.isJourneyCompletion  property  var isJourneyCompletion: Bool { get }
@@ -219,7 +219,7 @@ CreativeJourney  struct  struct CreativeJourney
 CreativeJourney.dealId  property  let dealId: String?
 CreativeJourney.definitionKey  property  let definitionKey: String?
 CreativeJourney.fallbackBillingMode  property  let fallbackBillingMode: String?
-CreativeJourney.init(from:)  init  init(from decoder: any Decoder) throws
+CreativeJourney.init(from:)  init  init(from decoder: Decoder) throws
 CreativeJourney.instanceId  property  let instanceId: String?
 CreativeJourney.isCompletion  property  let isCompletion: Bool?
 CreativeJourney.optStatus  property  let optStatus: JourneyOpt?
@@ -231,13 +231,13 @@ CreativeJourney.stageNodeId  property  let stageNodeId: String?
 Decision  struct  struct Decision
 Decision.creatives  property  let creatives: [Creative]?
 Decision.hasCreative  property  var hasCreative: Bool { get }
-Decision.init(from:)  init  init(from decoder: any Decoder) throws
+Decision.init(from:)  init  init(from decoder: Decoder) throws
 Decision.isNoAd  property  var isNoAd: Bool { get }
 Decision.placement  property  let placement: String
 DecisionRequest  struct  struct DecisionRequest
 DecisionRequest.app  property  let app: App?
 DecisionRequest.device  property  let device: Device?
-DecisionRequest.encode(to:)  method  func encode(to encoder: any Encoder) throws
+DecisionRequest.encode(to:)  method  func encode(to encoder: Encoder) throws
 DecisionRequest.interactiveExperience  property  let interactiveExperience: InteractiveExperienceCapability?
 DecisionRequest.journeyOpt  property  let journeyOpt: JourneyOpt?
 DecisionRequest.journeySessionIdRejectionReason(_:)  static method  static func journeySessionIdRejectionReason(_ sessionId: String?) -> String?
@@ -383,12 +383,12 @@ InteractiveExperienceCapability.availableAttributeKeys  property  let availableA
 InteractiveExperienceCapability.supported  property  let supported: Bool
 JourneyOpt  enum  enum JourneyOpt
 JourneyOpt.fromWire(_:)  static method  static func fromWire(_ raw: String?) -> JourneyOpt?
-JourneyOpt.init(from:)  init  init(from decoder: any Decoder) throws
+JourneyOpt.init(from:)  init  init(from decoder: Decoder) throws
 JourneyOpt.init(rawValue:)  init  init?(rawValue: String)
 JourneyOpt.optIn  case  case optIn
 JourneyOpt.optOut  case  case optOut
 LeadFormController  class  @MainActor final class LeadFormController
-LeadFormController.delegate  property  @MainActor weak var delegate: (any LeadFormControllerDelegate)?
+LeadFormController.delegate  property  @MainActor weak var delegate: LeadFormControllerDelegate?
 LeadFormController.dispose()  method  @MainActor func dispose()
 LeadFormController.handleBack()  method  @MainActor func handleBack() -> Bool
 LeadFormController.open()  method  @MainActor func open()
@@ -413,7 +413,7 @@ LeadFormState  enum  enum LeadFormState
 LeadFormState.activating  case  case activating
 LeadFormState.disposed  case  case disposed
 LeadFormState.expired  case  case expired
-LeadFormState.failed(retryable:)  case  case failed(retryable: Bool)
+LeadFormState.failed(errorCode:retryable:)  case  case failed(errorCode: String, retryable: Bool)
 LeadFormState.idle  case  case idle
 LeadFormState.prepared  case  case prepared
 LeadFormState.preparing  case  case preparing
@@ -460,7 +460,7 @@ Metadata.effectiveStandardFormatVersion  property  let effectiveStandardFormatVe
 Metadata.endCardMode  property  let endCardMode: String?
 Metadata.format  property  let format: String?
 Metadata.impId  property  let impId: String?
-Metadata.init(from:)  init  init(from decoder: any Decoder) throws
+Metadata.init(from:)  init  init(from decoder: Decoder) throws
 Metadata.isSkippable  property  let isSkippable: Bool?
 Metadata.language  property  let language: String?
 Metadata.placementId  property  let placementId: String
@@ -478,7 +478,7 @@ Placement.key  property  let key: String
 Placement.templateId  property  let templateId: String?
 Priority  enum  enum Priority
 Priority.house  case  case house
-Priority.init(from:)  init  init(from decoder: any Decoder) throws
+Priority.init(from:)  init  init(from decoder: Decoder) throws
 Priority.init(rawValue:)  init  init?(rawValue: String)
 Priority.sponsorship  case  case sponsorship
 Priority.standard  case  case standard
@@ -502,13 +502,13 @@ SDKError.invalidPublisherSegment(_:)  case  case invalidPublisherSegment(String)
 SDKError.noPlacements  case  case noPlacements
 Slide  struct  struct Slide
 Slide.contents  property  let contents: [Content]
-Slide.init(from:)  init  init(from decoder: any Decoder) throws
+Slide.init(from:)  init  init(from decoder: Decoder) throws
 Slide.position  property  let position: Int
 Slide.slideId  property  let slideId: String
 Slide.tracking  property  let tracking: SlideTracking?
 SlideTracking  struct  struct SlideTracking
 SlideTracking.clicks  property  let clicks: [TrackingItem]?
-SlideTracking.init(from:)  init  init(from decoder: any Decoder) throws
+SlideTracking.init(from:)  init  init(from decoder: Decoder) throws
 SlideTracking.views  property  let views: [TrackingItem]?
 StandardAttributeKey  enum  enum StandardAttributeKey
 StandardAttributeKey.age  case  case age
@@ -519,6 +519,7 @@ StandardAttributeKey.gender  case  case gender
 StandardAttributeKey.init(rawValue:)  init  init?(rawValue: String)
 StandardAttributeKey.lastName  case  case lastName
 StandardAttributeKey.phone  case  case phone
+Swift::Array  extension  extension [Content] where Element == Content
 Swift::Array.getContent(key:)  method  func getContent(key: String) -> Content?
 Swift::Array.hasContents()  method  func hasContents() -> Bool
 Swift::Array.isType(key:type:)  method  func isType(key: String, type: String) -> Bool
@@ -526,15 +527,15 @@ Targeting  struct  struct Targeting
 Targeting.CustomKeyValue  typealias  typealias CustomKeyValue = (key: String, value: Any)
 Targeting.DestinationCoordinate  typealias  typealias DestinationCoordinate = (latitude: Double, longitude: Double, minConfidence: Double)
 Targeting.LocationCoordinate  typealias  typealias LocationCoordinate = (latitude: Double, longitude: Double)
-Targeting.custom  property  let custom: [Targeting.CustomKeyValue]?
-Targeting.destination  property  let destination: [Targeting.DestinationCoordinate]?
+Targeting.custom  property  let custom: [CustomKeyValue]?
+Targeting.destination  property  let destination: [DestinationCoordinate]?
 Targeting.distance  property  let distance: Distance?
-Targeting.encode(to:)  method  func encode(to encoder: any Encoder) throws
+Targeting.encode(to:)  method  func encode(to encoder: Encoder) throws
 Targeting.geo  property  let geo: [Int]?
-Targeting.init(geo:location:destination:custom:distance:)  init  init(geo: [Int]? = nil, location: [Targeting.LocationCoordinate]? = nil, destination: [Targeting.DestinationCoordinate]? = nil, custom: [Targeting.CustomKeyValue]? = nil, distance: Distance? = nil)
-Targeting.location  property  let location: [Targeting.LocationCoordinate]?
+Targeting.init(geo:location:destination:custom:distance:)  init  init(geo: [Int]? = nil, location: [LocationCoordinate]? = nil, destination: [DestinationCoordinate]? = nil, custom: [CustomKeyValue]? = nil, distance: Distance? = nil)
+Targeting.location  property  let location: [LocationCoordinate]?
 Template  struct  struct Template
-Template.init(from:)  init  init(from decoder: any Decoder) throws
+Template.init(from:)  init  init(from decoder: Decoder) throws
 Template.key  property  let key: String
 Template.style  property  let style: String?
 ThirdPartyTracker  struct  struct ThirdPartyTracker
@@ -557,7 +558,7 @@ Tracking.getVideoEventUrl(key:)  method  func getVideoEventUrl(key: String) -> S
 Tracking.hasTrackingFor(type:key:)  method  func hasTrackingFor(type: TrackingType, key: String) -> Bool
 Tracking.impressions  property  let impressions: [TrackingItem]?
 Tracking.init()  init  init()
-Tracking.init(from:)  init  init(from decoder: any Decoder) throws
+Tracking.init(from:)  init  init(from decoder: Decoder) throws
 Tracking.thirdPartyTrackers  property  let thirdPartyTrackers: [ThirdPartyTracker]?
 Tracking.videoEvents  property  let videoEvents: [TrackingItem]?
 TrackingItem  struct  struct TrackingItem
@@ -573,12 +574,12 @@ TrackingType.init(rawValue:)  init  init?(rawValue: String)
 TrackingType.videoEvent  case  case videoEvent
 User  struct  struct User
 User.Consent  struct  struct Consent
-User.Consent.==(_:_:)  operator  static func == (lhs: User.Consent, rhs: User.Consent) -> Bool
+User.Consent.==(_:_:)  operator  static func == (lhs: Consent, rhs: Consent) -> Bool
 User.Consent.gdpr  property  let gdpr: Bool
 User.Consent.init(gdpr:)  init  init(gdpr: Bool = false)
-User.consent  property  let consent: User.Consent?
+User.consent  property  let consent: Consent?
 User.id  property  let id: String?
-User.init(id:ip:timezone:consent:)  init  init(id: String? = nil, ip: String? = nil, timezone: String? = nil, consent: User.Consent? = nil)
+User.init(id:ip:timezone:consent:)  init  init(id: String? = nil, ip: String? = nil, timezone: String? = nil, consent: Consent? = nil)
 User.ip  property  let ip: String?
 User.timezone  property  let timezone: String?
 UserConfig  struct  struct UserConfig
@@ -590,11 +591,11 @@ UserConfig.init(id:ip:timezone:consent:)  init  init(id: String?, ip: String?, t
 UserConfig.ip  property  let ip: String?
 UserConfig.timezone  property  let timezone: String?
 VastData  struct  struct VastData
-VastData.init(from:)  init  init(from decoder: any Decoder) throws
+VastData.init(from:)  init  init(from decoder: Decoder) throws
 VastData.tagUrl  property  let tagUrl: String?
 VastData.xmlBase64  property  let xmlBase64: String?
 VerificationScriptResource  struct  struct VerificationScriptResource
-VerificationScriptResource.init(from:)  init  init(from decoder: any Decoder) throws
+VerificationScriptResource.init(from:)  init  init(from decoder: Decoder) throws
 VerificationScriptResource.scriptUrl  property  let scriptUrl: String
 VerificationScriptResource.vendorKey  property  let vendorKey: String
 VerificationScriptResource.verificationParameters  property  let verificationParameters: String

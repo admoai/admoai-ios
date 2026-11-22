@@ -1965,7 +1965,7 @@ The controller reports through `LeadFormControllerDelegate` (on the main actor, 
 
 | Callback | What to do |
 |---|---|
-| `didChange state` | show your own loading UI until `.visible`; `.failed(retryable: true)`: offer a retry with `controller.retry()`; `.failed(retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:)`: the lead was accepted |
+| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:)`: the lead was accepted |
 | `leadFormControllerDidRequestClose` | remove or dismiss the form, then `controller.dispose()` |
 | `openExternalURL(_:purpose:)` | open the link in an `SFSafariViewController`, never inside the form |
 
@@ -1975,9 +1975,9 @@ extension LeadCreativeHost {
         switch state {
         case .visible:
             hideLoadingUI()
-        case .failed(retryable: true):
+        case .failed(_, retryable: true):
             offerRetry { controller.retry() }
-        case .failed(retryable: false), .expired:
+        case .failed(_, retryable: false), .expired:
             closeForm(controller)
             showNormalContent()
         case let .submitted(leadId):
@@ -2002,6 +2002,21 @@ extension LeadCreativeHost {
     }
 }
 ```
+
+### Why a form failed
+
+`.failed(errorCode:retryable:)` says why. Decide whether to offer a retry from `retryable`, never
+from the code, and never show the code to the viewer; log it to understand what happened.
+
+| `errorCode` | Meaning |
+|---|---|
+| `form_not_available` | Lead Generation is not available for this app right now. Not retryable: stop offering the form on this ad. |
+| `temporary_failure` | The form page could not be loaded (a server error or no network). Retryable: call `retry()`. |
+| `navigation_blocked` | The page tried to leave the form, so the SDK closed it. Not retryable. |
+| `renderer_gone` | The page's web content process ended. Retryable until the form was opened. |
+| `reloaded` | The page reloaded after the form was opened, and what the viewer typed is gone. Not retryable. |
+| `bridge_error` | The page and the SDK could not talk to each other (for example, an app built with an older SDK). Not retryable. |
+| any other | The code the form reported, such as `expired`, `revoked` or `rate_limited`. Follow `retryable`. |
 
 ### Good to know
 
