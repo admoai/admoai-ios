@@ -17,7 +17,19 @@ public enum LeadFormState: Equatable {
     case visible
     case submitting
     case submitted(leadId: String)
-    case failed(retryable: Bool)
+    /// The form ended with `errorCode`. Decide whether to offer a retry from `retryable`, never from
+    /// the code, and never show the code to the viewer. Codes the SDK itself reports:
+    /// - `form_not_available`: Lead Generation is not available for this app right now (the form
+    ///   page answered 404). Not retryable: stop offering the form on this ad.
+    /// - `temporary_failure`: the form page could not be loaded (a server error or no network).
+    ///   Retryable: `retry()` loads it again.
+    /// - `navigation_blocked`: the page tried to leave the form, so the SDK closed it.
+    /// - `renderer_gone`: the page's web content process ended. Retryable before activation.
+    /// - `reloaded`: the page reloaded after activation and lost what the viewer typed.
+    /// - `bridge_error`: the page and the SDK could not talk (an unsupported bridge version).
+    ///
+    /// Any other code is the one the form reported, from the contract's error codes.
+    case failed(errorCode: String, retryable: Bool)
     case expired
     case disposed
 }
@@ -36,11 +48,16 @@ public protocol LeadFormControllerDelegate: AnyObject {
 
 /// Why the form page could not be loaded.
 enum LeadFormLoadFailure: Equatable {
-    /// The server answered the page with a 4xx (for example `404 form_not_available` while Lead
-    /// Generation is off): loading it again cannot help.
+    /// The page answered 404 (`form_not_available` while Lead Generation is off): loading it again
+    /// cannot help.
     case unavailable
-    /// No answer, a 5xx, or a lost renderer: loading it again may work.
+    /// No answer, or any other HTTP error: loading it again may work.
     case transient
+    /// The surface refused a main-frame navigation before any page committed (the launch address
+    /// redirected): there is no form, and nothing would ever answer.
+    case blocked
+    /// The web content process ended.
+    case rendererLost
 }
 
 /// What the controller needs from the surface that hosts the form page. Production is
@@ -152,7 +169,7 @@ public final class LeadFormController {
 
     /// Tries again after a failure the form said is retryable.
     public func retry() {
-        guard !isDisposed, case .failed(retryable: true) = state else { return }
+        guard !isDisposed, case .failed(_, retryable: true) = state else { return }
         if retryIsReload {
             // No page was listening: load it again; its bridge_ready starts the exchange.
             retryIsReload = false
@@ -233,7 +250,7 @@ public final class LeadFormController {
             // A page that speaks a bridge version this SDK does not: the form is unavailable on this
             // app version. Nothing was sent, so the token never left.
             if rejection.isUnsupportedBridgeVersion, !isFinished {
-                set(.failed(retryable: false))
+                set(.failed(errorCode: "bridge_error", retryable: false))
             }
         case let .success(message):
             exchanged.insert(message.wireType)
@@ -247,31 +264,36 @@ public final class LeadFormController {
         }
     }
 
-    /// The page failed to load or its renderer was lost. After activation the answers typed so far
-    /// are gone, so it is final; before, nothing was typed and loading again is safe.
+    /// The page failed to load, was blocked, or lost its renderer. Only the entry page counts: once
+    /// the bridge is up, a load error is not the form failing to load. A lost renderer after
+    /// activation is final (the answers typed so far are gone); before, loading again is safe.
     private func loadFailed(_ failure: LeadFormLoadFailure) {
         guard !isDisposed, !isFinished else { return }
-        if activated {
-            set(.failed(retryable: false))
+        if failure == .rendererLost {
+            if activated {
+                set(.failed(errorCode: "renderer_gone", retryable: false))
+            } else if [.preparing, .prepared, .activating].contains(state) {
+                retryIsReload = true
+                set(.failed(errorCode: "renderer_gone", retryable: true))
+            }
             return
         }
-        switch state {
-        case .preparing, .prepared, .activating:
-            // A page the server refused never sends bridge_ready: end the form instead of waiting.
-            guard failure == .transient else {
-                set(.failed(retryable: false))
-                return
-            }
+        guard !bridgeReadySeen, [.preparing, .prepared, .activating].contains(state) else { return }
+        switch failure {
+        case .unavailable:
+            // The page answered 404 form_not_available and will never send bridge_ready.
+            set(.failed(errorCode: "form_not_available", retryable: false))
+        case .blocked:
+            set(.failed(errorCode: "navigation_blocked", retryable: false))
+        case .transient, .rendererLost:
             retryIsReload = true
-            set(.failed(retryable: true))
-        default:
-            break
+            set(.failed(errorCode: "temporary_failure", retryable: true))
         }
     }
 
     private var isFinished: Bool {
         switch state {
-        case .failed(retryable: false), .expired, .disposed, .submitted: true
+        case .failed(_, retryable: false), .expired, .disposed, .submitted: true
         default: false
         }
     }
@@ -306,10 +328,10 @@ public final class LeadFormController {
             }
             retryIsActivation = state == .activating
             // `error-codes.json` decides which codes can ever be retried; the form can only narrow it.
-            set(.failed(retryable: retryable && code.isRetryable))
+            set(.failed(errorCode: code.rawValue, retryable: retryable && code.isRetryable))
         case let .fatalError(code):
             guard !isFinished else { return }
-            set(code == .expired ? .expired : .failed(retryable: false))
+            set(code == .expired ? .expired : .failed(errorCode: code.rawValue, retryable: false))
         case .requestClose:
             delegate?.leadFormControllerDidRequestClose(self)
         case .requestExternalURL, .event:
@@ -337,14 +359,14 @@ public final class LeadFormController {
             break
         case .readyToShow, .visible, .submitting:
             if wasSeen {
-                set(.failed(retryable: false))
+                set(.failed(errorCode: "reloaded", retryable: false))
             }
             return
         default:
             return
         }
         if activated {
-            set(.failed(retryable: false))
+            set(.failed(errorCode: "reloaded", retryable: false))
             return
         }
         retryIsActivation = false
@@ -375,7 +397,7 @@ public final class LeadFormController {
                     "Lead form bridge could not send \(message.wireType, privacy: .public): \(reason, privacy: .public)"
                 )
             if !isFinished {
-                set(.failed(retryable: false))
+                set(.failed(errorCode: "bridge_error", retryable: false))
             }
         }
     }

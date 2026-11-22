@@ -215,7 +215,7 @@ struct LeadFormControllerTests {
         h.controller.prepare()
         h.bridgeReady()
         h.runtime("prepare_failed", ["errorCode": .string("temporary_failure"), "retryable": .bool(true)])
-        #expect(h.controller.state == .failed(retryable: true))
+        #expect(h.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
         h.controller.retry()
         #expect(h.controller.state == .preparing)
         #expect(h.sentTypes == ["initialize", "retry_prepare"])
@@ -227,7 +227,7 @@ struct LeadFormControllerTests {
         fatal.bridgeReady()
         fatal.runtime("prepare_failed", ["errorCode": .string("revoked"), "retryable": .bool(false)])
         fatal.controller.retry()
-        #expect(fatal.controller.state == .failed(retryable: false))
+        #expect(fatal.controller.state == .failed(errorCode: "revoked", retryable: false))
         #expect(fatal.sentTypes == ["initialize"])
     }
 
@@ -238,7 +238,7 @@ struct LeadFormControllerTests {
         h.bridgeReady()
         h.prepared()
         h.runtime("prepare_failed", ["errorCode": .string("rate_limited"), "retryable": .bool(true)])
-        #expect(h.controller.state == .failed(retryable: true))
+        #expect(h.controller.state == .failed(errorCode: "rate_limited", retryable: true))
         h.controller.retry()
         #expect(h.controller.state == .activating)
         #expect(h.sentTypes == ["initialize", "activate", "activate"])
@@ -255,7 +255,7 @@ struct LeadFormControllerTests {
         other.controller.prepare()
         other.bridgeReady()
         other.runtime("fatal_error", ["errorCode": .string("revoked")])
-        #expect(other.controller.state == .failed(retryable: false))
+        #expect(other.controller.state == .failed(errorCode: "revoked", retryable: false))
     }
 
     // Scenario 9
@@ -263,7 +263,7 @@ struct LeadFormControllerTests {
         let h = Harness()
         h.controller.open()
         h.bridgeReady(version: "2")
-        #expect(h.controller.state == .failed(retryable: false))
+        #expect(h.controller.state == .failed(errorCode: "bridge_error", retryable: false))
         #expect(h.sentTypes.isEmpty)
         #expect(!h.transport.sentTexts.contains { $0.contains(Self.secret) })
     }
@@ -291,7 +291,7 @@ struct LeadFormControllerTests {
         h.prepared()
         h.activated()
         h.bridgeReady()
-        #expect(h.controller.state == .failed(retryable: false))
+        #expect(h.controller.state == .failed(errorCode: "reloaded", retryable: false))
         h.controller.retry()
         #expect(h.sentTypes == ["initialize", "activate", "prefill"])
     }
@@ -455,12 +455,12 @@ struct LeadFormControllerTests {
     @Test func prepareFailureCodesDecideWhetherARetryCanHelp() {
         let cases: [(code: String, flag: Bool, state: LeadFormState)] = [
             ("expired", true, .expired),
-            ("revoked", true, .failed(retryable: false)),
-            ("form_not_available", true, .failed(retryable: false)),
-            ("unauthorized", true, .failed(retryable: false)),
-            ("rate_limited", true, .failed(retryable: true)),
-            ("temporary_failure", true, .failed(retryable: true)),
-            ("temporary_failure", false, .failed(retryable: false)),
+            ("revoked", true, .failed(errorCode: "revoked", retryable: false)),
+            ("form_not_available", true, .failed(errorCode: "form_not_available", retryable: false)),
+            ("unauthorized", true, .failed(errorCode: "unauthorized", retryable: false)),
+            ("rate_limited", true, .failed(errorCode: "rate_limited", retryable: true)),
+            ("temporary_failure", true, .failed(errorCode: "temporary_failure", retryable: true)),
+            ("temporary_failure", false, .failed(errorCode: "temporary_failure", retryable: false)),
         ]
         for item in cases {
             let h = Harness()
@@ -476,7 +476,7 @@ struct LeadFormControllerTests {
         let offline = Harness()
         offline.controller.prepare()
         offline.transport.onLoadFailed?(.transient)
-        #expect(offline.controller.state == .failed(retryable: true))
+        #expect(offline.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
         offline.controller.retry()
         #expect(offline.controller.state == .preparing)
         #expect(offline.transport.loads.count == 2)
@@ -492,6 +492,9 @@ struct LeadFormControllerTests {
         lost.controller.prepare()
         lost.bridgeReady()
         lost.transport.onLoadFailed?(.transient)
+        #expect(lost.controller.state == .preparing, "after bridge_ready a load error is not the page failing")
+        lost.transport.onLoadFailed?(.rendererLost)
+        #expect(lost.controller.state == .failed(errorCode: "renderer_gone", retryable: true))
         lost.controller.retry()
         #expect(lost.transport.loads.count == 2)
         #expect(!lost.sentTypes.contains("retry_prepare"))
@@ -506,11 +509,11 @@ struct LeadFormControllerTests {
         h.bridgeReady()
         h.prepared()
         h.activated()
-        h.transport.onLoadFailed?(.transient)
-        #expect(h.controller.state == .failed(retryable: false))
+        h.transport.onLoadFailed?(.rendererLost)
+        #expect(h.controller.state == .failed(errorCode: "renderer_gone", retryable: false))
         h.controller.retry()
         #expect(h.transport.loads.count == 1)
-        #expect(h.controller.state == .failed(retryable: false))
+        #expect(h.controller.state == .failed(errorCode: "renderer_gone", retryable: false))
     }
 
     // Scenario 19
@@ -544,10 +547,16 @@ struct LeadFormControllerTests {
     @Test func aFormThePageServerRefusesEndsAtOnce() {
         let h = Harness()
         h.controller.open()
-        h.transport.onLoadFailed?(.unavailable) // e.g. 404 form_not_available, Lead Generation off
-        #expect(h.controller.state == .failed(retryable: false))
+        h.transport.onLoadFailed?(.unavailable) // 404 form_not_available, Lead Generation off
+        #expect(h.controller.state == .failed(errorCode: "form_not_available", retryable: false))
         h.controller.retry()
         #expect(h.transport.loads.count == 1, "nothing to reload: the server does not serve the form")
         #expect(h.sentTypes.isEmpty)
+
+        // The launch address redirected: the surface refused it before any page committed.
+        let blocked = Harness()
+        blocked.controller.open()
+        blocked.transport.onLoadFailed?(.blocked)
+        #expect(blocked.controller.state == .failed(errorCode: "navigation_blocked", retryable: false))
     }
 }

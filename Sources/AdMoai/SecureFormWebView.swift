@@ -53,6 +53,8 @@ import Foundation
         private var isTornDown = false
         /// The one navigation the surface lets through: the load the SDK itself just asked for.
         private var expectedLoad: URL?
+        /// Whether a page has committed in the main frame since the last load the SDK started.
+        private var hasCommitted = false
 
         init(launchURL: URL, logger: Logger) {
             origin = FormOrigin(url: launchURL)
@@ -84,6 +86,7 @@ import Foundation
         func load(_ url: URL) {
             guard !isTornDown else { return }
             expectLoad(of: url)
+            hasCommitted = false
             webView.load(URLRequest(url: url))
         }
 
@@ -218,6 +221,7 @@ import Foundation
                 inMainFrame: navigationAction.targetFrame?.isMainFrame == true,
                 expected: expectedLoad
             )
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame == true
             if allowed {
                 expectedLoad = nil
             } else {
@@ -225,6 +229,15 @@ import Foundation
                 logger.warning("Lead form surface cancelled a navigation it did not start")
             }
             decisionHandler(allowed ? .allow : .cancel)
+            // Refused before any page committed (the launch address redirected): no form will ever
+            // answer. After a commit, the form stays and the navigation is simply cancelled.
+            if !allowed, isMainFrame, !hasCommitted {
+                onLoadFailed?(.blocked)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            hasCommitted = true
         }
 
         func webView(
@@ -241,7 +254,7 @@ import Foundation
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             logger.warning("Lead form surface lost its web content process")
-            onLoadFailed?(.transient)
+            onLoadFailed?(.rendererLost)
         }
 
         /// A navigation the surface itself cancelled is not a failure of the form.
@@ -254,12 +267,12 @@ import Foundation
             onLoadFailed?(.transient)
         }
 
-        /// The form page's own HTTP status. WebKit renders an error page as a page, so a 4xx or
+        /// The form page's own HTTP status. WebKit renders an error page as a page, so a 404 or
         /// 5xx would otherwise wait forever for a bridge_ready that never comes.
         nonisolated static func loadFailure(forStatus status: Int) -> LeadFormLoadFailure? {
             switch status {
             case ..<400: nil
-            case 400 ..< 500: .unavailable
+            case 404: .unavailable
             default: .transient
             }
         }
