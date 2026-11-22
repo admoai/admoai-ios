@@ -211,6 +211,9 @@ import Testing
             #expect(SecureFormWebView.loadFailure(forStatus: 404) == .unavailable)
             #expect(SecureFormWebView.loadFailure(forStatus: 410) == .unavailable)
             #expect(SecureFormWebView.loadFailure(forStatus: 403) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 401) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 429) == .transient, "rate limited: retryable")
+            #expect(SecureFormWebView.loadFailure(forStatus: 408) == .transient, "timeout: retryable")
             #expect(SecureFormWebView.loadFailure(forStatus: 500) == .transient)
             #expect(SecureFormWebView.loadFailure(forStatus: 503) == .transient)
         }

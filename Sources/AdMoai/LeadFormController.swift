@@ -21,8 +21,10 @@ public enum LeadFormState: Equatable {
     /// The form ended with `errorCode`. Decide whether to offer a retry from `retryable`, never from
     /// the code, and never show the code to the viewer. Codes the SDK itself reports:
     /// - `form_not_available`: Lead Generation is not available for this app right now (the form
-    ///   page answered a 4xx, such as 404). Not retryable: stop offering the form on this ad.
-    /// - `temporary_failure`: the form page could not be loaded (a 5xx or no network).
+    ///   page answered 404 or another 4xx, except 408 and 429). Not retryable: stop offering the
+    ///   form on this ad.
+    /// - `temporary_failure`: the form page could not be loaded (a 5xx server error, 429 rate
+    ///   limited, 408 timeout, or no network).
     ///   Retryable: `retry()` loads it again.
     /// - `navigation_blocked`: the page tried to leave the form, so the SDK closed it.
     /// - `renderer_gone`: the page's web content process ended. Retryable before activation.
@@ -49,10 +51,10 @@ public protocol LeadFormControllerDelegate: AnyObject {
 
 /// Why the form page could not be loaded.
 enum LeadFormLoadFailure: Equatable {
-    /// The page answered a 4xx (`404 form_not_available` while Lead Generation is off): loading it
-    /// again cannot help.
+    /// The page answered a 4xx other than 408 and 429 (`404 form_not_available` while Lead
+    /// Generation is off): loading it again cannot help.
     case unavailable
-    /// No answer, or a 5xx: loading it again may work.
+    /// No answer, a 5xx, 408 or 429: loading it again may work.
     case transient
     /// The surface refused a main-frame navigation before any page committed (the launch address
     /// redirected): there is no form, and nothing would ever answer.

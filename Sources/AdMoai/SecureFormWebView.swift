@@ -272,6 +272,7 @@ import Foundation
         nonisolated static func loadFailure(forStatus status: Int) -> LeadFormLoadFailure? {
             switch status {
             case ..<400: nil
+            case 408, 429: .transient // a timeout, or the form routes' in-flight cap: try again
             case 400 ..< 500: .unavailable
             default: .transient
             }
