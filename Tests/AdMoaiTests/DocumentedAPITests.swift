@@ -528,8 +528,8 @@ final class NoPrefillProvider: LeadFormValueProvider {
                 controller.retry()
             case .failed(_, retryable: false), .expired:
                 closeForm(controller)
-            case let .submitted(leadId):
-                _ = leadId
+            case let .submitted(leadId, submittedAt):
+                _ = (leadId, submittedAt)
             default:
                 break
             }

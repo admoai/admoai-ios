@@ -1965,7 +1965,7 @@ The controller reports through `LeadFormControllerDelegate` (on the main actor, 
 
 | Callback | What to do |
 |---|---|
-| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:)`: the lead was accepted |
+| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:submittedAt:)`: the lead was accepted, at `submittedAt` |
 | `leadFormControllerDidRequestClose` | remove or dismiss the form, then `controller.dispose()` |
 | `openExternalURL(_:purpose:)` | open the link in an `SFSafariViewController`, never inside the form |
 
@@ -1980,7 +1980,7 @@ extension LeadCreativeHost {
         case .failed(_, retryable: false), .expired:
             closeForm(controller)
             showNormalContent()
-        case let .submitted(leadId):
+        case let .submitted(leadId, _):
             thankTheViewer(leadId: leadId)
         default:
             showLoadingUI()
@@ -2010,8 +2010,8 @@ from the code, and never show the code to the viewer; log it to understand what 
 
 | `errorCode` | Meaning |
 |---|---|
-| `form_not_available` | Lead Generation is not available for this app right now. Not retryable: stop offering the form on this ad. |
-| `temporary_failure` | The form page could not be loaded (a server error or no network). Retryable: call `retry()`. |
+| `form_not_available` | Lead Generation is not available for this app right now (the form page answered 404 or another 4xx, except 408 and 429). Not retryable: stop offering the form on this ad. |
+| `temporary_failure` | The form page could not be loaded (a 5xx server error, 429 rate limited, 408 timeout, or no network). Retryable: call `retry()`. |
 | `navigation_blocked` | The page tried to leave the form, so the SDK closed it. Not retryable. |
 | `renderer_gone` | The page's web content process ended. Retryable until the form was opened. |
 | `reloaded` | The page reloaded after the form was opened, and what the viewer typed is gone. Not retryable. |

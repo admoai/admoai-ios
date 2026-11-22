@@ -418,7 +418,7 @@ LeadFormState.idle  case  case idle
 LeadFormState.prepared  case  case prepared
 LeadFormState.preparing  case  case preparing
 LeadFormState.readyToShow  case  case readyToShow
-LeadFormState.submitted(leadId:)  case  case submitted(leadId: String)
+LeadFormState.submitted(leadId:submittedAt:)  case  case submitted(leadId: String, submittedAt: Date)
 LeadFormState.submitting  case  case submitting
 LeadFormState.visible  case  case visible
 LeadFormValueProvider  protocol  protocol LeadFormValueProvider : AnyObject
