@@ -191,6 +191,15 @@ struct LeadFormBridgeTests {
             let exchanged = path.hasSuffix("back-before-visible.json") ? beforeVisible : nil
             #expect(try isRefused(outgoing(text(path), exchanged: exchanged)) != nil, "\(path) must be refused")
         }
+        #expect(try isRefused(outgoing(text("bridge/invalid/app-to-runtime/prefill-repeated-key.json"))) ==
+            .repeatedKey)
+        // The form tolerates these prefill entries (drops them, still answers prefill_applied); the
+        // SDK still never sends an unknown key or an over-bound value.
+        let tolerated = try files(in: "bridge/tolerated/app-to-runtime").filter { !$0.hasSuffix(".outcome.json") }
+        #expect(tolerated.count == 4)
+        for path in tolerated {
+            #expect(try isRefused(outgoing(text(path))) != nil, "\(path): the SDK never sends it")
+        }
         let back = try text("bridge/app-to-runtime/back.json")
         #expect(try isRefused(outgoing(back, exchanged: beforeVisible)) == .outOfOrder(type: "back"))
         #expect(try isRefused(outgoing(back, exchanged: beforeVisible.union(["became_visible"]))) == nil)

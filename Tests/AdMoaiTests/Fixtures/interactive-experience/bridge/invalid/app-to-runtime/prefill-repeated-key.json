@@ -1,0 +1,12 @@
+{
+  "type": "prefill",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "values": {
+      "email": "alex@example.invalid",
+      "email": "alex2@example.invalid",
+      "fullName": "Alex Morgan"
+    }
+  }
+}

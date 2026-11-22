@@ -25,6 +25,7 @@ Feature: The SDK and the form speak one validated message protocol
     Then it refuses before anything is sent
     And an unknown prefill key or presentation cannot even be written
     And back is refused before the form became visible, and when it names a stage
+    And a prefill the form would only partly apply (an unknown key or an over-bound value) is never sent
 
   Scenario: A message from the app's own direction is refused as incoming
     Given the form sends a message only the app may send
