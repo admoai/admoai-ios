@@ -7,11 +7,12 @@ descriptor fixtures. Identical to adhub main at `b1e28e23d` (the pack merged wit
 #7170).
 
 `bridge-messages.json`, `error-codes.json` and `bridge/**` (the bridge fixtures, from
-`fixtures/bridge/**`) are vendored the same way, also identical to adhub main at `a7c7cc257`
+`fixtures/bridge/**`) are vendored the same way, also identical to adhub main at `60e9994b1`
 (#7170 merged: `bridgeVersion`, `submitting`, `submit_failed`, `back`). `bridge/context.json` is
 the identity the SDK minted for one controller; `bridge/invalid/**` are messages that must be
 refused. `bridge/tolerated/**` are prefill entries the form drops while still answering
-`prefill_applied` (adhub #7299, outcome in each `.outcome.json`); the SDK never sends them either.
+`prefill_applied` (adhub #7299 and #7321, which adds a `__proto__` key; outcome in each
+`.outcome.json`); the SDK never sends them either.
 `LeadFormBridgeTests` asserts the SDK's table equals
 `bridge-messages.json` with no exceptions.
 

@@ -196,7 +196,7 @@ struct LeadFormBridgeTests {
         // The form tolerates these prefill entries (drops them, still answers prefill_applied); the
         // SDK still never sends an unknown key or an over-bound value.
         let tolerated = try files(in: "bridge/tolerated/app-to-runtime").filter { !$0.hasSuffix(".outcome.json") }
-        #expect(tolerated.count == 4)
+        #expect(tolerated.count == 5)
         for path in tolerated {
             #expect(try isRefused(outgoing(text(path))) != nil, "\(path): the SDK never sends it")
         }
