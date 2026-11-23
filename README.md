@@ -1877,8 +1877,10 @@ sdk.enableInteractiveExperiences(valueProvider: NoPrefillProvider())
 
 **When the signed-in user changes**, call `enableInteractiveExperiences(valueProvider:)` again
 with the new user's provider, or `disableInteractiveExperiences()` on logout. Open forms are
-closed, and no value of the old user reaches a new form. `setUserConfig(id:)` with a new id does
-the same. `sdk.interactiveExperiencesEnabled` tells you whether the app is opted in.
+closed, and no value of the old user reaches a new form. `setUserConfig(id:)` with a new id also
+closes open forms and drops lookups in progress, but keeps your provider: a provider that holds one
+user's profile must be replaced, so pass the new user's provider too.
+`sdk.interactiveExperiencesEnabled` tells you whether the app is opted in.
 
 ### Reading the creative
 
@@ -1917,6 +1919,8 @@ final class LeadCreativeHost: LeadFormControllerDelegate {
     private let sdk: AdMoai
     private let container: UIView                // the app owns its size, scrolling and keyboard insets
     private weak var presenter: UIViewController?
+    private var shownForm: UIView?               // the inline form, removed when the form ends
+    private var presentedForm: UIViewController? // the full-screen form, dismissed when the form ends
 
     init(creative: Creative, sdk: AdMoai, container: UIView, presenter: UIViewController) {
         self.creative = creative
@@ -1947,13 +1951,18 @@ extension LeadCreativeHost {
         guard let controller else { return }
         sdk.fireClick(tracking: creative.tracking)       // once, as for any creative
         controller.open()
+        // open() can end the form at once (its 15 minutes passed): then there is nothing to show.
+        guard self.controller === controller, controller.state != .expired else { return }
         switch controller.presentation {
         case .inline:
             let form = controller.formView
             form.frame = container.bounds
             container.addSubview(form)
+            shownForm = form
         case .fullScreen:
-            presenter?.present(controller.formViewController, animated: true)
+            let form = controller.formViewController   // a new one on every access: keep it
+            presenter?.present(form, animated: true)
+            presentedForm = form
         }
     }
 }
@@ -1965,9 +1974,9 @@ The controller reports through `LeadFormControllerDelegate` (on the main actor, 
 
 | Callback | What to do |
 |---|---|
-| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:submittedAt:)`: the lead was accepted, at `submittedAt` |
-| `leadFormControllerDidRequestClose` | remove or dismiss the form, then `controller.dispose()` |
-| `openExternalURL(_:purpose:)` | open the link in an `SFSafariViewController`, never inside the form |
+| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:submittedAt:)`: the lead was accepted, at `submittedAt`; `.disposed`: the form ended (you disposed it, or the SDK did when the user or the provider changed): remove or dismiss it |
+| `leadFormControllerDidRequestClose` | call `controller.dispose()`; the `.disposed` that follows removes the form |
+| `openExternalURL(_:purpose:)` | open the link in an `SFSafariViewController`, never inside the form, presented from the full-screen form when it is on screen |
 
 ```swift
 extension LeadCreativeHost {
@@ -1982,6 +1991,9 @@ extension LeadCreativeHost {
             showNormalContent()
         case let .submitted(leadId, _):
             thankTheViewer(leadId: leadId)
+        case .disposed:                          // closed by you, or ended by the SDK
+            removeForm(controller)
+            hideLoadingUI()
         default:
             showLoadingUI()
         }
@@ -1992,13 +2004,22 @@ extension LeadCreativeHost {
     }
 
     func leadFormController(_ controller: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose) {
-        presenter?.present(SFSafariViewController(url: url), animated: true)
+        // A full-screen form is already presented: present the link from it.
+        (presentedForm ?? presenter)?.present(SFSafariViewController(url: url), animated: true)
     }
 
     private func closeForm(_ controller: LeadFormController) {
-        controller.formView.removeFromSuperview()
-        controller.dispose()
-        self.controller = nil
+        controller.dispose()                     // reports .disposed, which removes the form
+    }
+
+    private func removeForm(_ controller: LeadFormController) {
+        shownForm?.removeFromSuperview()
+        presentedForm?.dismiss(animated: true)
+        shownForm = nil
+        presentedForm = nil
+        if self.controller === controller {
+            self.controller = nil
+        }
     }
 }
 ```

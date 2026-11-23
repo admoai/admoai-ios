@@ -488,6 +488,8 @@ final class NoPrefillProvider: LeadFormValueProvider {
         private let sdk: AdMoai
         private let container: UIView
         private weak var presenter: UIViewController?
+        private var shownForm: UIView?
+        private var presentedForm: UIViewController?
 
         init(creative: Creative, sdk: AdMoai, container: UIView, presenter: UIViewController) {
             self.creative = creative
@@ -510,13 +512,17 @@ final class NoPrefillProvider: LeadFormValueProvider {
             guard let controller else { return }
             sdk.fireClick(tracking: creative.tracking)
             controller.open()
+            guard self.controller === controller, controller.state != .expired else { return }
             switch controller.presentation {
             case .inline:
                 let form = controller.formView
                 form.frame = container.bounds
                 container.addSubview(form)
+                shownForm = form
             case .fullScreen:
-                presenter?.present(controller.formViewController, animated: true)
+                let form = controller.formViewController
+                presenter?.present(form, animated: true)
+                presentedForm = form
             }
         }
 
@@ -530,6 +536,8 @@ final class NoPrefillProvider: LeadFormValueProvider {
                 closeForm(controller)
             case let .submitted(leadId, submittedAt):
                 _ = (leadId, submittedAt)
+            case .disposed:
+                removeForm(controller)
             default:
                 break
             }
@@ -540,7 +548,7 @@ final class NoPrefillProvider: LeadFormValueProvider {
         }
 
         func leadFormController(_: LeadFormController, openExternalURL url: URL, purpose _: LeadFormLinkPurpose) {
-            presenter?.present(SFSafariViewController(url: url), animated: true)
+            (presentedForm ?? presenter)?.present(SFSafariViewController(url: url), animated: true)
         }
 
         // README "Good to know": Back.
@@ -551,9 +559,17 @@ final class NoPrefillProvider: LeadFormValueProvider {
         }
 
         private func closeForm(_ controller: LeadFormController) {
-            controller.formView.removeFromSuperview()
             controller.dispose()
-            self.controller = nil
+        }
+
+        private func removeForm(_ controller: LeadFormController) {
+            shownForm?.removeFromSuperview()
+            presentedForm?.dismiss(animated: true)
+            shownForm = nil
+            presentedForm = nil
+            if self.controller === controller {
+                self.controller = nil
+            }
         }
     }
 #endif
