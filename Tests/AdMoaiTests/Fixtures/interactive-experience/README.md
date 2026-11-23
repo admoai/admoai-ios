@@ -1,0 +1,23 @@
+# Interactive experience contract (vendored)
+
+`standard-fields.json` and `decision/*.json` are byte-for-byte copies of the interactive
+experience contract pack in admoai/adhub, `shared/interactiveexperience/contract/` (decision D13,
+issue #7127): the seven standard contact keys and the decision request and per-creative
+descriptor fixtures. Identical to adhub main at `b1e28e23d` (the pack merged with #7127 and
+#7170).
+
+`InteractiveExperienceTests` fails when the SDK drifts from them: the typed keys must be the
+catalog's `prefillKeys` in order, the request extension must serialise to the fixture bodies, and
+the descriptor fixture must decode. To update after a contract change in adhub:
+
+```sh
+for f in standard-fields.json fixtures/decision/creative-descriptor.json \
+  fixtures/decision/request-malformed-shape.json fixtures/decision/request-omitted.json \
+  fixtures/decision/request-supported-empty-keys.json \
+  fixtures/decision/request-supported-with-keys.json fixtures/decision/request-unknown-key.json; do
+  gh api "repos/admoai/adhub/contents/shared/interactiveexperience/contract/$f" \
+    -H "Accept: application/vnd.github.raw" \
+    > "Tests/AdMoaiTests/Fixtures/interactive-experience/${f#fixtures/}"
+done
+swift test --filter InteractiveExperienceTests
+```

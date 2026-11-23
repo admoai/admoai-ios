@@ -1,0 +1,12 @@
+{
+  "placements": [
+    {
+      "key": "ride_summary_banner",
+      "count": 1
+    }
+  ],
+  "interactiveExperience": {
+    "supported": true,
+    "availableAttributeKeys": []
+  }
+}

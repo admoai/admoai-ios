@@ -186,6 +186,7 @@ Creative.getVerificationResources()  method  func getVerificationResources() -> 
 Creative.hasCompletionUrl  property  var hasCompletionUrl: Bool { get }
 Creative.hasOMVerification()  method  func hasOMVerification() -> Bool
 Creative.init(from:)  init  init(from decoder: any Decoder) throws
+Creative.interactiveExperience  property  let interactiveExperience: InteractiveExperience?
 Creative.isJourneyAd  property  var isJourneyAd: Bool { get }
 Creative.isJourneyCompletion  property  var isJourneyCompletion: Bool { get }
 Creative.isJsonDelivery()  method  func isJsonDelivery() -> Bool
@@ -233,6 +234,7 @@ DecisionRequest  struct  struct DecisionRequest
 DecisionRequest.app  property  let app: App?
 DecisionRequest.device  property  let device: Device?
 DecisionRequest.encode(to:)  method  func encode(to encoder: any Encoder) throws
+DecisionRequest.interactiveExperience  property  let interactiveExperience: InteractiveExperienceCapability?
 DecisionRequest.journeyOpt  property  let journeyOpt: JourneyOpt?
 DecisionRequest.journeySessionIdRejectionReason(_:)  static method  static func journeySessionIdRejectionReason(_ sessionId: String?) -> String?
 DecisionRequest.normalizedSessionId(_:)  static method  static func normalizedSessionId(_ sessionId: String?) -> String?
@@ -366,12 +368,30 @@ HTTPStatus.notFound  case  case notFound
 HTTPStatus.ok  case  case ok
 HTTPStatus.tooManyRequests  case  case tooManyRequests
 HTTPStatus.unprocessableEntity  case  case unprocessableEntity
+InteractiveExperience  enum  enum InteractiveExperience
+InteractiveExperience.customMirror  property  var customMirror: Mirror { get }
+InteractiveExperience.debugDescription  property  var debugDescription: String { get }
+InteractiveExperience.description  property  var description: String { get }
+InteractiveExperience.leadGeneration(_:)  case  case leadGeneration(LeadGenerationExperience)
+InteractiveExperience.unsupported(type:)  case  case unsupported(type: String?)
+InteractiveExperienceCapability  struct  struct InteractiveExperienceCapability
+InteractiveExperienceCapability.availableAttributeKeys  property  let availableAttributeKeys: [StandardAttributeKey]
+InteractiveExperienceCapability.supported  property  let supported: Bool
 JourneyOpt  enum  enum JourneyOpt
 JourneyOpt.fromWire(_:)  static method  static func fromWire(_ raw: String?) -> JourneyOpt?
 JourneyOpt.init(from:)  init  init(from decoder: any Decoder) throws
 JourneyOpt.init(rawValue:)  init  init?(rawValue: String)
 JourneyOpt.optIn  case  case optIn
 JourneyOpt.optOut  case  case optOut
+LeadGenerationExperience  struct  struct LeadGenerationExperience
+LeadGenerationExperience.customMirror  property  var customMirror: Mirror { get }
+LeadGenerationExperience.debugDescription  property  var debugDescription: String { get }
+LeadGenerationExperience.description  property  var description: String { get }
+LeadGenerationExperience.expiresAt  property  let expiresAt: Date
+LeadGenerationExperience.formId  property  let formId: String
+LeadGenerationExperience.formInstanceId  property  let formInstanceId: String
+LeadGenerationExperience.prefillAttributeKeys  property  let prefillAttributeKeys: [StandardAttributeKey]
+LeadGenerationExperience.preparedVersionId  property  let preparedVersionId: String
 MatchedPoint  struct  struct MatchedPoint
 MatchedPoint.address  property  let address: String?
 MatchedPoint.clickUrl  property  let clickUrl: String?
@@ -449,6 +469,15 @@ SlideTracking  struct  struct SlideTracking
 SlideTracking.clicks  property  let clicks: [TrackingItem]?
 SlideTracking.init(from:)  init  init(from decoder: any Decoder) throws
 SlideTracking.views  property  let views: [TrackingItem]?
+StandardAttributeKey  enum  enum StandardAttributeKey
+StandardAttributeKey.age  case  case age
+StandardAttributeKey.email  case  case email
+StandardAttributeKey.firstName  case  case firstName
+StandardAttributeKey.fullName  case  case fullName
+StandardAttributeKey.gender  case  case gender
+StandardAttributeKey.init(rawValue:)  init  init?(rawValue: String)
+StandardAttributeKey.lastName  case  case lastName
+StandardAttributeKey.phone  case  case phone
 Swift::Array.getContent(key:)  method  func getContent(key: String) -> Content?
 Swift::Array.hasContents()  method  func hasContents() -> Bool
 Swift::Array.isType(key:type:)  method  func isType(key: String, type: String) -> Bool

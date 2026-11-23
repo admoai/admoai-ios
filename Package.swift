@@ -25,6 +25,7 @@ let package = Package(
             exclude: [
                 "ViewBeaconLedger.feature",
                 "AudienceSignals.feature",
+                "InteractiveExperience.feature",
                 "Utils/DeviceCategoryClassifier.feature",
             ]
         ),

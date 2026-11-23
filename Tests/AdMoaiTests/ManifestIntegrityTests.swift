@@ -46,7 +46,7 @@ struct ManifestIntegrityTests {
     func testFixtureScenariosAreStructurallyValid() throws {
         let data = try Data(contentsOf: manifestURL())
         let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(root["schemaVersion"] as? Int == 6, "this SDK vendors a schemaVersion 6 manifest")
+        #expect(root["schemaVersion"] as? Int == 7, "this SDK vendors a schemaVersion 7 manifest")
 
         let fixtureScenarios = try #require(root["fixtureScenarios"] as? [[String: Any]])
         #expect(!fixtureScenarios.isEmpty, "the manifest declares fixture scenarios")

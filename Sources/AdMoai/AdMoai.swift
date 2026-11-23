@@ -64,6 +64,8 @@ public struct AdMoai {
     /// which is what a publisher already assumes and what Flutter (a class) and Android (a
     /// singleton) both do.
     private let _session = SessionBox()
+    /// The interactive-experience opt-in, shared by every copy — see ``enableInteractiveExperiences(valueProvider:)``.
+    internal let interactiveExperienceBox = InteractiveExperienceBox()
     /// Sponsored Pin view URLs already fired, shared by every copy — see ``trackPointView(_:)``.
     internal let pinViewLedger = ViewBeaconLedger()
     /// Carousel slide view URLs already fired, shared by every copy — see ``trackSlideView(_:)``.
@@ -261,7 +263,8 @@ public struct AdMoai {
             userConfig: userConfig,
             sessionId: _session.sessionId,
             apiVersion: config.apiVersion,
-            logger: config.logger
+            logger: config.logger,
+            interactiveExperienceBox: interactiveExperienceBox
         )
     }
 

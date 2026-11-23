@@ -58,12 +58,20 @@ public struct Creative: Decodable {
     /// **Rendering the slides is your job.** The SDK draws no carousel and knows nothing about
     /// paging, scroll position or which slide is on screen.
     public let slides: [Slide]
+    /// The interactive experience this creative opens when tapped, when it has one (Lead
+    /// Generation forms). `nil` for every creative without one. Decoding never fails the
+    /// creative: a descriptor the SDK cannot use is ``InteractiveExperience/unsupported(type:)``,
+    /// and the app must not show that creative, because there is nothing for a tap to open.
+    ///
+    /// Opening it is the app's job, and it only happens after the app opted in with
+    /// ``AdMoai/enableInteractiveExperiences(valueProvider:)``.
+    public let interactiveExperience: InteractiveExperience?
 }
 
 extension Creative {
     private enum CodingKeys: String, CodingKey {
         case contents, metadata, advertiser, template, tracking
-        case verificationScriptResources, delivery, vast, journey
+        case verificationScriptResources, delivery, vast, journey, interactiveExperience
     }
 
     /// Tolerant Reader decoder (Journey scope, PR A): a present-but-malformed `journey`,
@@ -86,6 +94,7 @@ extension Creative {
         self.delivery = try? c.decode(String.self, forKey: .delivery)
         self.vast = try? c.decode(VastData.self, forKey: .vast)
         self.journey = try? c.decode(CreativeJourney.self, forKey: .journey)
+        self.interactiveExperience = InteractiveExperience.read(from: c, forKey: CodingKeys.interactiveExperience)
         // Decoded straight off the wire rather than through `contents`' `AnyCodable` values,
         // so the points arrive typed without a re-encode round trip. Tolerant at both levels:
         // a malformed entry is dropped and a malformed point inside a good entry is dropped,
