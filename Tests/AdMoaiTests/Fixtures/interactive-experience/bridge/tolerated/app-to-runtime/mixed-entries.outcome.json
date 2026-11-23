@@ -1,0 +1,15 @@
+{
+  "applied": {
+    "email": "alex@example.invalid"
+  },
+  "dropped": [
+    {
+      "reason": "unknown_field"
+    },
+    {
+      "key": "fullName",
+      "reason": "too_long"
+    }
+  ],
+  "reply": "prefill_applied"
+}

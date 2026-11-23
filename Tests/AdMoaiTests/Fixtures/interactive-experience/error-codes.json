@@ -1,0 +1,77 @@
+{
+  "codes": [
+    {
+      "key": "invalid_request",
+      "code": 30001,
+      "httpStatus": 400,
+      "retryable": false,
+      "message": "The request is not valid."
+    },
+    {
+      "key": "invalid_field_value",
+      "code": 30002,
+      "httpStatus": 400,
+      "retryable": false,
+      "message": "A field value is not valid."
+    },
+    {
+      "key": "unauthorized",
+      "code": 30003,
+      "httpStatus": 401,
+      "retryable": false,
+      "message": "The request is not authorized."
+    },
+    {
+      "key": "expired",
+      "code": 30004,
+      "httpStatus": 410,
+      "retryable": false,
+      "message": "This form session has expired."
+    },
+    {
+      "key": "revoked",
+      "code": 30005,
+      "httpStatus": 410,
+      "retryable": false,
+      "message": "This form session is no longer available."
+    },
+    {
+      "key": "conflicting_accepted_payload",
+      "code": 30006,
+      "httpStatus": 409,
+      "retryable": false,
+      "message": "This form was already submitted with different answers."
+    },
+    {
+      "key": "rate_limited",
+      "code": 30007,
+      "httpStatus": 429,
+      "retryable": true,
+      "message": "Too many requests. Try again shortly."
+    },
+    {
+      "key": "temporary_failure",
+      "code": 30008,
+      "httpStatus": 503,
+      "retryable": true,
+      "message": "The service is temporarily unavailable. Try again shortly."
+    },
+    {
+      "key": "form_not_available",
+      "code": 30009,
+      "httpStatus": 404,
+      "retryable": false,
+      "message": "This form is not available."
+    }
+  ],
+  "fieldReasons": [
+    "required",
+    "too_long",
+    "invalid_format",
+    "out_of_range",
+    "not_an_option",
+    "duplicate_option",
+    "wrong_shape",
+    "unknown_field"
+  ]
+}

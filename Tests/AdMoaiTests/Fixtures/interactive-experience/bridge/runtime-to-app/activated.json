@@ -1,0 +1,26 @@
+{
+  "type": "activated",
+  "instanceId": "form_instance_01KG000000000000000000N001",
+  "channel": "chan_example_0000000001",
+  "payload": {
+    "formVersionId": "form_version_01KG000000000000000000V003",
+    "requestedAttributeKeys": [
+      "fullName",
+      "email"
+    ],
+    "events": [
+      {
+        "name": "form_open",
+        "url": "https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED_TRACKING_ONLY_FORM_OPEN"
+      },
+      {
+        "name": "form_start",
+        "url": "https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED_TRACKING_ONLY_FORM_START"
+      },
+      {
+        "name": "website_cta_click",
+        "url": "https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED_TRACKING_ONLY_WEBSITE_CTA_CLICK"
+      }
+    ]
+  }
+}
