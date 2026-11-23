@@ -11,8 +11,11 @@ import Foundation
     @MainActor
     final class LeadFormView: UIView {
         private weak var controller: LeadFormController?
-        private var appInBackground = false
+        /// The scene (or, for a window with no scene, the app) the form is in is in the background.
+        private var inBackground = false
         private var reportedVisible = false
+        /// `isHidden` and `alpha` of every ancestor: a change anywhere up the chain moves visibility.
+        private var ancestorObservations: [NSKeyValueObservation] = []
 
         init(content: UIView?, presentation: LeadFormPresentation, controller: LeadFormController) {
             self.controller = controller
@@ -44,45 +47,109 @@ import Foundation
             didSet { refreshVisibility() }
         }
 
+        override func willMove(toSuperview newSuperview: UIView?) {
+            super.willMove(toSuperview: newSuperview)
+            ancestorObservations = []
+        }
+
+        override func didMoveToSuperview() {
+            super.didMoveToSuperview()
+            observeAncestors()
+            refreshVisibility()
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
             let center = NotificationCenter.default
             center.removeObserver(self)
-            if window != nil {
-                appInBackground = UIApplication.shared.applicationState == .background
-                center.addObserver(
-                    self, selector: #selector(appDidEnterBackground),
-                    name: UIApplication.didEnterBackgroundNotification, object: nil
+            if let window {
+                // A window in a scene follows its scene; one without a scene follows the app.
+                let scene = window.windowScene
+                inBackground = Self.isInBackground(
+                    sceneState: scene?.activationState,
+                    applicationState: UIApplication.shared.applicationState
                 )
-                center.addObserver(
-                    self, selector: #selector(appWillEnterForeground),
-                    name: UIApplication.willEnterForegroundNotification, object: nil
-                )
+                if scene != nil {
+                    center.addObserver(
+                        self, selector: #selector(didEnterBackground),
+                        name: UIScene.didEnterBackgroundNotification, object: scene
+                    )
+                    center.addObserver(
+                        self, selector: #selector(willEnterForeground),
+                        name: UIScene.willEnterForegroundNotification, object: scene
+                    )
+                } else {
+                    center.addObserver(
+                        self, selector: #selector(didEnterBackground),
+                        name: UIApplication.didEnterBackgroundNotification, object: nil
+                    )
+                    center.addObserver(
+                        self, selector: #selector(willEnterForeground),
+                        name: UIApplication.willEnterForegroundNotification, object: nil
+                    )
+                }
             }
+            observeAncestors()
             refreshVisibility()
         }
 
-        @objc private func appDidEnterBackground() {
-            appInBackground = true
+        @objc private func didEnterBackground() {
+            inBackground = true
             refreshVisibility()
         }
 
-        @objc private func appWillEnterForeground() {
-            appInBackground = false
+        @objc private func willEnterForeground() {
+            inBackground = false
             refreshVisibility()
         }
 
-        /// In a window, and neither this view nor an ancestor hidden or fully transparent.
+        /// A scene is in the background when it says so (or is not attached); a window with no
+        /// scene follows the application. Foreground active and inactive both count as foreground.
+        nonisolated static func isInBackground(
+            sceneState: UIScene.ActivationState?,
+            applicationState: UIApplication.State
+        ) -> Bool {
+            if let sceneState {
+                return sceneState == .background || sceneState == .unattached
+            }
+            return applicationState == .background
+        }
+
+        /// Visible: in a window, in the foreground, and no view in the chain (this one included)
+        /// hidden or transparent.
+        nonisolated static func isVisible(
+            hasWindow: Bool,
+            inBackground: Bool,
+            chain: [(isHidden: Bool, alpha: CGFloat)]
+        ) -> Bool {
+            guard hasWindow, !inBackground else { return false }
+            return !chain.contains { $0.isHidden || $0.alpha <= 0.01 }
+        }
+
+        /// Rebuilds the observers of every ancestor's `isHidden` and `alpha`. The view's own are
+        /// covered by its property observers.
+        private func observeAncestors() {
+            ancestorObservations = []
+            var view = superview
+            while let ancestor = view {
+                ancestorObservations.append(ancestor.observe(\.isHidden, options: [.new]) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.refreshVisibility() }
+                })
+                ancestorObservations.append(ancestor.observe(\.alpha, options: [.new]) { [weak self] _, _ in
+                    MainActor.assumeIsolated { self?.refreshVisibility() }
+                })
+                view = ancestor.superview
+            }
+        }
+
         private var isOnScreen: Bool {
-            guard window != nil, !appInBackground else { return false }
+            var chain: [(isHidden: Bool, alpha: CGFloat)] = []
             var view: UIView? = self
             while let current = view {
-                if current.isHidden || current.alpha <= 0.01 {
-                    return false
-                }
+                chain.append((current.isHidden, current.alpha))
                 view = current.superview
             }
-            return true
+            return Self.isVisible(hasWindow: window != nil, inBackground: inBackground, chain: chain)
         }
 
         private func refreshVisibility() {

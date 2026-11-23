@@ -35,9 +35,23 @@ Feature: The form runs in a locked-down web view that talks only through the bri
 
   Scenario: A page that cannot load, or a lost renderer, is reported
     When the form page cannot be reached, answers with an HTTP error, or the web content process ends
-    Then the SDK is told the page failed, and that a 4xx answer will not change on a reload
+    Then the SDK is told the page failed
+    And before the form's bridge_ready, 408 and 429 are a retryable temporary_failure, any other main-frame 4xx is a non-retryable form_not_available, and a 5xx or a network error is a temporary_failure
     And a navigation the surface itself cancelled is not reported as a failure
 
   Scenario: The web view keeps nothing and is released
     Then it uses non-persistent storage
     And after teardown it is released
+
+  Scenario: A refused navigation before the first commit fails the form, after it the form keeps working
+    When the launch address redirects, so the surface refuses it before any page committed
+    Then the form fails with navigation_blocked, because nothing will ever answer
+    But when a loaded form tries to leave, the navigation is cancelled and the form keeps working
+
+  Scenario: A disposed surface navigates nowhere
+    Given the surface was disposed while its web view may still be on screen
+    Then it shows an empty document and cancels every navigation, the launch address included
+
+  Scenario: The launch address is matched the way a browser matches it
+    When the launch address is written with an upper-case scheme or host
+    Then it is allowed against itself and against its lower-case form, and still nothing else is

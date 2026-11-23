@@ -116,6 +116,8 @@ public final class LeadFormController {
     private var retryIsActivation = false
     private var retryIsReload = false
     private var surfaceVisible = false
+    /// What the page was last told: it has heard `became_visible` and not yet `became_hidden`.
+    private var pageThinksVisible = false
     private var hasBeenVisible = false
     private var isDisposed = false
 
@@ -162,8 +164,6 @@ public final class LeadFormController {
             expireIfPastDeadline()
         case .prepared:
             openRequested = true
-            // A prepared form is not opened with an authorization that has lapsed since.
-            guard !expireIfPastDeadline() else { return }
             sendActivate()
         default:
             break
@@ -174,9 +174,11 @@ public final class LeadFormController {
     public func retry() {
         guard !isDisposed, case .failed(_, retryable: true) = state else { return }
         if retryIsReload {
-            // No page was listening: load it again; its bridge_ready starts the exchange.
+            // No page was listening: load it again; its bridge_ready starts the exchange. Everything
+            // tied to the old page goes, so the new one establishes its own readiness.
             retryIsReload = false
             guard !expireIfPastDeadline() else { return }
+            resetPageScopedState()
             set(.preparing)
             transport.load(launchURL())
         } else if retryIsActivation {
@@ -186,6 +188,16 @@ public final class LeadFormController {
             set(.preparing)
             send(.retryPrepare)
         }
+    }
+
+    private func resetPageScopedState() {
+        bridgeReadySeen = false
+        exchanged = []
+        context = LeadFormBridge.Context()
+        requestedKeys = []
+        activated = false
+        retryIsActivation = false
+        pageThinksVisible = false
     }
 
     /// Moves to `expired` when the descriptor's deadline has passed. Nothing is sent.
@@ -222,22 +234,39 @@ public final class LeadFormController {
     func surfaceDidBecomeVisible() {
         guard !isDisposed else { return }
         surfaceVisible = true
-        showIfReady()
+        switch state {
+        case .readyToShow:
+            showIfReady()
+        case .submitting:
+            // The page keeps its state while submitting; it only needs to hear the change.
+            guard hasBeenVisible, !pageThinksVisible else { return }
+            pageThinksVisible = true
+            send(.becameVisible)
+        default:
+            break
+        }
     }
 
     func surfaceDidBecomeHidden() {
         guard !isDisposed else { return }
         surfaceVisible = false
-        guard state == .visible else { return }
-        set(.readyToShow)
+        if state == .visible {
+            set(.readyToShow)
+        }
+        guard pageThinksVisible, !isFinished else { return }
+        pageThinksVisible = false
         send(.becameHidden)
     }
 
+    /// The page hears `became_visible` first, then the delegate hears `visible`: a delegate that
+    /// hides the surface from that callback produces a `became_hidden` the page can accept.
     private func showIfReady() {
         guard state == .readyToShow else { return }
         hasBeenVisible = true
-        set(.visible)
+        pageThinksVisible = true
         send(.becameVisible)
+        guard state == .readyToShow else { return }
+        set(.visible)
     }
 
     // MARK: Incoming
@@ -282,6 +311,9 @@ public final class LeadFormController {
             } else if [.preparing, .prepared, .activating].contains(state) {
                 retryIsReload = true
                 set(.failed(errorCode: "renderer_gone", retryable: true))
+            } else if case .failed(_, retryable: true) = state {
+                // A retryable failure from the page: its renderer is gone too, so retry must reload.
+                retryIsReload = true
             }
             return
         }
@@ -312,7 +344,8 @@ public final class LeadFormController {
         case .prepared:
             guard state == .preparing else { return }
             set(.prepared)
-            if openRequested {
+            // The delegate may itself have opened the form from the callback.
+            if openRequested, state == .prepared {
                 sendActivate()
             }
         case let .activated(_, keys, events):
@@ -335,7 +368,7 @@ public final class LeadFormController {
             }
             retryIsActivation = state == .activating
             // `error-codes.json` decides which codes can ever be retried; the form can only narrow it.
-            set(.failed(errorCode: code.rawValue, retryable: retryable && code.isRetryable))
+            set(.failed(errorCode: code.rawValue, retryable: retryable && code.isRetryable && !activated))
         case let .fatalError(code):
             guard !isFinished else { return }
             set(code == .expired ? .expired : .failed(errorCode: code.rawValue, retryable: false))
@@ -376,6 +409,8 @@ public final class LeadFormController {
             set(.failed(errorCode: "reloaded", retryable: false))
             return
         }
+        // Never hand the token to a form whose deadline passed while the page was loading.
+        guard !expireIfPastDeadline() else { return }
         retryIsActivation = false
         set(.preparing)
         send(.initialize(preparationToken: experience.preparationToken, presentation: presentation))
@@ -384,6 +419,8 @@ public final class LeadFormController {
     // MARK: Outgoing
 
     private func sendActivate() {
+        // A form is not activated with an authorization that has lapsed since it was prepared.
+        guard !expireIfPastDeadline() else { return }
         set(.activating)
         send(.activate)
     }

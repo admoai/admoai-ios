@@ -118,3 +118,39 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
     When the viewer taps the creative
     Then the state is failed with form_not_available, not retryable, and nothing waits for a page that will never speak
     And a launch address that redirects ends the form with navigation_blocked
+
+  Scenario: A reload starts from a clean page
+    Given the page's renderer was lost before activation and the app retries
+    Then the reloaded page is treated as a new page: a load failure on it ends the form as temporary_failure instead of leaving it preparing
+
+  Scenario: Hiding and showing while submitting tells the form without leaving submitting
+    Given the form is submitting
+    When the surface is hidden and shown again
+    Then the form hears one became_hidden and one became_visible, the state stays submitting, and the submission completes normally
+
+  Scenario: A delegate that hides the surface the moment the form shows does not break the bridge
+    Given the app hides the surface from its visible callback
+    Then the form hears became_visible before became_hidden and the state is readyToShow, not failed
+
+  Scenario: A renderer lost during a retryable failure is reloaded on retry
+    Given the form reported a retryable failure before activation
+    When the page's renderer is lost and the app retries
+    Then the page is loaded again, instead of sending retry_prepare to a page that is gone
+
+  Scenario: A delegate that opens the form from the prepared callback activates it once
+    Given the viewer tapped before the form was prepared
+    When the delegate also calls open from the prepared callback
+    Then activate is sent once
+
+  Scenario: A failure after activation offers no activation retry
+    Given the form is activated
+    When the form reports a retryable failure
+    Then the state is failed, not retryable
+
+  Scenario: A page that speaks after the deadline is never sent the token
+    Given the form is loading and its descriptor expires before the page announces itself
+    Then the state is expired and nothing is sent
+
+  Scenario: An activation after the deadline never happens
+    Given the viewer tapped while preparing, or the app retries an activation, after the descriptor expired
+    Then the state is expired and no activate is sent

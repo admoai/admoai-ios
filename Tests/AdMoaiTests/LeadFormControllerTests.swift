@@ -40,9 +40,12 @@ struct LeadFormControllerTests {
     private final class Recorder: LeadFormControllerDelegate {
         var states: [LeadFormState] = []
         var closeRequests = 0
+        /// Runs inside the callback, the way an app's own delegate code would.
+        var onChange: ((LeadFormState) -> Void)?
 
         func leadFormController(_: LeadFormController, didChange state: LeadFormState) {
             states.append(state)
+            onChange?(state)
         }
 
         func leadFormControllerDidRequestClose(_: LeadFormController) {
@@ -138,7 +141,7 @@ struct LeadFormControllerTests {
     }
 
     // Scenario 1
-    @Test func theWholeHappyPath() {
+    @Test func theWholeHappyPath() throws {
         let h = Harness()
         h.reachVisible()
         #expect(h.sentTypes == ["initialize", "activate", "prefill", "became_visible"])
@@ -146,8 +149,10 @@ struct LeadFormControllerTests {
         let load = h.transport.loads.first
         #expect(load?.fragment == "instanceId=\(Self.instanceId)&channel=\(h.controller.channel)")
         #expect(load?.absoluteString.hasPrefix("https://forms.example.invalid/launch?x=1#") == true)
-        #expect(h.sent[0].payload["preparationToken"] == .string(Self.secret))
-        #expect(h.sent[2].payload == ["values": .object([:])])
+        let sent = h.sent
+        try #require(sent.count == 4)
+        #expect(sent[0].payload["preparationToken"] == .string(Self.secret))
+        #expect(sent[2].payload == ["values": .object([:])])
         #expect(h.controller.channel.count == 32)
     }
 
@@ -434,7 +439,7 @@ struct LeadFormControllerTests {
         }
     }
 
-    // Scenario 20
+    // Scenario 19
     @Test func aTapAfterTheDeadlineNeverActivates() {
         let prepared = Harness(expiresIn: 60)
         prepared.controller.prepare()
@@ -463,7 +468,7 @@ struct LeadFormControllerTests {
         #expect(fresh.controller.state == .activating)
     }
 
-    // Scenario 21
+    // Scenario 20
     @Test func prepareFailureCodesDecideWhetherARetryCanHelp() {
         let cases: [(code: String, flag: Bool, state: LeadFormState)] = [
             ("expired", true, .expired),
@@ -483,7 +488,7 @@ struct LeadFormControllerTests {
         }
     }
 
-    // Scenario 22
+    // Scenario 21
     @Test func aPageThatCannotLoadIsReloadedOnRetry() {
         let offline = Harness()
         offline.controller.prepare()
@@ -514,7 +519,7 @@ struct LeadFormControllerTests {
         #expect(lost.sentTypes == ["initialize", "initialize"])
     }
 
-    // Scenario 23
+    // Scenario 22
     @Test func losingTheRendererAfterActivationIsFinal() {
         let h = Harness()
         h.controller.open()
@@ -528,7 +533,7 @@ struct LeadFormControllerTests {
         #expect(h.controller.state == .failed(errorCode: "renderer_gone", retryable: false))
     }
 
-    // Scenario 19
+    // Scenario 23
     @Test func anAppThatDidNotOptInGetsNoController() {
         let config = SDKConfig(baseUrl: "https://api.mock.admoai.com", apiVersion: "2025-11-01")
         let sdk = AdMoai(config: config)
@@ -545,6 +550,7 @@ struct LeadFormControllerTests {
         } }
         let provider = Provider()
         sdk.enableInteractiveExperiences(valueProvider: provider)
+        sdk.interactiveExperienceBox.platformSupportsSecureFormView = false
         #expect(
             sdk.makeLeadFormController(for: experience, presentation: .inline) == nil,
             "no secure view on this host"
@@ -570,5 +576,135 @@ struct LeadFormControllerTests {
         blocked.controller.open()
         blocked.transport.onLoadFailed?(.blocked)
         #expect(blocked.controller.state == .failed(errorCode: "navigation_blocked", retryable: false))
+    }
+
+    // Scenario 25
+    @Test func aReloadStartsFromACleanPage() {
+        let h = Harness()
+        h.controller.prepare()
+        h.bridgeReady()
+        h.transport.onLoadFailed?(.rendererLost)
+        #expect(h.controller.state == .failed(errorCode: "renderer_gone", retryable: true))
+        h.controller.retry()
+        #expect(h.controller.state == .preparing)
+        #expect(h.transport.loads.count == 2)
+        // The new page never spoke, so a load failure on it is the form failing to load, not noise.
+        h.transport.onLoadFailed?(.transient)
+        #expect(h.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
+    }
+
+    // Scenario 26
+    @Test func hidingAndShowingWhileSubmittingTellsTheFormWithoutLeavingSubmitting() {
+        let h = Harness()
+        h.reachVisible()
+        h.runtime("submitting")
+        h.controller.surfaceDidBecomeHidden()
+        #expect(h.controller.state == .submitting)
+        h.controller.surfaceDidBecomeHidden()
+        h.controller.surfaceDidBecomeVisible()
+        h.controller.surfaceDidBecomeVisible()
+        #expect(h.controller.state == .submitting)
+        #expect(h.sentTypes.suffix(3) == ["became_visible", "became_hidden", "became_visible"][...])
+        h.runtime(
+            "submitted",
+            ["leadId": .string("lead_01KG000000000000000000W001"), "submittedAt": .string("2026-11-12T15:04:05Z")]
+        )
+        #expect(h.controller.state == .submitted(
+            leadId: "lead_01KG000000000000000000W001",
+            submittedAt: Self.submittedAt
+        ))
+    }
+
+    // Scenario 27
+    @Test func aDelegateThatHidesTheSurfaceFromTheVisibleCallbackDoesNotBreakTheBridge() {
+        let h = Harness()
+        let controller = h.controller
+        h.recorder.onChange = {
+            if $0 == .visible {
+                controller.surfaceDidBecomeHidden()
+            }
+        }
+        h.reachVisible()
+        #expect(h.controller.state == .readyToShow)
+        #expect(h.sentTypes == ["initialize", "activate", "prefill", "became_visible", "became_hidden"])
+        #expect(!h.recorder.states.contains(.failed(errorCode: "bridge_error", retryable: false)))
+    }
+
+    // Scenario 28
+    @Test func aRendererLostDuringARetryableFailureIsReloadedOnRetry() {
+        let h = Harness()
+        h.controller.prepare()
+        h.bridgeReady()
+        h.runtime("prepare_failed", ["errorCode": .string("temporary_failure"), "retryable": .bool(true)])
+        h.transport.onLoadFailed?(.rendererLost)
+        #expect(h.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
+        h.controller.retry()
+        #expect(h.controller.state == .preparing)
+        #expect(h.transport.loads.count == 2)
+        #expect(!h.sentTypes.contains("retry_prepare"))
+    }
+
+    // Scenario 29
+    @Test func aDelegateThatOpensFromThePreparedCallbackActivatesOnce() {
+        let h = Harness()
+        let controller = h.controller
+        h.controller.open()
+        h.bridgeReady()
+        h.recorder.onChange = {
+            if $0 == .prepared {
+                controller.open()
+            }
+        }
+        h.prepared()
+        #expect(h.controller.state == .activating)
+        #expect(h.sentTypes == ["initialize", "activate"])
+    }
+
+    // Scenario 30
+    @Test func aFailureAfterActivationOffersNoActivationRetry() {
+        let h = Harness()
+        h.controller.open()
+        h.bridgeReady()
+        h.prepared()
+        h.activated()
+        h.runtime("prepare_failed", ["errorCode": .string("rate_limited"), "retryable": .bool(true)])
+        #expect(h.controller.state == .failed(errorCode: "rate_limited", retryable: false))
+        h.controller.retry()
+        #expect(h.sentTypes == ["initialize", "activate", "prefill"])
+    }
+
+    // Scenario 31
+    @Test func aPageThatSpeaksAfterTheDeadlineIsNeverSentTheToken() {
+        let h = Harness(expiresIn: 60)
+        h.controller.prepare()
+        h.clock.date += 120
+        h.bridgeReady()
+        #expect(h.controller.state == .expired)
+        #expect(h.transport.sentTexts.isEmpty)
+        #expect(!h.transport.sentTexts.contains { $0.contains(Self.secret) })
+    }
+
+    // Scenario 32
+    @Test func anActivationAfterTheDeadlineNeverActivates() {
+        // A tap made while preparing, answered after the deadline.
+        let pending = Harness(expiresIn: 60)
+        pending.controller.open()
+        pending.bridgeReady()
+        pending.clock.date += 120
+        pending.prepared()
+        #expect(pending.controller.state == .expired)
+        #expect(pending.sentTypes == ["initialize"])
+
+        // An activation retry after the deadline.
+        let retried = Harness(expiresIn: 60)
+        retried.controller.open()
+        retried.bridgeReady()
+        retried.prepared()
+        retried.runtime("prepare_failed", ["errorCode": .string("rate_limited"), "retryable": .bool(true)])
+        #expect(retried.controller.state == .failed(errorCode: "rate_limited", retryable: true))
+        retried.clock.date += 120
+        retried.controller.retry()
+        #expect(retried.controller.state == .expired)
+        #expect(retried.sentTypes == ["initialize", "activate"])
     }
 }

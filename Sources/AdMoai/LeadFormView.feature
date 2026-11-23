@@ -19,3 +19,13 @@ Feature: The form is told it is visible only while the viewer can see it
   Scenario: Full screen respects the safe area
     Given a full screen form
     Then its content stays inside the safe area, and a modal hosts it full screen
+
+  Scenario: Hiding or fading an ancestor hides the form
+    Given the container sits inside other views
+    When any view above it is hidden or made transparent
+    Then the controller is told the surface became hidden, and visible again when the chain clears
+
+  Scenario: The scene decides for its windows
+    Given the container is in a window that belongs to a scene
+    When that scene enters the background or comes back, whatever the app as a whole is doing
+    Then the controller is told the surface became hidden or visible, and a window with no scene follows the app

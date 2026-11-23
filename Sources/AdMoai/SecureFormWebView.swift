@@ -55,6 +55,9 @@ import Foundation
         private var expectedLoad: URL?
         /// Whether a page has committed in the main frame since the last load the SDK started.
         private var hasCommitted = false
+        /// After teardown the live web view may stay mounted in the app's hierarchy: it shows an empty
+        /// document and cancels every navigation, but for the one blank load the SDK itself starts.
+        private var blankLoadPending = false
 
         init(launchURL: URL, logger: Logger) {
             origin = FormOrigin(url: launchURL)
@@ -117,8 +120,11 @@ import Foundation
             controller.removeScriptMessageHandler(forName: Self.handlerName, contentWorld: .page)
             controller.removeAllUserScripts()
             webView.stopLoading()
-            webView.navigationDelegate = nil
-            webView.uiDelegate = nil
+            // The navigation delegate stays: it is what cancels everything from now on. Replace the
+            // document so nothing of the form (or what the viewer typed) stays on screen.
+            expectedLoad = nil
+            blankLoadPending = true
+            webView.loadHTMLString("", baseURL: nil)
         }
 
         // MARK: Filter
@@ -140,7 +146,7 @@ import Foundation
             inMainFrame: Bool,
             expected: URL?
         ) -> Bool {
-            guard inMainFrame, let url, let expected, url.scheme == "https",
+            guard inMainFrame, let url, let expected, url.scheme?.lowercased() == "https",
                   (method ?? "GET").uppercased() == "GET" else { return false }
             return withoutFragment(url) == withoutFragment(expected)
         }
@@ -148,9 +154,34 @@ import Foundation
         /// WebKit may or may not keep the fragment on the request it reports; the launch address's
         /// fragment carries no server-visible data, so the comparison leaves it out.
         private nonisolated static func withoutFragment(_ url: URL) -> String {
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            components?.fragment = nil
-            return components?.string ?? url.absoluteString
+            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+                return url.absoluteString
+            }
+            components.fragment = nil
+            // Scheme and host are case-insensitive; the path and query are not.
+            components.scheme = components.scheme?.lowercased()
+            components.host = components.host?.lowercased()
+            return components.string ?? url.absoluteString
+        }
+
+        /// Decides one navigation and spends what it consumes: the armed load before teardown; after
+        /// teardown nothing is allowed except the single blank document the SDK loads itself.
+        func permitsNavigation(to url: URL?, method: String?, inMainFrame: Bool) -> Bool {
+            if isTornDown {
+                let allowed = blankLoadPending && inMainFrame && url?.absoluteString == "about:blank"
+                blankLoadPending = false
+                return allowed
+            }
+            let allowed = Self.allowsNavigation(
+                to: url,
+                method: method,
+                inMainFrame: inMainFrame,
+                expected: expectedLoad
+            )
+            if allowed {
+                expectedLoad = nil
+            }
+            return allowed
         }
 
         fileprivate func receive(_ message: WKScriptMessage) {
@@ -215,16 +246,13 @@ import Foundation
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
-            let allowed = Self.allowsNavigation(
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame == true
+            let allowed = permitsNavigation(
                 to: navigationAction.request.url,
                 method: navigationAction.request.httpMethod,
-                inMainFrame: navigationAction.targetFrame?.isMainFrame == true,
-                expected: expectedLoad
+                inMainFrame: isMainFrame
             )
-            let isMainFrame = navigationAction.targetFrame?.isMainFrame == true
-            if allowed {
-                expectedLoad = nil
-            } else {
+            if !allowed {
                 cancelledNavigationCount += 1
                 logger.warning("Lead form surface cancelled a navigation it did not start")
             }
