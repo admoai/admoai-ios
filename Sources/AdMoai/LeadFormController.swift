@@ -201,7 +201,11 @@ public final class LeadFormController {
     public func dispose() {
         guard !isDisposed else { return }
         if bridgeReadySeen,
-           let text = try? AppMessage.dispose.encode(instanceId: experience.formInstanceId, channel: channel)
+           let text = try? AppMessage.dispose.encode(
+               instanceId: experience.formInstanceId,
+               channel: channel,
+               exchanged: exchanged
+           )
         {
             transport.send(text)
         }
@@ -389,6 +393,7 @@ public final class LeadFormController {
             let text = try message.encode(
                 instanceId: experience.formInstanceId,
                 channel: channel,
+                exchanged: exchanged,
                 allowedPrefillKeys: requestedKeys
             )
             exchanged.insert(message.wireType)
