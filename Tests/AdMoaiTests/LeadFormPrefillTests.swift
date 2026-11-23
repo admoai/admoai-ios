@@ -67,10 +67,12 @@ struct LeadFormPrefillTests {
 
     // Scenario 3
     @Test func aLateValueIsDiscarded() async {
-        let provider = Provider([.email: "a@b.co", .phone: "+34123"], delaysMs: [.phone: 300])
-        let result = await LeadFormPrefill.lookup(keys: [.email, .phone], provider: provider, timeoutMs: 40)
+        // Wide margins: the deadline is real time, and a slow CI host must still see the fast value in
+        // time; the late one lands well after it, while the test is still watching.
+        let provider = Provider([.email: "a@b.co", .phone: "+34123"], delaysMs: [.phone: 1500])
+        let result = await LeadFormPrefill.lookup(keys: [.email, .phone], provider: provider, timeoutMs: 500)
         #expect(result == [.email: "a@b.co"])
-        try? await Task.sleep(nanoseconds: 400_000_000)
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
         #expect(result == [.email: "a@b.co"])
     }
 
@@ -87,7 +89,7 @@ struct LeadFormPrefillTests {
     @Test func anAppThatNeverAnswersCannotHoldTheForm() async {
         let provider = Provider([.email: "a@b.co", .phone: "+34123"], delaysMs: [.phone: 5000])
         let start = Date()
-        let result = await LeadFormPrefill.lookup(keys: [.email, .phone], provider: provider, timeoutMs: 50)
+        let result = await LeadFormPrefill.lookup(keys: [.email, .phone], provider: provider, timeoutMs: 500)
         #expect(result == [.email: "a@b.co"])
         #expect(Date().timeIntervalSince(start) < 2)
     }

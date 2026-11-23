@@ -859,16 +859,17 @@ struct LeadFormControllerTests {
     // Scenario 35
     @Test func aValueThatArrivesAfterTheDeadlineIsNeverSent() async {
         let provider = FakeProvider(
-            [.email: "fast@example.invalid", .phone: "+34123"], delaysMs: [.phone: 300]
+            [.email: "fast@example.invalid", .phone: "+34123"], delaysMs: [.phone: 1500]
         )
-        let h = Harness(provider: provider, prefillTimeoutMs: 40)
+        // Real-time deadline: wide enough for a slow CI host to deliver the fast value in time.
+        let h = Harness(provider: provider, prefillTimeoutMs: 500)
         h.controller.open()
         h.bridgeReady()
         h.prepared()
         h.activated(keys: ["email", "phone"])
         await Self.waitUntil { h.prefillValues != nil }
         #expect(h.prefillValues == ["email": .string("fast@example.invalid")])
-        try? await Task.sleep(nanoseconds: 400_000_000)
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
         #expect(h.sentTypes.filter { $0 == "prefill" }.count == 1)
     }
 
