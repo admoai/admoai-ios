@@ -362,4 +362,52 @@ struct InteractiveExperienceTests {
         let sent = try #require(try extensionJSON(build(sdk)))
         #expect(sent["availableAttributeKeys"] as? [String] == ["email"])
     }
+
+    private final class Marker: LeadFormValueProvider {
+        var availableKeys: Set<StandardAttributeKey> {
+            []
+        }
+    }
+
+    // Scenario 16
+    @Test func aReaderNeverSeesTheNewProviderWithTheOldGeneration() {
+        let box = InteractiveExperienceBox()
+        let first = Marker()
+        let second = Marker()
+        box.set(first)
+        let before = box.snapshot()
+        #expect(before.provider === first)
+        box.set(second)
+        let after = box.snapshot()
+        #expect(after.provider === second)
+        #expect(after.generation > before.generation)
+        box.set(second)
+        #expect(box.snapshot().generation == after.generation, "the same instance changes nothing")
+
+        // While another thread keeps switching, generation k always pairs with its own provider:
+        // odd generations hold `odd`, even ones `even`.
+        let fresh = InteractiveExperienceBox()
+        let odd = Marker()
+        let even = Marker()
+        let violations = NSLock()
+        nonisolated(unsafe) var broken = 0
+        DispatchQueue.concurrentPerform(iterations: 8) { worker in
+            if worker == 0 {
+                for step in 1 ... 4000 {
+                    fresh.set(step % 2 == 1 ? odd : even)
+                }
+            } else {
+                for _ in 0 ..< 4000 {
+                    let seen = fresh.snapshot()
+                    let expected: Marker? = seen.generation == 0 ? nil : (seen.generation % 2 == 1 ? odd : even)
+                    if seen.provider !== expected {
+                        violations.lock()
+                        broken += 1
+                        violations.unlock()
+                    }
+                }
+            }
+        }
+        #expect(broken == 0)
+    }
 }

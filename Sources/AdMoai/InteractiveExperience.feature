@@ -86,3 +86,9 @@ Feature: Interactive experiences are opt-in and decoded safely
     Given the contract's malformed request and its request with an unknown and a repeated key
     When an opted-in app builds requests with no keys, one key and every key
     Then support is always a boolean and the keys always a list of catalog names, each named once
+
+  Scenario: A reader never sees the new provider with the old generation
+    Given an opted-in app and a form created for its provider
+    When the app switches to another provider
+    Then reading the provider and its generation together gives the new provider with a newer generation
+    And a form created for the old generation can no longer reach any provider

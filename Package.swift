@@ -28,6 +28,8 @@ let package = Package(
                 "InteractiveExperience.feature",
                 "LeadFormBridge.feature",
                 "LeadFormController.feature",
+                "LeadFormPrefill.feature",
+                "LeadFormTracking.feature",
                 "SecureFormWebView.feature",
                 "LeadFormView.feature",
                 "Utils/DeviceCategoryClassifier.feature",
