@@ -2022,6 +2022,8 @@ from the code, and never show the code to the viewer; log it to understand what 
 
 - **Preparing is bounded.** At most two forms prepare in the background at once; a tap always
   goes ahead, even if its form was not prepared yet.
+  A `retry()` on a form the viewer never opened follows the same limit: it may wait for a free
+  slot, and the state stays `.failed` until it starts. A tap on that form retries it at once.
 - **A served form can be opened for 15 minutes.** After that the state is `.expired`.
 - **Back.** iOS has no system back button, but if your screen has its own back control or
   gesture, give the press to the form first: `if controller?.handleBack() == true { return }`.
