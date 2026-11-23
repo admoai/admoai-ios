@@ -1,0 +1,304 @@
+@_spi(InteractiveExperience) @testable import AdMoai
+import Foundation
+import Testing
+#if canImport(WebKit)
+    import WebKit
+    #if canImport(OSLog)
+        import OSLog
+    #endif
+
+    /// The scenarios of `Sources/AdMoai/SecureFormWebView.feature`, run against a real WKWebView on
+    /// the macOS test host. Pages are loaded with `loadHTMLString(_, baseURL:)`, which gives them the
+    /// origin the scenario needs without a network.
+    @MainActor
+    struct SecureFormWebViewTests {
+        private static let launch = URL(string: "https://forms.example.invalid/launch")!
+        private static let foreign = URL(string: "https://evil.example.invalid/")!
+
+        @MainActor
+        private final class Harness {
+            let surface: SecureFormWebView
+            var received: [String] = []
+            var loadFailures = 0
+            var failures: [LeadFormLoadFailure] = []
+
+            init() {
+                surface = SecureFormWebView(
+                    launchURL: SecureFormWebViewTests.launch,
+                    logger: Logger(subsystem: "test", category: "SecureFormWebViewTests")
+                )
+                surface.onMessage = { [weak self] in self?.received.append($0) }
+                surface.onLoadFailed = { [weak self] failure in
+                    self?.loadFailures += 1
+                    self?.failures.append(failure)
+                }
+            }
+
+            func evaluate(_ script: String) async -> Any? {
+                await withCheckedContinuation { continuation in
+                    surface.webView.evaluateJavaScript(script) { result, _ in continuation.resume(returning: result) }
+                }
+            }
+
+            /// Loads `html` as if served from `base`, then waits for the page to say it ran.
+            func load(_ html: String, base: URL = SecureFormWebViewTests.launch) async {
+                surface.expectLoad(of: base)
+                surface.webView.loadHTMLString(
+                    "<html><body>\(html)<script>window.__ready = true;</script></body></html>",
+                    baseURL: base
+                )
+                await SecureFormWebViewTests.wait { await (self.evaluate("window.__ready === true") as? Bool) == true }
+            }
+        }
+
+        private static func wait(seconds: Double = 5, _ condition: @MainActor () async -> Bool) async {
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline {
+                if await condition() {
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 25_000_000)
+            }
+        }
+
+        private static func settle(_ seconds: Double = 0.6) async {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+
+        private let rawPost = "window.webkit.messageHandlers.AdmoaiBridge.postMessage"
+
+        // Scenario 1
+        @Test func aMessageFromTheFormsOwnPageIsDelivered() async {
+            let h = Harness()
+            await h.load("<script>window.AdmoaiBridge.postMessage('hello \"q\"');</script>")
+            await Self.wait { !h.received.isEmpty }
+            #expect(h.received == ["hello \"q\""])
+            #expect(h.surface.refusedMessageCount == 0)
+        }
+
+        // Scenario 2
+        @Test func aMessageFromAFrameInsideThePageIsRefused() async {
+            let frame = "<iframe srcdoc=\"<script>window.webkit.messageHandlers.AdmoaiBridge.postMessage('x')</script>\"></iframe>"
+            // With the navigation rule in place the frame never loads, so it never speaks.
+            let locked = Harness()
+            await locked.load(frame)
+            await Self.settle()
+            #expect(locked.received.isEmpty)
+            #expect(locked.surface.cancelledNavigationCount >= 1)
+
+            // Without it the frame does speak, and the message filter refuses it: main frame only.
+            let open = Harness()
+            open.surface.webView.navigationDelegate = nil
+            await open.load(frame)
+            await Self.wait { open.surface.refusedMessageCount == 1 }
+            #expect(open.surface.refusedMessageCount == 1)
+            #expect(open.received.isEmpty)
+        }
+
+        // Scenario 3
+        @Test func aMessageFromAnotherOriginIsRefused() async {
+            let h = Harness()
+            h.surface.webView.navigationDelegate = nil
+            await h.load("<script>\(rawPost)('x');</script>", base: Self.foreign)
+            await Self.wait { h.surface.refusedMessageCount == 1 }
+            #expect(h.surface.refusedMessageCount == 1)
+            #expect(h.received.isEmpty)
+
+            let sameHostOtherPort = Harness()
+            sameHostOtherPort.surface.webView.navigationDelegate = nil
+            await sameHostOtherPort.load(
+                "<script>\(rawPost)('x');</script>",
+                base: URL(string: "https://forms.example.invalid:8443/")!
+            )
+            await Self.wait { sameHostOtherPort.surface.refusedMessageCount == 1 }
+            #expect(sameHostOtherPort.surface.refusedMessageCount == 1)
+        }
+
+        // Scenario 4
+        @Test func aMessageThatIsNotTextIsRefused() async {
+            let h = Harness()
+            await h.load("<script>\(rawPost)({a: 1}); \(rawPost)(5);</script>")
+            await Self.wait { h.surface.refusedMessageCount == 2 }
+            #expect(h.surface.refusedMessageCount == 2)
+            #expect(h.received.isEmpty)
+        }
+
+        // Scenario 5
+        @Test func navigationAwayFromTheFormIsCancelled() async {
+            let expected = URL(string: "https://forms.example.invalid/launch?x=1#instanceId=i&channel=c")
+            let allows = { (url: String, method: String?, main: Bool) in
+                SecureFormWebView.allowsNavigation(
+                    to: URL(string: url),
+                    method: method,
+                    inMainFrame: main,
+                    expected: expected
+                )
+            }
+            #expect(allows("https://forms.example.invalid/launch?x=1#instanceId=i&channel=c", "GET", true))
+            #expect(allows("https://forms.example.invalid/launch?x=1", nil, true), "WebKit may drop the fragment")
+            #expect(
+                !allows("https://forms.example.invalid/launch?x=1", "POST", true),
+                "a form POST to the launch address"
+            )
+            #expect(!allows("https://forms.example.invalid/launch?x=1", "GET", false))
+            #expect(!allows("https://forms.example.invalid/other", "GET", true), "another path on the same origin")
+            #expect(!allows("https://forms.example.invalid/launch?x=2", "GET", true))
+            #expect(!allows("https://evil.example.invalid/", "GET", true))
+            #expect(!allows("http://forms.example.invalid/launch?x=1", "GET", true))
+            #expect(!allows("about:blank", "GET", true))
+            #expect(!allows("javascript:alert(1)", "GET", true))
+            #expect(!allows("file:///etc/passwd", "GET", true))
+            #expect(!SecureFormWebView.allowsNavigation(
+                to: expected, method: "GET", inMainFrame: true, expected: nil
+            ), "nothing the SDK did not ask for")
+
+            let h = Harness()
+            await h.load("")
+            _ = await h.evaluate("location.href = 'https://other.example.invalid/'")
+            await Self.wait { h.surface.cancelledNavigationCount == 1 }
+            _ = await h.evaluate("location.href = 'http://forms.example.invalid/insecure'")
+            await Self.wait { h.surface.cancelledNavigationCount == 2 }
+            // The launch address itself: a second load, a reload and a form POST are all refused.
+            _ = await h.evaluate("location.href = 'https://forms.example.invalid/launch'")
+            await Self.wait { h.surface.cancelledNavigationCount == 3 }
+            _ = await h.evaluate("location.reload()")
+            await Self.wait { h.surface.cancelledNavigationCount == 4 }
+            _ = await h.evaluate(
+                "const f = document.createElement('form'); f.method = 'POST'; " +
+                    "f.action = 'https://forms.example.invalid/launch'; document.body.appendChild(f); f.submit()"
+            )
+            await Self.wait { h.surface.cancelledNavigationCount == 5 }
+            #expect(h.surface.cancelledNavigationCount == 5)
+            #expect(h.loadFailures == 0, "a navigation the surface cancelled is not a load failure")
+            #expect(h.failures.isEmpty, "after a commit the form keeps working")
+        }
+
+        // Scenario 6
+        @Test func popupsNeverOpen() async {
+            let h = Harness()
+            await h
+                .load(
+                    "<script>window.AdmoaiBridge.postMessage(String(window.open('https://forms.example.invalid/x') === null));</script>"
+                )
+            await Self.wait { !h.received.isEmpty }
+            #expect(h.received == ["true"])
+        }
+
+        // Scenario 7
+        @Test func messagesFromTheSDKArriveAsTextExactly() async {
+            let h = Harness()
+            await h.load("""
+            <script>
+            window.__all = [];
+            window.AdmoaiBridge.onmessage = function (e) { window.__a = e.data; window.__all.push(e instanceof MessageEvent); };
+            window.AdmoaiBridge.addEventListener('message', function (e) { window.__b = e.data; });
+            </script>
+            """)
+            let text = "{\"v\":\"He said \\\"hi\\\" </script><script>alert(1)</script>\\nline 日本語 😀 \\\\ 'x'\"}\n\u{2028}\r\n"
+            h.surface.send(text)
+            await Self.wait { await (h.evaluate("window.__b") as? String) != nil }
+            #expect(await h.evaluate("window.__a") as? String == text)
+            #expect(await h.evaluate("window.__b") as? String == text)
+            #expect(await h.evaluate("window.__all.length") as? Int == 1)
+            #expect(await h.evaluate("window.__all[0]") as? Bool == true)
+        }
+
+        // Scenario 8
+        @Test func aPageThatCannotLoadIsReported() async {
+            let h = Harness()
+            h.surface.load(Self.launch) // the launch host is unreachable (.invalid)
+            await Self.wait { h.loadFailures >= 1 }
+            #expect(h.loadFailures >= 1)
+
+            // A page that answers with an HTTP error is a failure too, final for a 4xx.
+            #expect(SecureFormWebView.loadFailure(forStatus: 200) == nil)
+            #expect(SecureFormWebView.loadFailure(forStatus: 304) == nil)
+            #expect(SecureFormWebView.loadFailure(forStatus: 404) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 410) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 403) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 401) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 400) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 499) == .unavailable)
+            #expect(SecureFormWebView.loadFailure(forStatus: 429) == .transient, "rate limited: retryable")
+            #expect(SecureFormWebView.loadFailure(forStatus: 408) == .transient, "timeout: retryable")
+            #expect(SecureFormWebView.loadFailure(forStatus: 500) == .transient)
+            #expect(SecureFormWebView.loadFailure(forStatus: 503) == .transient)
+        }
+
+        // Scenario 9
+        @Test func theWebViewKeepsNothingAndIsReleased() async {
+            var surface: SecureFormWebView? = SecureFormWebView(
+                launchURL: Self.launch, logger: Logger(subsystem: "test", category: "SecureFormWebViewTests")
+            )
+            #expect(surface?.webView.configuration.websiteDataStore.isPersistent == false)
+            weak var weakView = surface?.webView
+            surface?.webView.loadHTMLString("<html></html>", baseURL: Self.launch)
+            await Self.settle(0.3)
+            surface?.teardown()
+            surface = nil
+            await Self.wait { weakView == nil }
+            #expect(weakView == nil)
+        }
+
+        // Scenario 10
+        @Test func aRefusedNavigationBeforeTheFirstCommitFailsTheForm() async {
+            let h = Harness()
+            // The surface asked for the launch address; the page that answers is from elsewhere
+            // (a redirect): refused before anything committed.
+            h.surface.expectLoad(of: Self.launch)
+            h.surface.webView.loadHTMLString("<html></html>", baseURL: Self.foreign)
+            await Self.wait { !h.failures.isEmpty }
+            #expect(h.failures == [.blocked])
+            #expect(h.surface.cancelledNavigationCount == 1)
+        }
+
+        // Scenario 11
+        @Test func aDisposedSurfaceNavigatesNowhere() async {
+            let h = Harness()
+            await h.load("<p id='form'>typed answers</p>")
+            h.surface.expectLoad(of: Self.launch) // an armed load must not survive disposal
+            h.surface.teardown()
+            // The mounted web view shows an empty document, not the form.
+            await Self.wait { await (h.evaluate("document.getElementById('form') === null") as? Bool) == true }
+            #expect(await h.evaluate("document.getElementById('form') === null") as? Bool == true)
+            // And the page cannot leave.
+            _ = await h.evaluate("location.href = 'https://forms.example.invalid/launch'")
+            await Self.settle()
+            #expect(await h.evaluate("document.getElementById('form') === null") as? Bool == true)
+            // The one blank load is spent: from now on nothing passes, the launch address included.
+            for url in [
+                Self.launch,
+                Self.foreign,
+                URL(string: "about:blank")!,
+                URL(string: "https://forms.example.invalid/launch#x")!,
+            ] {
+                #expect(!h.surface.permitsNavigation(to: url, method: "GET", inMainFrame: true), "\(url)")
+            }
+            #expect(!h.surface.permitsNavigation(to: Self.launch, method: "GET", inMainFrame: false))
+        }
+
+        // Scenario 12
+        @Test func theLaunchAddressIsMatchedCaseInsensitively() {
+            let mixed = URL(string: "HTTPS://Forms.Example.com/x?Q=1#frag")
+            let lower = URL(string: "https://forms.example.com/x?Q=1")
+            for (url, expected) in [(mixed, mixed), (lower, mixed), (mixed, lower)] {
+                #expect(SecureFormWebView.allowsNavigation(
+                    to: url,
+                    method: "GET",
+                    inMainFrame: true,
+                    expected: expected
+                ))
+            }
+            // Only scheme and host are case-insensitive.
+            let otherPath = URL(string: "https://forms.example.com/X?Q=1")
+            #expect(!SecureFormWebView.allowsNavigation(
+                to: otherPath,
+                method: "GET",
+                inMainFrame: true,
+                expected: mixed
+            ))
+            let http = URL(string: "HTTP://forms.example.com/x?Q=1")
+            #expect(!SecureFormWebView.allowsNavigation(to: http, method: "GET", inMainFrame: true, expected: http))
+        }
+    }
+#endif
