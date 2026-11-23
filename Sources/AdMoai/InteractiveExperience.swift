@@ -92,17 +92,32 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
 
     /// Opts in with `newValue`, or out with `nil`. A different provider instance (or none) starts a
     /// new generation and disposes every live controller; the same instance changes nothing.
+    ///
+    /// The new provider, the new generation and the controllers to dispose are one transaction under
+    /// the lock, so no reader sees the new provider with the old generation. Releasing the replaced
+    /// provider and the main-actor disposal happen after it.
     func set(_ newValue: LeadFormValueProvider?) {
         lock.lock()
         let previous = provider
-        let changed = previous !== newValue
-        provider = newValue
-        lock.unlock()
-        if changed {
-            invalidate()
+        guard previous !== newValue else {
+            lock.unlock()
+            return
         }
+        provider = newValue
+        let controllers = advanceGenerationLocked()
+        lock.unlock()
+        dispose(controllers)
         // The replaced provider is released only now: its deinit may call back into the SDK.
         withExtendedLifetime(previous) {}
+    }
+
+    /// The provider and the generation it belongs to, read together under the lock. A reader that
+    /// needs both (a controller capturing its opt-in, a lookup starting) must use this, never two
+    /// separate reads.
+    func snapshot() -> (provider: LeadFormValueProvider?, generation: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (provider, currentGeneration)
     }
 
     /// The opt-in the lookups and forms created now belong to. Bumped by every change that makes
@@ -113,34 +128,40 @@ internal final class InteractiveExperienceBox: @unchecked Sendable {
         return currentGeneration
     }
 
-    /// The provider to ask for values, only while `generation` is still current: a lookup that
-    /// started for another opt-in or user gets nothing.
-    func provider(forGeneration generation: Int) -> LeadFormValueProvider? {
+    /// Registers `controller`, which captured `generation` when it was created. When the opt-in or
+    /// the user changed since, it is not registered and is disposed at once, so it never loads.
+    @MainActor
+    func register(_ controller: LeadFormController, generation: Int) {
         lock.lock()
-        defer { lock.unlock() }
-        return generation == currentGeneration ? provider : nil
-    }
-
-    func register(_ controller: LeadFormController) {
-        lock.lock()
-        defer { lock.unlock() }
+        guard generation == currentGeneration else {
+            lock.unlock()
+            controller.dispose()
+            return
+        }
         live.removeAll { $0.controller == nil }
         live.append(LiveController(controller: controller))
+        lock.unlock()
     }
 
     /// The app switched or cleared its user: forms and lookups prepared for the old one end.
     func userDidChange() {
-        invalidate()
+        lock.lock()
+        let controllers = advanceGenerationLocked()
+        lock.unlock()
+        dispose(controllers)
     }
 
-    /// Starts a new generation and disposes every live controller on the main actor. The bump is
-    /// immediate, so a lookup that completes before the disposal runs is already discarded.
-    private func invalidate() {
-        lock.lock()
+    /// Starts a new generation and takes the live controllers. The bump is immediate, so a lookup
+    /// that completes before the disposal runs is already discarded. Call with the lock held.
+    private func advanceGenerationLocked() -> [LeadFormController] {
         currentGeneration += 1
         let controllers = live.compactMap(\.controller)
         live.removeAll()
-        lock.unlock()
+        return controllers
+    }
+
+    /// Disposes on the main actor, outside the lock.
+    private func dispose(_ controllers: [LeadFormController]) {
         guard !controllers.isEmpty else { return }
         Task { @MainActor in
             controllers.forEach { $0.dispose() }

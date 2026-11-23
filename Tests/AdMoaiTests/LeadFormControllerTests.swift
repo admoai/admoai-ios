@@ -1165,4 +1165,74 @@ struct LeadFormControllerTests {
         #expect(h.controller.handleBack() == false)
         #expect(!h.sentTypes.contains("back"))
     }
+
+    // Scenario 46
+    @Test func aFormCreatedForAnOptInThatChangedBeforeRegisteringIsDisposed() async {
+        let box = InteractiveExperienceBox()
+        let captured = box.snapshot().generation
+        box.userDidChange()
+        let stale = Harness(box: box)
+        box.register(stale.controller, generation: captured)
+        #expect(stale.controller.state == .disposed)
+        stale.controller.prepare()
+        stale.controller.open()
+        #expect(stale.transport.loads.isEmpty)
+
+        let current = Harness(box: box)
+        current.controller.prepare()
+        #expect(current.controller.state == .preparing)
+        box.userDidChange()
+        await Self.waitUntil { current.controller.state == .disposed }
+        #expect(current.controller.state == .disposed, "a registration for the current opt-in still succeeds")
+    }
+
+    // Scenario 47
+    @Test func retryingAFormThatWasNeverOpenedWaitsForAHiddenFormSlot() {
+        let failedPrepare = ["errorCode": JSONValue.string("temporary_failure"), "retryable": .bool(true)]
+
+        // A page that could not load is reloaded once a slot frees.
+        let reloadBox = InteractiveExperienceBox()
+        let a = Harness(box: reloadBox)
+        let b = Harness(box: reloadBox)
+        let c = Harness(box: reloadBox)
+        for h in [a, b, c] {
+            h.controller.prepare()
+        }
+        #expect(c.controller.state == .idle)
+        a.transport.onLoadFailed?(.transient)
+        #expect(c.controller.state == .preparing)
+        a.controller.retry()
+        #expect(a.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
+        #expect(a.transport.loads.count == 1)
+        b.controller.dispose()
+        #expect(a.controller.state == .preparing)
+        #expect(a.transport.loads.count == 2, "the reload retry loads the page again")
+
+        // A page that answered is told to prepare again once a slot frees.
+        let box = InteractiveExperienceBox()
+        let p = Harness(box: box)
+        let q = Harness(box: box)
+        p.controller.prepare()
+        p.bridgeReady()
+        p.runtime("prepare_failed", failedPrepare)
+        #expect(p.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
+        q.controller.prepare()
+        let r = Harness(box: box)
+        r.controller.prepare()
+        p.controller.retry()
+        #expect(p.controller.state == .failed(errorCode: "temporary_failure", retryable: true))
+        #expect(p.sentTypes == ["initialize"])
+        q.controller.dispose()
+        #expect(p.controller.state == .preparing)
+        #expect(p.sentTypes == ["initialize", "retry_prepare"])
+
+        // A form the viewer opened needs no slot, though both are taken.
+        let opened = Harness(box: box)
+        opened.controller.open()
+        opened.bridgeReady()
+        opened.runtime("prepare_failed", failedPrepare)
+        opened.controller.retry()
+        #expect(opened.controller.state == .preparing)
+        #expect(opened.sentTypes == ["initialize", "retry_prepare"])
+    }
 }

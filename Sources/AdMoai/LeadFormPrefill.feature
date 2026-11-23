@@ -28,3 +28,8 @@ Feature: A form opens with the contact values the app already holds
   Scenario: Nothing is asked when there is nothing to ask
     Given the form requests keys the app does not hold
     Then the form receives no values and the app is not asked
+
+  Scenario: A value that arrives after the deadline is dropped even before the wait ended
+    Given the deadline passed but the wait has not been ended yet
+    When the app answers for phone
+    Then phone is never sent and the form receives what arrived before the deadline

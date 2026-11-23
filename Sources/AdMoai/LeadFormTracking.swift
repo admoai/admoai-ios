@@ -20,6 +20,7 @@ final class LeadFormTracking {
     private let retryDelaysMs: [Int]
     private let logger: Logger
     private var urls: [LeadFormEvent: URL] = [:]
+    private var hasActivated = false
     private var fired = Set<LeadFormEvent>()
 
     init(
@@ -32,8 +33,11 @@ final class LeadFormTracking {
         self.logger = logger
     }
 
-    /// Remembers the URLs of the activation: nothing is fired yet.
+    /// Remembers the URLs of the first activation: nothing is fired yet. A later activation (the
+    /// page was reloaded and activated again) never replaces them.
     func activated(events: [LeadFormEvent: URL]) {
+        guard !hasActivated else { return }
+        hasActivated = true
         urls = events
     }
 

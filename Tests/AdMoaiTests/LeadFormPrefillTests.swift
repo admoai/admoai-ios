@@ -99,4 +99,90 @@ struct LeadFormPrefillTests {
         #expect(result.isEmpty)
         #expect(provider.askedKeys.isEmpty)
     }
+
+    private final class FakeUptime: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: UInt64 = 1_000_000_000
+
+        func read() -> UInt64 {
+            lock.lock()
+            defer { lock.unlock() }
+            return value
+        }
+
+        func advance(ms: UInt64) {
+            lock.lock()
+            value += ms * 1_000_000
+            lock.unlock()
+        }
+    }
+
+    /// Answers email at once and phone only after `release()`.
+    private final class GatedProvider: LeadFormValueProvider, @unchecked Sendable {
+        private let lock = NSLock()
+        private var released = false
+        private var phoneAsked = false
+
+        var availableKeys: Set<StandardAttributeKey> {
+            [.email, .phone]
+        }
+
+        var isWaitingForPhone: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return phoneAsked && !released
+        }
+
+        func release() {
+            lock.lock()
+            released = true
+            lock.unlock()
+        }
+
+        private func markPhoneAsked() {
+            lock.lock()
+            phoneAsked = true
+            lock.unlock()
+        }
+
+        private var isReleased: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return released
+        }
+
+        func value(for key: StandardAttributeKey) async -> String? {
+            guard key == .phone else { return "a@b.co" }
+            markPhoneAsked()
+            while !isReleased {
+                try? await Task.sleep(nanoseconds: 5_000_000)
+            }
+            return "+34123"
+        }
+    }
+
+    // Scenario 7
+    @Test func aValueAfterTheDeadlineIsDroppedEvenBeforeTheWaitEnded() async {
+        let clock = FakeUptime()
+        let provider = GatedProvider()
+        let start = Date()
+        let lookup = Task {
+            await LeadFormPrefill.lookup(
+                keys: [.email, .phone],
+                provider: provider,
+                timeoutMs: 5000,
+                uptime: { clock.read() }
+            )
+        }
+        while !provider.isWaitingForPhone {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        // The deadline passes; the task that would end the wait has not run (it sleeps for real).
+        clock.advance(ms: 6000)
+        provider.release()
+        let result = await lookup.value
+        #expect(result == [.email: "a@b.co"])
+        #expect(Date().timeIntervalSince(start) < 3)
+    }
 }

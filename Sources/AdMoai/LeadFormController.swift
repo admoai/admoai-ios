@@ -146,6 +146,8 @@ public final class LeadFormController {
     private var openRequested = false
     private var retryIsActivation = false
     private var retryIsReload = false
+    /// A retry of a never-opened form that is waiting for a hidden-form slot.
+    private var retryQueued = false
     private var surfaceVisible = false
     /// What the page was last told: it has heard `became_visible` and not yet `became_hidden`.
     private var pageThinksVisible = false
@@ -171,12 +173,12 @@ public final class LeadFormController {
         self.now = now
         self.optIn = optIn
         self.prefillTimeoutMs = prefillTimeoutMs
-        generation = optIn.generation
+        generation = optIn.snapshot().generation
         tracking = LeadFormTracking(send: fireTracking, retryDelaysMs: retryDelaysMs, logger: logger)
         channel = Self.mintChannel()
         transport.onMessage = { [weak self] text in self?.receive(text) }
         transport.onLoadFailed = { [weak self] in self?.loadFailed($0) }
-        optIn.register(self)
+        optIn.register(self, generation: generation)
     }
 
     deinit {
@@ -212,6 +214,16 @@ public final class LeadFormController {
 
     /// The gate has a slot for this form after it waited.
     func startQueuedPrepare() {
+        if retryQueued {
+            retryQueued = false
+            guard !isDisposed, case .failed(_, retryable: true) = state else {
+                optIn.hiddenFormGate.release(self)
+                return
+            }
+            guard !expireIfPastDeadline() else { return }
+            performRetry()
+            return
+        }
         guard !isDisposed, state == .idle else {
             optIn.hiddenFormGate.release(self)
             return
@@ -248,14 +260,31 @@ public final class LeadFormController {
         case .prepared:
             openRequested = true
             sendActivate()
+        case .failed(_, retryable: true) where retryQueued:
+            // The viewer tapped a form whose retry was waiting for a slot: an opened form needs none.
+            retryQueued = false
+            openRequested = true
+            performRetry()
         default:
             break
         }
     }
 
     /// Tries again after a failure the form said is retryable.
+    ///
+    /// A form that was never opened is hidden prewarm like any other: when two other forms hold the
+    /// hidden-form slots, the retry waits (the state stays `failed`) and proceeds when one frees.
+    /// An opened form retries at once.
     public func retry() {
         guard !isDisposed, case .failed(_, retryable: true) = state else { return }
+        if !openRequested, !optIn.hiddenFormGate.acquire(self) {
+            retryQueued = true
+            return
+        }
+        performRetry()
+    }
+
+    private func performRetry() {
         if retryIsReload {
             // No page was listening: load it again; its bridge_ready starts the exchange. Everything
             // tied to the old page goes, so the new one establishes its own readiness.
@@ -569,7 +598,8 @@ public final class LeadFormController {
         guard !prefillStarted else { return }
         prefillStarted = true
         let generation = generation
-        guard let provider = optIn.provider(forGeneration: generation) else {
+        let current = optIn.snapshot()
+        guard current.generation == generation, let provider = current.provider else {
             send(.prefill(values: [:]))
             return
         }

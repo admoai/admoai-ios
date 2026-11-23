@@ -29,3 +29,8 @@ Feature: The advertiser is told what the viewer did in the form, once
   Scenario: A slow or failing report never holds the form
     When the report takes seconds to answer
     Then the form keeps working while it is retried in the background
+
+  Scenario: A later activation never replaces the addresses of the first
+    Given the form was activated with addresses A, the page reloaded and activated again with addresses B
+    When the form reports an event that had not fired
+    Then the address from A is requested and never the one from B

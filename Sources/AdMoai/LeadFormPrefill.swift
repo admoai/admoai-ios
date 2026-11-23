@@ -6,19 +6,29 @@ import Foundation
 /// The values live in memory for the duration of the lookup and in the returned dictionary the
 /// caller sends once: nothing here stores, logs or reports them.
 enum LeadFormPrefill {
+    /// A monotonic reading, in nanoseconds. Injectable so a test can move time deterministically.
+    typealias Uptime = @Sendable () -> UInt64
+
+    static let systemUptime: Uptime = { DispatchTime.now().uptimeNanoseconds }
+
     /// Looks every key up concurrently and returns what arrived before `timeoutMs` elapsed, after
     /// ``sanitize(_:for:)``. A value that arrives later is discarded. Returns early when every key
     /// has answered.
+    ///
+    /// The deadline is fixed when the lookup starts, on `uptime`. A result is accepted only if it
+    /// arrives before it, even when the task that ends the wait has not run yet.
     ///
     /// Returns even when a provider ignores cancellation or never answers: the lookups are not
     /// awaited past the deadline.
     static func lookup(
         keys: Set<StandardAttributeKey>,
         provider: LeadFormValueProvider,
-        timeoutMs: Int = LeadFormBridge.Limits.prefillLookupTimeoutMs
+        timeoutMs: Int = LeadFormBridge.Limits.prefillLookupTimeoutMs,
+        uptime: @escaping Uptime = LeadFormPrefill.systemUptime
     ) async -> [StandardAttributeKey: String] {
         guard !keys.isEmpty else { return [:] }
-        let collector = Collector(expected: keys.count)
+        let deadline = uptime() &+ UInt64(max(timeoutMs, 0)) &* 1_000_000
+        let collector = Collector(expected: keys.count, deadline: deadline, uptime: uptime)
         return await withCheckedContinuation { continuation in
             collector.start(continuation)
             let lookups = keys.map { key in
@@ -27,12 +37,13 @@ enum LeadFormPrefill {
                     collector.record(key, raw)
                 }
             }
-            let deadline = Task {
-                try? await Task.sleep(nanoseconds: UInt64(max(timeoutMs, 0)) * 1_000_000)
+            let timeout = Task {
+                let now = uptime()
+                try? await Task.sleep(nanoseconds: deadline > now ? deadline - now : 0)
                 collector.finish()
             }
             collector.onFinish {
-                deadline.cancel()
+                timeout.cancel()
                 lookups.forEach { $0.cancel() }
             }
         }
@@ -56,14 +67,18 @@ enum LeadFormPrefill {
     private final class Collector: @unchecked Sendable {
         private let lock = NSLock()
         private let expected: Int
+        private let deadline: UInt64
+        private let uptime: Uptime
         private var received = 0
         private var values: [StandardAttributeKey: String] = [:]
         private var continuation: CheckedContinuation<[StandardAttributeKey: String], Never>?
         private var finished = false
         private var cleanup: (() -> Void)?
 
-        init(expected: Int) {
+        init(expected: Int, deadline: UInt64, uptime: @escaping Uptime) {
             self.expected = expected
+            self.deadline = deadline
+            self.uptime = uptime
         }
 
         func start(_ continuation: CheckedContinuation<[StandardAttributeKey: String], Never>) {
@@ -87,6 +102,12 @@ enum LeadFormPrefill {
             lock.lock()
             guard !finished else {
                 lock.unlock()
+                return
+            }
+            // Past the deadline the wait is over, whether or not the task that ends it has run yet.
+            guard uptime() < deadline else {
+                lock.unlock()
+                finish()
                 return
             }
             received += 1

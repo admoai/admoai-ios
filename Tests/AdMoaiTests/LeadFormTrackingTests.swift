@@ -126,4 +126,18 @@ struct LeadFormTrackingTests {
         await waitUntil { attempts.all.count == 1 }
         #expect(attempts.all.count == 1)
     }
+
+    // Scenario 7
+    @Test func aLaterActivationNeverReplacesTheAddressesOfTheFirst() async {
+        let attempts = Attempts(outcomes: [])
+        let tracking = makeTracking(attempts)
+        let other = URL(string: "https://api.example.invalid/track?t=other")!
+        tracking.activated(events: [.formOpen: other, .formStart: other])
+        tracking.event(.formOpen)
+        tracking.event(.formStart)
+        await waitUntil { attempts.all.count == 2 }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        #expect(Set(attempts.all) == [Self.open, Self.start])
+        #expect(!attempts.all.contains(other))
+    }
 }

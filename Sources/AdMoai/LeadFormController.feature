@@ -221,3 +221,14 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
     Then the form consumes it and goes back one stage, or asks to close on its first stage and on its confirmation
     And while submitting the press is consumed and nothing is sent
     And while the form is hidden, not yet shown, failed or disposed the press belongs to the app
+
+  Scenario: A form created for an opt-in that changed before it registered is disposed
+    Given a form captured the opt-in and then the app switched provider or user before it registered
+    When it registers
+    Then it is disposed, never loads, and a form registered for the current opt-in still works
+
+  Scenario: Retrying a form that was never opened waits for a hidden-form slot
+    Given two forms hold the hidden-form slots and a third form that was never opened failed
+    When the app retries the third form
+    Then it waits, still failed, until a slot frees and then retries the way its failure requires
+    And a form the viewer opened retries at once, without a slot
