@@ -191,9 +191,6 @@ import Foundation
         /// The view that shows the form: add it to your hierarchy for an inline form. One instance
         /// per controller. The form is told it is visible only while this view is in a window,
         /// not hidden, not transparent, and the app is in the foreground.
-        ///
-        /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
-        @_spi(InteractiveExperience)
         var formView: UIView {
             if let existing = surfaceHost as? LeadFormView {
                 return existing
@@ -209,9 +206,6 @@ import Foundation
 
         /// A view controller hosting ``formView``, for a form the app presents modally. Full screen
         /// forms use `.fullScreen` modal presentation. Create it once per controller.
-        ///
-        /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
-        @_spi(InteractiveExperience)
         var formViewController: UIViewController {
             LeadFormViewController(formView: formView, presentation: presentation)
         }

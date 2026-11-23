@@ -25,6 +25,8 @@ The AdMoai iOS SDK is a lightweight wrapper around the Decision Engine API, enab
   Read [Sponsored Pin Locations](#sponsored-pin-locations) before integrating: the SDK
   renders nothing and never infers that a pin was seen, so the measurement contract is
   yours to honour
+- **Lead Generation forms** – A native creative whose tap opens a hosted form inside your app.
+  Read [Lead Generation forms](#lead-generation-forms): the app never sees the answers
 - **Rich Targeting** – Geo, location, and custom key-value targeting
 - **Format Filter** – Request native-only, video-only, or any format
 - **User Consent** – GDPR compliance with consent management
@@ -1821,6 +1823,237 @@ func adView(for creative: Creative, sdk: AdMoai) -> some View {
 
 Because the format key is the standard's, the same `case` renders the plain standard Tap-to-expand
 (no `expanded_headline`, so the extra view is simply absent) and every operator template based on it.
+
+---
+
+## Lead Generation forms
+
+A Lead Generation ad is a native creative that your app renders as it renders any other. When the
+viewer taps it, Admoai's hosted form opens inside your app, either in place of the creative
+(inline) or full screen. The viewer fills it in and submits; **your app never sees the answers**,
+they go to the advertiser. The form is served only on `apiVersion: "2025-11-01"`; without it the
+engine does not return one.
+
+### Opt in
+
+Opting in tells the engine two things: that this app can open a form, and which contact values it
+already holds, by name only. You give the SDK a `LeadFormValueProvider`. `availableKeys` must
+answer from memory, without reading a file or calling a server: it is read every time a request is
+built. `value(for:)` is called only after the viewer opened a form, only for the keys that form
+asks about. Values go to that form and nowhere else; nothing is kept on the device.
+
+```swift
+// BoltShift, a ride-hailing app: the profile is already in memory.
+final class BoltShiftProfileValues: LeadFormValueProvider {
+    private let profile: [StandardAttributeKey: String] = [
+        .fullName: "Alex Rider",
+        .email: "alex@example.com",
+        .phone: "+1 555 0100",
+    ]
+
+    var availableKeys: Set<StandardAttributeKey> {
+        Set(profile.keys)
+    }
+
+    func value(for key: StandardAttributeKey) async -> String? {
+        profile[key]
+    }
+}
+
+sdk.enableInteractiveExperiences(valueProvider: BoltShiftProfileValues())
+```
+
+An app that holds nothing to pre-fill still opts in: the form starts with empty fields.
+
+```swift
+final class NoPrefillProvider: LeadFormValueProvider {
+    var availableKeys: Set<StandardAttributeKey> {
+        []
+    }
+}
+
+sdk.enableInteractiveExperiences(valueProvider: NoPrefillProvider())
+```
+
+**When the signed-in user changes**, call `enableInteractiveExperiences(valueProvider:)` again
+with the new user's provider, or `disableInteractiveExperiences()` on logout. Open forms are
+closed, and no value of the old user reaches a new form. `setUserConfig(id:)` with a new id also
+closes open forms and drops lookups in progress, but keeps your provider: a provider that holds one
+user's profile must be replaced, so pass the new user's provider too.
+`sdk.interactiveExperiencesEnabled` tells you whether the app is opted in.
+
+### Reading the creative
+
+Request ads as usual. For every creative, switch on `creative.interactiveExperience`:
+
+| Value | What to do |
+|---|---|
+| `nil` | an ordinary creative: existing behaviour |
+| `.unsupported` | do not show this creative: there is nothing for a tap to open |
+| `.leadGeneration(experience)` | render the creative natively as today and fire the impression as today |
+
+```swift
+switch creative.interactiveExperience {
+case nil:
+    renderNatively(creative)
+case .unsupported?:
+    break                                   // skip: a tap would have nothing to open
+case let .leadGeneration(experience)?:
+    renderNatively(creative)
+    sdk.fireImpression(tracking: creative.tracking)
+    prepareForm(for: experience)
+}
+```
+
+### Showing the form
+
+Create one controller per creative, set its delegate and call `prepare()` while the creative is
+on screen. `makeLeadFormController` returns `nil` when the app did not opt in or the platform
+cannot show the form: then do not show the creative.
+
+```swift
+@MainActor
+final class LeadCreativeHost: LeadFormControllerDelegate {
+    private var controller: LeadFormController?
+    private let creative: Creative
+    private let sdk: AdMoai
+    private let container: UIView                // the app owns its size, scrolling and keyboard insets
+    private weak var presenter: UIViewController?
+    private var shownForm: UIView?               // the inline form, removed when the form ends
+    private var presentedForm: UIViewController? // the full-screen form, dismissed when the form ends
+
+    init(creative: Creative, sdk: AdMoai, container: UIView, presenter: UIViewController) {
+        self.creative = creative
+        self.sdk = sdk
+        self.container = container
+        self.presenter = presenter
+    }
+
+    func prepare(for experience: LeadGenerationExperience, fullScreen: Bool = false) {
+        let presentation: LeadFormPresentation = fullScreen ? .fullScreen : .inline
+        guard let controller = sdk.makeLeadFormController(for: experience, presentation: presentation) else {
+            return                               // do not show the creative
+        }
+        controller.delegate = self
+        self.controller = controller
+        controller.prepare()                     // while the creative is on screen
+    }
+}
+```
+
+On tap, fire the creative click exactly once as today, then call `open()`. The SDK fires no
+second click. Inline, put `controller.formView` where the creative was; full screen, present
+`controller.formViewController`.
+
+```swift
+extension LeadCreativeHost {
+    func creativeTapped() {
+        guard let controller else { return }
+        sdk.fireClick(tracking: creative.tracking)       // once, as for any creative
+        controller.open()
+        // open() can end the form at once (its 15 minutes passed): then there is nothing to show.
+        guard self.controller === controller, controller.state != .expired else { return }
+        switch controller.presentation {
+        case .inline:
+            let form = controller.formView
+            form.frame = container.bounds
+            container.addSubview(form)
+            shownForm = form
+        case .fullScreen:
+            let form = controller.formViewController   // a new one on every access: keep it
+            presenter?.present(form, animated: true)
+            presentedForm = form
+        }
+    }
+}
+```
+
+### Delegate
+
+The controller reports through `LeadFormControllerDelegate` (on the main actor, held weakly).
+
+| Callback | What to do |
+|---|---|
+| `didChange state` | show your own loading UI until `.visible`; `.failed(errorCode:retryable: true)`: offer a retry with `controller.retry()`; `.failed(errorCode:retryable: false)` or `.expired`: close the form and show your normal content; `.submitted(leadId:submittedAt:)`: the lead was accepted, at `submittedAt`; `.disposed`: the form ended (you disposed it, or the SDK did when the user or the provider changed): remove or dismiss it |
+| `leadFormControllerDidRequestClose` | call `controller.dispose()`; the `.disposed` that follows removes the form |
+| `openExternalURL(_:purpose:)` | open the link in an `SFSafariViewController`, never inside the form, presented from the full-screen form when it is on screen |
+
+```swift
+extension LeadCreativeHost {
+    func leadFormController(_ controller: LeadFormController, didChange state: LeadFormState) {
+        switch state {
+        case .visible:
+            hideLoadingUI()
+        case .failed(_, retryable: true):
+            offerRetry { controller.retry() }
+        case .failed(_, retryable: false), .expired:
+            closeForm(controller)
+            showNormalContent()
+        case let .submitted(leadId, _):
+            thankTheViewer(leadId: leadId)
+        case .disposed:                          // closed by you, or ended by the SDK
+            removeForm(controller)
+            hideLoadingUI()
+        default:
+            showLoadingUI()
+        }
+    }
+
+    func leadFormControllerDidRequestClose(_ controller: LeadFormController) {
+        closeForm(controller)
+    }
+
+    func leadFormController(_ controller: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose) {
+        // A full-screen form is already presented: present the link from it.
+        (presentedForm ?? presenter)?.present(SFSafariViewController(url: url), animated: true)
+    }
+
+    private func closeForm(_ controller: LeadFormController) {
+        controller.dispose()                     // reports .disposed, which removes the form
+    }
+
+    private func removeForm(_ controller: LeadFormController) {
+        shownForm?.removeFromSuperview()
+        presentedForm?.dismiss(animated: true)
+        shownForm = nil
+        presentedForm = nil
+        if self.controller === controller {
+            self.controller = nil
+        }
+    }
+}
+```
+
+### Why a form failed
+
+`.failed(errorCode:retryable:)` says why. Decide whether to offer a retry from `retryable`, never
+from the code, and never show the code to the viewer; log it to understand what happened.
+
+| `errorCode` | Meaning |
+|---|---|
+| `form_not_available` | Lead Generation is not available for this app right now (the form page answered 404 or another 4xx, except 408 and 429). Not retryable: stop offering the form on this ad. |
+| `temporary_failure` | The form page could not be loaded (a 5xx server error, 429 rate limited, 408 timeout, or no network). Retryable: call `retry()`. |
+| `navigation_blocked` | The page tried to leave the form, so the SDK closed it. Not retryable. |
+| `renderer_gone` | The page's web content process ended. Retryable until the form was opened. |
+| `reloaded` | The page reloaded after the form was opened, and what the viewer typed is gone. Not retryable. |
+| `bridge_error` | The page and the SDK could not talk to each other (for example, an app built with an older SDK). Not retryable. |
+| any other | The code the form reported, such as `expired`, `revoked` or `rate_limited`. Follow `retryable`. |
+
+### Good to know
+
+- **Preparing is bounded.** At most two forms prepare in the background at once; a tap always
+  goes ahead, even if its form was not prepared yet.
+  A `retry()` on a form the viewer never opened follows the same limit: it may wait for a free
+  slot, and the state stays `.failed` until it starts. A tap on that form retries it at once.
+- **A served form can be opened for 15 minutes.** After that the state is `.expired`.
+- **Back.** iOS has no system back button, but if your screen has its own back control or
+  gesture, give the press to the form first: `if controller?.handleBack() == true { return }`.
+  While the form is on screen it goes back one stage with the answers kept, or, on its first stage
+  and on the confirmation, asks to close through `leadFormControllerDidRequestClose`. It returns
+  `false`, and does nothing, when the form is not on screen.
+- **Nothing is kept on the device.** No answer and no pre-fill value is stored.
+- **Leads can reach the advertiser's webhook more than once** with the same `lead_id`.
+  Receivers should de-duplicate by it.
 
 ---
 

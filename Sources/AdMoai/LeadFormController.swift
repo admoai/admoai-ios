@@ -8,7 +8,6 @@ import Foundation
 /// Where the lead form is in its life. Carries only a state and, once submitted, the lead id and
 /// when the form accepted it:
 /// never the preparation token, a contact value, or an answer.
-@_spi(InteractiveExperience)
 public enum LeadFormState: Equatable {
     case idle
     case preparing
@@ -38,7 +37,6 @@ public enum LeadFormState: Equatable {
 }
 
 /// Why the form asks the app to open a web address.
-@_spi(InteractiveExperience)
 public enum LeadFormLinkPurpose: String, Equatable, Sendable {
     /// The form's privacy policy, available any time the form is shown.
     case privacyPolicy = "privacy_policy"
@@ -47,9 +45,6 @@ public enum LeadFormLinkPurpose: String, Equatable, Sendable {
 }
 
 /// Receives the controller's state changes and the form's requests. Held weakly.
-///
-/// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
-@_spi(InteractiveExperience)
 @MainActor
 public protocol LeadFormControllerDelegate: AnyObject {
     func leadFormController(_ controller: LeadFormController, didChange state: LeadFormState)
@@ -60,7 +55,6 @@ public protocol LeadFormControllerDelegate: AnyObject {
     func leadFormController(_ controller: LeadFormController, openExternalURL url: URL, purpose: LeadFormLinkPurpose)
 }
 
-@_spi(InteractiveExperience)
 public extension LeadFormControllerDelegate {
     /// Ignores the request: the link is not opened.
     func leadFormController(_: LeadFormController, openExternalURL _: URL, purpose _: LeadFormLinkPurpose) {}
@@ -115,9 +109,6 @@ protocol LeadFormTransport: AnyObject {
 ///
 /// When the app disables interactive experiences, switches the provider, or changes the user id,
 /// every live controller is disposed.
-///
-/// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
-@_spi(InteractiveExperience)
 @MainActor
 public final class LeadFormController {
     public weak var delegate: LeadFormControllerDelegate?
@@ -657,9 +648,6 @@ public final class LeadFormController {
 public extension AdMoai {
     /// Creates the controller for one Lead Generation form, or `nil` when the app did not opt in
     /// (``enableInteractiveExperiences(valueProvider:)``) or the platform has no secure form view.
-    ///
-    /// Experimental: import with `@_spi(InteractiveExperience) import AdMoai`.
-    @_spi(InteractiveExperience)
     func makeLeadFormController(
         for experience: LeadGenerationExperience,
         presentation: LeadFormPresentation
