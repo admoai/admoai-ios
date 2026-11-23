@@ -6,6 +6,8 @@ import Testing
 /// bridge contract vendored in `Fixtures/interactive-experience/`.
 struct LeadFormBridgeTests {
     private static let secret = "tok_SECRET_123"
+    /// Every type in the table, as the history of an instance where every prerequisite was met.
+    private static let everyType = Set(LeadFormBridge.Limits.rules.map(\.type))
 
     // MARK: - Fixtures
 
@@ -155,7 +157,12 @@ struct LeadFormBridgeTests {
         for path in paths {
             let name = (path as NSString).lastPathComponent.replacingOccurrences(of: ".json", with: "")
             let message = try #require(expected[name], "\(name)")
-            let encoded = try message.encode(instanceId: id.instanceId, channel: id.channel)
+            let encoded = try message.encode(
+                instanceId: id.instanceId,
+                channel: id.channel,
+                exchanged: Self.everyType,
+                allowedPrefillKeys: Set(StandardAttributeKey.allCases)
+            )
             #expect(try JSONDecoder().decode(JSONValue.self, from: Data(encoded.utf8)) == json(path), "\(name)")
             #expect(try isRefused(outgoing(text(path))) == nil, "\(name) validates as an app message")
         }
@@ -164,9 +171,24 @@ struct LeadFormBridgeTests {
     // Scenario 4
     @Test func theSDKCannotSendWhatTheContractForbids() throws {
         let id = try identity()
-        func encode(_ message: AppMessage, allowed: Set<StandardAttributeKey>? = nil) throws -> String {
-            try message.encode(instanceId: id.instanceId, channel: id.channel, allowedPrefillKeys: allowed)
+        func encode(
+            _ message: AppMessage,
+            exchanged: Set<String> = Self.everyType,
+            allowed: Set<StandardAttributeKey> = Set(StandardAttributeKey.allCases)
+        ) throws -> String {
+            try message.encode(
+                instanceId: id.instanceId,
+                channel: id.channel,
+                exchanged: exchanged,
+                allowedPrefillKeys: allowed
+            )
         }
+        // Order holds on the way out too, and a prefill needs the keys the form requested.
+        #expect(throws: BridgeRejection.outOfOrder(type: "initialize")) {
+            try encode(.initialize(preparationToken: "t", presentation: .inline), exchanged: [])
+        }
+        _ = try encode(.initialize(preparationToken: "t", presentation: .inline), exchanged: ["bridge_ready"])
+        #expect(throws: BridgeRejection.self) { try encode(.prefill(values: [.email: "x"]), allowed: []) }
         #expect(throws: BridgeRejection.self) { try encode(.prefill(values: [.fullName: String(
             repeating: "A",
             count: 257
@@ -322,7 +344,9 @@ struct LeadFormBridgeTests {
         let hostile = "He said \"hi\" </script><script>alert(1)</script>\nline2\r\n\u{2028}tab\t 日本語 😀 \\ 'x' é"
         let encoded = try AppMessage.prefill(values: [.fullName: hostile]).encode(
             instanceId: id.instanceId,
-            channel: id.channel
+            channel: id.channel,
+            exchanged: Self.everyType,
+            allowedPrefillKeys: [.fullName]
         )
         let envelope = try BridgeEnvelope.decode(encoded).get()
         guard case let .object(values)? = envelope.payload["values"],
@@ -368,7 +392,12 @@ struct LeadFormBridgeTests {
         }
         let tooLong = AppMessage.prefill(values: [.fullName: s + String(repeating: "A", count: 300)])
         do {
-            _ = try tooLong.encode(instanceId: id.instanceId, channel: id.channel)
+            _ = try tooLong.encode(
+                instanceId: id.instanceId,
+                channel: id.channel,
+                exchanged: Self.everyType,
+                allowedPrefillKeys: [.fullName]
+            )
             Issue.record("must refuse")
         } catch {
             #expect(!String(describing: error).contains(s))
@@ -388,13 +417,18 @@ struct LeadFormBridgeTests {
         #expect(number("maxHiddenPreparedForms") == LeadFormBridge.Limits.maxHiddenPreparedForms)
         #expect(number("prefillLookupTimeoutMs") == LeadFormBridge.Limits.prefillLookupTimeoutMs)
 
-        guard case let .object(envelope)? = contract["envelope"],
-              case let .object(instance)? = envelope["instanceId"],
-              case let .string(instancePattern)? = instance["pattern"],
-              case let .object(channel)? = envelope["channel"], case let .string(channelPattern)? = channel["pattern"]
-        else { throw FixtureError.shape }
-        #expect(instancePattern == LeadFormBridge.Limits.instanceIdPattern)
-        #expect(channelPattern == LeadFormBridge.Limits.channelPattern)
+        // The whole envelope: exactly these four fields, their types and patterns, which is what
+        // BridgeEnvelope.decode and LeadFormBridge.validate enforce. A field added or retyped fails.
+        let envelope: JSONValue = .object([
+            "type": .object(["type": .string("string")]),
+            "instanceId": .object([
+                "type": .string("string"),
+                "pattern": .string(LeadFormBridge.Limits.instanceIdPattern),
+            ]),
+            "channel": .object(["type": .string("string"), "pattern": .string(LeadFormBridge.Limits.channelPattern)]),
+            "payload": .object(["type": .string("object")]),
+        ])
+        #expect(contract["envelope"] == envelope)
 
         guard case let .array(messages)? = contract["messages"] else { throw FixtureError.shape }
         let swiftRules = LeadFormBridge.Limits.rules

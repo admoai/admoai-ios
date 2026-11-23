@@ -323,17 +323,21 @@ enum AppMessage: Equatable, CustomStringConvertible, CustomDebugStringConvertibl
     }
 
     /// The JSON text to send. The same rules incoming messages obey apply here: size, shape,
-    /// lengths, and, for `prefill`, only keys the form requested and only a gender it offers.
+    /// lengths, order, and, for `prefill`, only keys the form requested and only a gender it offers.
     ///
-    /// - Parameter allowedPrefillKeys: the keys of the last `activated.requestedAttributeKeys`;
-    ///   `nil` skips that one check.
+    /// - Parameters:
+    ///   - exchanged: the types already sent or received in this instance; a message whose
+    ///     prerequisite is missing (`initialize` before `bridge_ready`) is refused.
+    ///   - allowedPrefillKeys: the keys of the last `activated.requestedAttributeKeys`. A `prefill`
+    ///     with any key outside it is refused, so without the set no `prefill` can be sent.
     func encode(
         instanceId: String,
         channel: String,
-        allowedPrefillKeys: Set<StandardAttributeKey>? = nil
+        exchanged: Set<String>,
+        allowedPrefillKeys: Set<StandardAttributeKey> = []
     ) throws -> String {
         if case let .prefill(values) = self {
-            if let allowedPrefillKeys, !Set(values.keys).isSubset(of: allowedPrefillKeys) {
+            if !Set(values.keys).isSubset(of: allowedPrefillKeys) {
                 throw BridgeRejection.invalidPayload(type: wireType, fault: .unknownField)
             }
             if let gender = values[.gender], !LeadFormBridge.Limits.genderOptions.contains(gender) {
@@ -343,7 +347,13 @@ enum AppMessage: Equatable, CustomStringConvertible, CustomDebugStringConvertibl
         let text = try BridgeEnvelope(type: wireType, instanceId: instanceId, channel: channel, payload: payload)
             .encoded()
         // Self-check against the table: what leaves is what the form would accept.
-        switch LeadFormBridge.validate(text, direction: .appToRuntime, instanceId: instanceId, channel: channel) {
+        switch LeadFormBridge.validate(
+            text,
+            direction: .appToRuntime,
+            instanceId: instanceId,
+            channel: channel,
+            exchanged: exchanged
+        ) {
         case .success: return text
         case let .failure(rejection): throw rejection
         }

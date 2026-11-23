@@ -23,6 +23,8 @@ Feature: The SDK and the form speak one validated message protocol
   Scenario: The SDK cannot send what the contract forbids
     When the SDK is asked to send a prefill value over 256 characters, a key the form did not request, or a gender the form does not offer
     Then it refuses before anything is sent
+    And a message whose prerequisite was not exchanged (initialize before bridge_ready) is refused before it is sent
+    And a prefill cannot be sent without the keys the form requested
     And an unknown prefill key or presentation cannot even be written
     And back is refused before the form became visible, and when it names a stage
     And a prefill the form would only partly apply (an unknown key or an over-bound value) is never sent
