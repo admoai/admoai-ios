@@ -559,6 +559,21 @@ struct LeadFormControllerTests {
         let controller = sdk.makeLeadFormController(for: experience, presentation: .inline)
         #expect(controller != nil)
         controller?.dispose()
+
+        // A descriptor whose instance id the contract would refuse gets no controller.
+        for bad in [
+            "",
+            "form_instance_x&channel=evil",
+            Self.instanceId + "\n",
+            "FORM_INSTANCE_01KG000000000000000000N001",
+        ] {
+            let malformed = LeadGenerationExperience(
+                formId: "f", preparedVersionId: "v", formInstanceId: bad,
+                launchUrl: URL(string: "https://forms.example.invalid/")!, expiresAt: Date().addingTimeInterval(60),
+                prefillAttributeKeys: [], preparationToken: Self.secret
+            )
+            #expect(sdk.makeLeadFormController(for: malformed, presentation: .inline) == nil, "\(bad)")
+        }
     }
 
     // Scenario 24

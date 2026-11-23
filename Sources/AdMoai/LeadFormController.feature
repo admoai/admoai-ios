@@ -112,6 +112,7 @@ Feature: A Lead Generation form is prepared, shown and submitted without surpris
   Scenario: An app that did not opt in gets no controller
     When the app asks for a controller without having opted in
     Then it gets none
+    And a descriptor whose form instance id the contract would refuse gets no controller either
 
   Scenario: A form the page server refuses ends at once
     Given Lead Generation is off and the form page answers 404 form_not_available

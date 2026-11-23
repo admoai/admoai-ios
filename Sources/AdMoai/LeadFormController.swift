@@ -484,6 +484,12 @@ public extension AdMoai {
         presentation: LeadFormPresentation
     ) -> LeadFormController? {
         guard interactiveExperienceBox.isEnabled else { return nil }
+        // The id travels in the launch address and in every bridge message: one the contract would
+        // refuse (or that could add a fragment parameter) gets no form at all.
+        guard LeadFormBridge.isContractInstanceId(experience.formInstanceId) else {
+            config.logger.warning("Lead form not created: the descriptor's formInstanceId is malformed")
+            return nil
+        }
         #if canImport(WebKit)
             return LeadFormController(
                 experience: experience,

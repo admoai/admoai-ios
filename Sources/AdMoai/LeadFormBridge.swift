@@ -676,6 +676,11 @@ enum LeadFormBridge {
         }
     }
 
+    /// Whether `text` is a form instance id the contract accepts (the whole string, no trailing newline).
+    static func isContractInstanceId(_ text: String) -> Bool {
+        matches(text, Limits.instanceIdPattern)
+    }
+
     private static func matches(_ text: String, _ pattern: String) -> Bool {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
         let range = NSRange(text.startIndex..., in: text)
