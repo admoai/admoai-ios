@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/admoai/admoai-ios/compare/v1.10.0...v1.11.0) (2026-11-26)
+
+
+### Added
+
+* document lead generation forms and make the interactive experience API public ([#114](https://github.com/admoai/admoai-ios/issues/114)) ([2c76e17](https://github.com/admoai/admoai-ios/commit/2c76e175e0398cfbb68c7e0848580f008bedf1c8))
+* interactive experience opt-in, keys-only availability and descriptor decode ([#106](https://github.com/admoai/admoai-ios/issues/106)) ([6cf4a31](https://github.com/admoai/admoai-ios/commit/6cf4a311cdf2ce76a50d50309f9c4d6817640e47))
+* lead form bridge protocol held to the interactive experience contract ([#109](https://github.com/admoai/admoai-ios/issues/109)) ([6c5957a](https://github.com/admoai/admoai-ios/commit/6c5957afbe7ab74dc64574b774bf05860e039f50))
+* lead form controller, secure web view and UIKit containers ([#110](https://github.com/admoai/admoai-ios/issues/110)) ([4332fbc](https://github.com/admoai/admoai-ios/commit/4332fbc15451aaf4270a43b71d5daac55bdb01cb))
+* lead form prefill values, form events, links and disposal ([#112](https://github.com/admoai/admoai-ios/issues/112)) ([0c4b270](https://github.com/admoai/admoai-ios/commit/0c4b2704ad52273a4867dcbfcf42c1172d0cd201))
+
+
+### Documentation
+
+* guide every standard format and templates based on a standard ([#103](https://github.com/admoai/admoai-ios/issues/103)) ([327ff6b](https://github.com/admoai/admoai-ios/commit/327ff6bc697db20facc2bb875b0f2a62603ecac8))
+
 ## [1.10.0](https://github.com/admoai/admoai-ios/compare/v1.9.0...v1.10.0) (2026-11-19)
 
 
