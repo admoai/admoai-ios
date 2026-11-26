@@ -37,8 +37,11 @@ public enum LiveCreativeExpectations {
         "matchedPointsNearestFirst", "matchedPointsWellFormed", "matchedPointsHaveBeacons",
         "matchedPointsHaveClickUrl", "videoEventCount", "videoEventKeys", "requireVastTagUrl",
         "requireVastXmlDecodes", "metadataIsSkippable", "skipOffsetSecondsEquals",
-        "helperIsSkippable", "helperSkipOffsetEquals", "endCardModeEquals",
+        "helperIsSkippable", "helperSkipOffsetEquals", "endCardModeEquals", "interactiveExperience",
     ])
+
+    /// Keys of an `expect.creative.interactiveExperience` object (schemaVersion 8).
+    public static let interactiveExperienceKeys: Set<String> = ["type", "prefillAttributeKeys"]
 
     /// The keys a `metadata` expectation may name.
     public static let metadataKeys = [
@@ -145,6 +148,91 @@ public enum LiveCreativeExpectations {
                         "\(label) \(name) is exactly \((want[name] as? [String] ?? []).sorted()) (got \(actual.sorted()))"
                     )
             }
+        }
+        return out
+    }
+
+    // MARK: interactiveExperience (live, schemaVersion 8)
+
+    /// `expect.creative.interactiveExperience`: `false` (the creative carries no descriptor) or
+    /// `{ type, prefillAttributeKeys }` (it carries that descriptor, well formed). `launchURL` is
+    /// the form's launch URL read through the SDK's testing seam (it is internal), and
+    /// `receivedAt` is when the response arrived, which `expiresAt` must be after.
+    ///
+    /// The non-empty `preparationToken` and the https `launchUrl` are not re-checked here: the SDK
+    /// decodes `.leadGeneration` only when both hold, anything else is `.unsupported`. What is left
+    /// to assert is what the decoder does not: the id prefixes, a launch URL without query or
+    /// fragment, and the expiry relative to the response.
+    public static func interactiveExperienceFailures(
+        _ expected: Any, creative: Creative, launchURL: URL?, receivedAt: Date
+    ) -> [String] {
+        if let none = expected as? Bool, !none {
+            guard let actual = creative.interactiveExperience else { return [] }
+            return ["interactiveExperience is absent (got \(actual))"]
+        }
+        guard let wanted = expected as? [String: Any] else {
+            return ["interactiveExperience is false or an object (got \(expected))"]
+        }
+        var out: [String] = []
+        for key in wanted.keys.sorted() where !interactiveExperienceKeys.contains(key) {
+            out.append("interactiveExperience names unknown key \(key) (known: \(interactiveExperienceKeys.sorted()))")
+        }
+        guard let type = wanted["type"] as? String else {
+            return out + ["interactiveExperience.type is a string (got \(describe(wanted["type"])))"]
+        }
+        guard let keys = wanted["prefillAttributeKeys"] as? [String] else {
+            return out +
+                [
+                    "interactiveExperience.prefillAttributeKeys is a list of strings (got \(describe(wanted["prefillAttributeKeys"])))",
+                ]
+        }
+        guard let actual = creative.interactiveExperience else {
+            return out + ["the creative carries an interactiveExperience of type \(type) (got absent)"]
+        }
+        guard type == "lead_generation" else {
+            if case let .unsupported(actualType) = actual, actualType == type {
+                return out
+            }
+            return out + ["interactiveExperience is unsupported with type \(type) (got \(actual))"]
+        }
+        guard case let .leadGeneration(experience) = actual else {
+            return out + ["interactiveExperience is a lead_generation descriptor (got \(actual))"]
+        }
+        let gotKeys = experience.prefillAttributeKeys.map(\.rawValue)
+        if gotKeys != keys {
+            out.append("interactiveExperience.prefillAttributeKeys is \(keys), in that order (got \(gotKeys))")
+        }
+        for (name, value, prefix) in [
+            ("formId", experience.formId, "form_"),
+            ("preparedVersionId", experience.preparedVersionId, "form_version_"),
+            ("formInstanceId", experience.formInstanceId, "form_instance_"),
+        ] where !value.hasPrefix(prefix) {
+            out.append("interactiveExperience.\(name) starts with \(prefix) (got \(value))")
+        }
+        out += launchURLFailures(launchURL)
+        if experience.expiresAt <= receivedAt {
+            out
+                .append(
+                    "interactiveExperience.expiresAt is after the response was received (got \(experience.expiresAt), received \(receivedAt))"
+                )
+        }
+        return out
+    }
+
+    private static func launchURLFailures(_ url: URL?) -> [String] {
+        guard let url else { return ["interactiveExperience.launchUrl is readable (got absent)"] }
+        var out: [String] = []
+        if url.scheme?.lowercased() != "https" {
+            out.append("interactiveExperience.launchUrl is https (got \(url.absoluteString))")
+        }
+        if (url.host ?? "").isEmpty {
+            out.append("interactiveExperience.launchUrl has a host (got \(url.absoluteString))")
+        }
+        if url.query != nil {
+            out.append("interactiveExperience.launchUrl has no query (got \(url.absoluteString))")
+        }
+        if url.fragment != nil {
+            out.append("interactiveExperience.launchUrl has no fragment (got \(url.absoluteString))")
         }
         return out
     }

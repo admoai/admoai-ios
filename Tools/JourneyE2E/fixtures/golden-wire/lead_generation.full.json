@@ -1,0 +1,86 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/andes-solar-roof.jpg"
+            },
+            {
+              "key": "headline",
+              "type": "text",
+              "value": "Solar panels for your home"
+            },
+            {
+              "key": "supporting_text",
+              "type": "text",
+              "value": "Get a free quote in two minutes."
+            },
+            {
+              "key": "cta_text",
+              "type": "text",
+              "value": "Get a quote"
+            }
+          ],
+          "advertiser": {
+            "name": "Andes Solar",
+            "legalName": "Andes Solar SpA",
+            "logoUrl": "https://cdn.admoai.com/media/andes-solar-logo.png"
+          },
+          "template": {
+            "key": "lead_generation",
+            "style": "lead_generation"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.lead_generation.full.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.lead_generation.full.click"
+              }
+            ],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JDK3M7V2Q9R4T6W8Y0KGAD02",
+            "creativeId": "creative_01JDK3M7V2Q9R4T6W8Y0KGCR02",
+            "advertiserId": "advertiser_01JDH6ZQ4X0N8C3VQ5S4T1KGAD",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01K5P0NS0RED91NST4ND4RD007",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "lead_generation",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          },
+          "interactiveExperience": {
+            "type": "lead_generation",
+            "formId": "form_01JDK3M7V2Q9R4T6W8Y0KGF002",
+            "preparedVersionId": "form_version_01JDK3M7V2Q9R4T6W8Y0KGV002",
+            "formInstanceId": "form_instance_01JDK3M7V2Q9R4T6W8Y0KGN002",
+            "launchUrl": "https://api.admoai.com/v1/interactive-experiences/form",
+            "preparationToken": "tok.lead_generation.full.preparation",
+            "expiresAt": "2026-11-12T15:15:00Z",
+            "prefillAttributeKeys": [
+              "fullName",
+              "email"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}

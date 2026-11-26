@@ -217,6 +217,13 @@ public struct LeadGenerationExperience: Equatable {
     public let prefillAttributeKeys: [StandardAttributeKey]
     /// Never public and never printed: it authorises opening this form instance.
     let preparationToken: String
+
+    /// The URL the SDK opens the form at, for scenario runners that assert it is well formed.
+    /// Never call it in an app: the form is opened by the SDK, not by the app.
+    @_spi(Testing)
+    public var launchUrlForTesting: URL {
+        launchUrl
+    }
 }
 
 // MARK: - Redaction

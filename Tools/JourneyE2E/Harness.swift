@@ -6,6 +6,12 @@ import Foundation
 #if canImport(OSLog)
     import OSLog
 #endif
+#if canImport(Glibc)
+    import Glibc
+#endif
+#if canImport(Darwin)
+    import Darwin
+#endif
 
 // Harness for the Journey Ads live E2E runner.
 //
@@ -30,6 +36,61 @@ let e2eBaseURL: String = {
     }
     return trimmed
 }()
+
+/// Base URL for scenarios whose served creative carries a Lead Generation descriptor, or nil.
+///
+/// The engine mints the form's launch URL from the host it was reached by, and the SDK refuses a
+/// non-https one: a local engine reached by a loopback host yields http. So these scenarios reach
+/// the engine by a non-loopback address. `ADMOAI_JOURNEY_E2E_LG_BASE_URL` names it; otherwise a
+/// loopback `ADMOAI_JOURNEY_E2E_BASE_URL` has its host replaced by this machine's first UP,
+/// non-loopback IPv4 interface address, and a non-loopback base is used as it is. Beacon URLs stay
+/// on `e2eBaseURL` (see `normalizeForLocalIngestion`).
+let e2eLeadGenerationBaseURL: String? = {
+    if let raw = ProcessInfo.processInfo.environment["ADMOAI_JOURNEY_E2E_LG_BASE_URL"], !raw.isEmpty {
+        var trimmed = raw
+        while trimmed.hasSuffix("/") {
+            trimmed.removeLast()
+        }
+        return trimmed
+    }
+    guard var components = URLComponents(string: e2eBaseURL), let host = components.host else { return nil }
+    guard isLoopbackHost(host) else { return e2eBaseURL }
+    guard let address = firstNonLoopbackIPv4Address() else { return nil }
+    components.host = address
+    return components.string
+}()
+
+private func isLoopbackHost(_ host: String) -> Bool {
+    let bare = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+    if bare == "localhost" || bare == "::1" {
+        return true
+    }
+    return bare.hasPrefix("127.") && bare.split(separator: ".").count == 4
+}
+
+/// The first IPv4 address of an UP, non-loopback interface, or nil.
+private func firstNonLoopbackIPv4Address() -> String? {
+    var list: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&list) == 0, let first = list else { return nil }
+    defer { freeifaddrs(list) }
+    var cursor: UnsafeMutablePointer<ifaddrs>? = first
+    while let entry = cursor {
+        defer { cursor = entry.pointee.ifa_next }
+        let flags = Int32(entry.pointee.ifa_flags)
+        guard flags & Int32(IFF_UP) != 0, flags & Int32(IFF_LOOPBACK) == 0,
+              let sockaddr = entry.pointee.ifa_addr,
+              Int32(sockaddr.pointee.sa_family) == AF_INET else { continue }
+        var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let result = getnameinfo(
+            sockaddr, socklen_t(MemoryLayout<sockaddr_in>.size),
+            &buffer, socklen_t(buffer.count), nil, 0, NI_NUMERICHOST
+        )
+        if result == 0 {
+            return String(cString: buffer)
+        }
+    }
+    return nil
+}
 
 /// The Journey-capable API version. A wrong version is a hard gate: the engine silently
 /// ignores Journey fields and serves normal ads, with no error to notice.
@@ -371,14 +432,16 @@ struct Driver {
 /// Builds a driver over the real public entry point.
 ///
 /// `apiVersion` is passed through so a scenario can prove the version gate by omitting it.
-func newDriver(apiVersion: String? = e2eAPIVersion, sessionId: String? = nil) -> Driver {
+func newDriver(
+    apiVersion: String? = e2eAPIVersion, sessionId: String? = nil, baseUrl: String = e2eBaseURL
+) -> Driver {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 20
     configuration.protocolClasses = [RecordingURLProtocol.self]
 
     let sdk = AdMoai(
         config: SDKConfig(
-            baseUrl: e2eBaseURL,
+            baseUrl: baseUrl,
             apiVersion: apiVersion,
             defaultLanguage: e2eLanguage,
             sessionConfiguration: configuration
