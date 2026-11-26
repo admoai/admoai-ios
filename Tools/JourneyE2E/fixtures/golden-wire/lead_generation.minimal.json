@@ -1,0 +1,68 @@
+{
+  "success": true,
+  "data": [
+    {
+      "placement": "home_feed",
+      "creatives": [
+        {
+          "contents": [
+            {
+              "key": "image",
+              "type": "image",
+              "value": "https://cdn.admoai.com/media/andes-solar-roof.jpg"
+            }
+          ],
+          "advertiser": {
+            "name": "Andes Solar",
+            "legalName": "Andes Solar SpA",
+            "logoUrl": "https://cdn.admoai.com/media/andes-solar-logo.png"
+          },
+          "template": {
+            "key": "lead_generation",
+            "style": "lead_generation"
+          },
+          "tracking": {
+            "impressions": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.lead_generation.minimal.impression"
+              }
+            ],
+            "clicks": [
+              {
+                "key": "default",
+                "url": "https://api.admoai.com/v1/tracking?e=tok.lead_generation.minimal.click"
+              }
+            ],
+            "custom": []
+          },
+          "metadata": {
+            "adId": "ad_01JDK3M7V2Q9R4T6W8Y0KGAD01",
+            "creativeId": "creative_01JDK3M7V2Q9R4T6W8Y0KGCR01",
+            "advertiserId": "advertiser_01JDH6ZQ4X0N8C3VQ5S4T1KGAD",
+            "placementId": "placement_01JDGX7Z9JHJR8PN9HZJPDNFWA",
+            "templateId": "template_01K5P0NS0RED91NST4ND4RD007",
+            "priority": "standard",
+            "language": "en",
+            "format": "native",
+            "effectiveStandardFormatKey": "lead_generation",
+            "effectiveStandardFormatVersion": 1,
+            "templateSource": "admoai_standard"
+          },
+          "interactiveExperience": {
+            "type": "lead_generation",
+            "formId": "form_01JDK3M7V2Q9R4T6W8Y0KGF001",
+            "preparedVersionId": "form_version_01JDK3M7V2Q9R4T6W8Y0KGV001",
+            "formInstanceId": "form_instance_01JDK3M7V2Q9R4T6W8Y0KGN001",
+            "launchUrl": "https://api.admoai.com/v1/interactive-experiences/form",
+            "preparationToken": "tok.lead_generation.minimal.preparation",
+            "expiresAt": "2026-11-12T15:15:00Z",
+            "prefillAttributeKeys": []
+          }
+        }
+      ]
+    }
+  ],
+  "errors": null,
+  "warnings": null
+}
