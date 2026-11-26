@@ -39,14 +39,15 @@ struct ManifestIntegrityTests {
 
     /// `schemaVersion` 2 added `fixtureScenarios`; 3 added their `slideTracking`; 4 the live
     /// standard-format `expect.creative` keys; 5 the live Carousel `slides`, `clickKeys` and
-    /// `slideTracking`; 6 the `request.device` key and list values for `request.custom[].value`.
+    /// `slideTracking`; 6 the `request.device` key and list values for `request.custom[].value`;
+    /// 7 `request.interactiveExperience`; 8 `expect.creative.interactiveExperience`.
     /// The live runner refuses any other version and FixtureScenariosTests interprets them, so
     /// both are pinned here against the vendored copy.
     @Test
     func testFixtureScenariosAreStructurallyValid() throws {
         let data = try Data(contentsOf: manifestURL())
         let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        #expect(root["schemaVersion"] as? Int == 7, "this SDK vendors a schemaVersion 7 manifest")
+        #expect(root["schemaVersion"] as? Int == 8, "this SDK vendors a schemaVersion 8 manifest")
 
         let fixtureScenarios = try #require(root["fixtureScenarios"] as? [[String: Any]])
         #expect(!fixtureScenarios.isEmpty, "the manifest declares fixture scenarios")

@@ -261,4 +261,96 @@ struct LiveCreativeExpectationsTests {
         #expect(LiveCreativeExpectations.slideTrackingShapeFailures(thirdParty, creativeExpect: ["slides": [JSON]()])
             .count == 2)
     }
+
+    // MARK: interactiveExperience (schemaVersion 8)
+
+    private func leadGenerationCreative(
+        formId: String = "form_01", prefill: [String] = ["fullName", "email"],
+        expiresAt: String = "2026-11-12T15:15:00Z",
+        descriptor: Bool = true
+    ) throws -> Creative {
+        var wire: JSON = [
+            "contents": [JSON](),
+            "metadata": JSON(),
+            "advertiser": ["name": "A"],
+            "tracking": JSON(),
+        ]
+        if descriptor {
+            wire["interactiveExperience"] = [
+                "type": "lead_generation",
+                "formId": formId,
+                "preparedVersionId": "form_version_01",
+                "formInstanceId": "form_instance_01",
+                "launchUrl": "https://api.admoai.com/v1/interactive-experiences/form",
+                "preparationToken": "tok.preparation",
+                "expiresAt": expiresAt,
+                "prefillAttributeKeys": prefill,
+            ] as JSON
+        }
+        return try JSONDecoder().decode(Creative.self, from: JSONSerialization.data(withJSONObject: wire))
+    }
+
+    private let received = ISO8601DateFormatter().date(from: "2026-11-12T15:00:00Z")!
+    private let goodLaunch = URL(string: "https://api.admoai.com/v1/interactive-experiences/form")!
+    private let wantsLeadGeneration: JSON = ["type": "lead_generation", "prefillAttributeKeys": ["fullName", "email"]]
+
+    private func ieFailures(
+        _ expected: Any, _ creative: Creative, launch: URL? = URL(string: "https://api.admoai.com/v1/form")
+    ) -> [String] {
+        LiveCreativeExpectations.interactiveExperienceFailures(
+            expected, creative: creative, launchURL: launch, receivedAt: received
+        )
+    }
+
+    @Test func interactiveExperienceIsAKnownKey() {
+        #expect(LiveCreativeExpectations.unknownKeys(in: ["interactiveExperience": false]).isEmpty)
+    }
+
+    @Test func interactiveExperiencePassesOnAWellFormedLeadGenerationDescriptor() throws {
+        let c = try leadGenerationCreative()
+        #expect(ieFailures(wantsLeadGeneration, c, launch: goodLaunch).isEmpty)
+    }
+
+    @Test func interactiveExperienceFalseHoldsOnlyWithoutADescriptor() throws {
+        #expect(try ieFailures(false, leadGenerationCreative(descriptor: false)).isEmpty)
+        #expect(try ieFailures(false, leadGenerationCreative()).count == 1)
+    }
+
+    @Test func interactiveExperienceObjectFailsWithoutADescriptor() throws {
+        #expect(try ieFailures(wantsLeadGeneration, leadGenerationCreative(descriptor: false)).count == 1)
+    }
+
+    @Test func interactiveExperienceFailsOnWrongPrefillOrder() throws {
+        let c = try leadGenerationCreative(prefill: ["email", "fullName"])
+        #expect(ieFailures(wantsLeadGeneration, c, launch: goodLaunch).count == 1)
+    }
+
+    @Test func interactiveExperienceFailsOnABadIdPrefix() throws {
+        let c = try leadGenerationCreative(formId: "frm_01")
+        #expect(ieFailures(wantsLeadGeneration, c, launch: goodLaunch).count == 1)
+    }
+
+    @Test func interactiveExperienceFailsOnALaunchUrlThatIsNotCleanHttps() throws {
+        let c = try leadGenerationCreative()
+        for bad in [
+            "https://api.admoai.com/form?token=x", "https://api.admoai.com/form#frag", "http://api.admoai.com/form",
+        ] {
+            #expect(ieFailures(wantsLeadGeneration, c, launch: URL(string: bad)).count == 1, "\(bad)")
+        }
+        #expect(ieFailures(wantsLeadGeneration, c, launch: nil).count == 1)
+    }
+
+    @Test func interactiveExperienceFailsWhenAlreadyExpired() throws {
+        let c = try leadGenerationCreative(expiresAt: "2026-11-12T14:59:59Z")
+        #expect(ieFailures(wantsLeadGeneration, c, launch: goodLaunch).count == 1)
+    }
+
+    @Test func interactiveExperienceRefusesUnknownInnerKeysAndOtherValues() throws {
+        let c = try leadGenerationCreative()
+        var withExtra = wantsLeadGeneration
+        withExtra["launchUrl"] = "x"
+        #expect(ieFailures(withExtra, c, launch: goodLaunch).count == 1)
+        #expect(ieFailures(true, c, launch: goodLaunch).count == 1)
+        #expect(ieFailures("lead_generation", c, launch: goodLaunch).count == 1)
+    }
 }

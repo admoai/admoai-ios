@@ -19,7 +19,14 @@ ADMOAI_JOURNEY_E2E_BASE_URL=http://127.0.0.1:8080 Tools/journey_e2e.sh
 | Variable | Default |
 |---|---|
 | `ADMOAI_JOURNEY_E2E_BASE_URL` | `http://127.0.0.1:8080` |
+| `ADMOAI_JOURNEY_E2E_LG_BASE_URL` | the base URL with a loopback host replaced by this machine's first non-loopback IPv4 address |
 | `ADMOAI_JOURNEY_E2E_VERSION` | `2025-11-01` |
+
+`ADMOAI_JOURNEY_E2E_LG_BASE_URL` applies only to the scenarios that expect a Lead Generation
+descriptor (`expect.creative.interactiveExperience` as an object): a local engine reached by a
+loopback host mints `http://` launch URLs, which the SDK refuses, so those scenarios reach the engine
+by a non-loopback address (for example `http://192.168.1.20:8080`). Every other scenario, and every
+beacon, keeps using `ADMOAI_JOURNEY_E2E_BASE_URL`.
 
 Exit codes: **0** pass (a documented SKIP is allowed) · **1** a scenario FAILED · **2** preflight
 aborted, the environment is unusable. Report: `build/journey-e2e/report.json`.

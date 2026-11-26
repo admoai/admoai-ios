@@ -39,12 +39,13 @@ public enum ManifestRequestKeys {
         block.keys.filter { !interactiveExperience.contains($0) }.sorted()
     }
 
-    /// Why this runner cannot send `request.interactiveExperience` through the SDK's opt-in, or nil
-    /// when it can. The opt-in API only ever declares support (`supported` must be `true`), and
-    /// only `StandardAttributeKey` names exist. Refused, never trimmed.
+    /// Why this runner cannot execute `request.interactiveExperience`, or nil when it can.
+    /// `supported: true` goes through the SDK's opt-in API; `supported: false` is an app that never
+    /// opted in, so the runner does not call it and the built request carries nothing. Only
+    /// `StandardAttributeKey` names exist. Refused, never trimmed.
     public static func interactiveExperienceRefusal(in block: [String: Any]) -> String? {
-        guard block["supported"] as? Bool == true else {
-            return "interactiveExperience.supported must be true: the SDK's opt-in can only declare support"
+        guard block["supported"] is Bool else {
+            return "interactiveExperience.supported must be true or false"
         }
         let keys = block["availableAttributeKeys"] as? [Any] ?? []
         let unknown = keys.filter { ($0 as? String).flatMap(StandardAttributeKey.init(rawValue:)) == nil }

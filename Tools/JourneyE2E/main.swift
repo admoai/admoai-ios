@@ -18,6 +18,10 @@ import Foundation
 //
 // Environment:
 //   ADMOAI_JOURNEY_E2E_BASE_URL  default http://127.0.0.1:8080
+//   ADMOAI_JOURNEY_E2E_LG_BASE_URL  the engine at a NON-loopback address, for the scenarios that expect a
+//                                Lead Generation descriptor (a loopback host makes the engine mint an http
+//                                launch URL, which the SDK refuses). Default: ADMOAI_JOURNEY_E2E_BASE_URL with
+//                                a loopback host replaced by this machine's first non-loopback IPv4 address.
 //   ADMOAI_JOURNEY_E2E_VERSION   default 2025-11-01
 //
 // Requires: Statsig gate `is_journey_ads_enabled = true` (default OFF), Redis up, a 32-char

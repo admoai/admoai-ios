@@ -35,8 +35,12 @@ struct ManifestRequestKeysTests {
 
     @Test
     func testInteractiveExperienceRefusalWhenNotASupportDeclaration() {
+        // `supported: false` is an app that never opted in: the runner executes it by not opting in.
         #expect(ManifestRequestKeys.interactiveExperienceRefusal(
             in: ["supported": false, "availableAttributeKeys": ["email"]]
+        ) == nil)
+        #expect(ManifestRequestKeys.interactiveExperienceRefusal(
+            in: ["supported": "yes", "availableAttributeKeys": []]
         ) != nil)
         #expect(ManifestRequestKeys.interactiveExperienceRefusal(in: ["availableAttributeKeys": []]) != nil)
         #expect(ManifestRequestKeys.interactiveExperienceRefusal(

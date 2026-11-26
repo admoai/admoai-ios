@@ -24,7 +24,7 @@ import ManifestExpectations
 // MARK: Manifest model
 
 /// The one manifest `schemaVersion` this runner executes.
-let supportedSchemaVersion = 7
+let supportedSchemaVersion = 8
 
 struct Manifest: Decodable {
     let schemaVersion: Int
@@ -261,10 +261,25 @@ private func runManifestScenario(
     _ rawSlideTracking: [String: Any]?, _ notes: inout [String]
 ) async throws {
     // "none" means: build a driver with no apiVersion, so no version header is sent.
+    // A scenario that expects a Lead Generation descriptor must reach the engine by a non-loopback
+    // address: the engine mints the launch URL from the host it was reached by, and the SDK
+    // refuses an http one (a loopback host yields http).
+    var baseUrl = e2eBaseURL
+    if rawCreativeExpect?["interactiveExperience"] is [String: Any] {
+        guard let lgBase = e2eLeadGenerationBaseURL else {
+            throw ClaimFailed(
+                claim: "the engine is reachable by a non-loopback address for a Lead Generation descriptor: "
+                    + "set ADMOAI_JOURNEY_E2E_LG_BASE_URL to the engine at a non-loopback address "
+                    + "(for example http://<this machine's LAN IP>:8080), no such interface address was found"
+            )
+        }
+        baseUrl = lgBase
+        notes.append("Lead Generation base URL: \(lgBase)")
+    }
     var driver: Driver = switch entry.request.apiVersion {
-    case .some("none"): newDriver(apiVersion: nil)
-    case let .some(version): newDriver(apiVersion: version)
-    case nil: newDriver()
+    case .some("none"): newDriver(apiVersion: nil, baseUrl: baseUrl)
+    case let .some(version): newDriver(apiVersion: version, baseUrl: baseUrl)
+    case nil: newDriver(baseUrl: baseUrl)
     }
 
     // The app's manual device configuration, stated before the builder reads it.
@@ -292,7 +307,9 @@ private func runManifestScenario(
             driver.sdk.assumeSecureFormViewForTesting(previousSecureFormView)
         }
     }
-    if let optIn = entry.request.interactiveExperience {
+    // `supported: false` is an app that never opted in: it declares nothing, so the runner does
+    // not call the opt-in at all.
+    if let optIn = entry.request.interactiveExperience, optIn.supported {
         driver.sdk.assumeSecureFormViewForTesting(true)
         driver.sdk.enableInteractiveExperiences(
             valueProvider: ManifestValueProvider(Set(optIn.availableAttributeKeys
@@ -346,7 +363,13 @@ private func runManifestScenario(
     let request = builder.build()
 
     // The field must really be on the wire request: the SDK sorts into catalog order.
-    if let optIn = entry.request.interactiveExperience {
+    if let optIn = entry.request.interactiveExperience, !optIn.supported {
+        try check(
+            request.interactiveExperience == nil,
+            "an app that has not opted in declares no interactiveExperience (got \(String(describing: request.interactiveExperience)))"
+        )
+    }
+    if let optIn = entry.request.interactiveExperience, optIn.supported {
         let wanted = Set(optIn.availableAttributeKeys)
         let expected = StandardAttributeKey.allCases.filter { wanted.contains($0.rawValue) }
         try check(
@@ -393,6 +416,7 @@ private func runManifestScenario(
 
     // --- served / no-ad outcomes ----------------------------------------------------------
     let served = try await decideManifest(driver, request)
+    let receivedAt = Date()
 
     if let expected = entry.expect.decisions {
         try check(
@@ -438,6 +462,10 @@ private func runManifestScenario(
     if let expectations = entry.expect.creative {
         try assertCreative(creatives[0], expectations, &notes)
         try assertStandardFormat(creatives[0], rawCreativeExpect ?? [:], &notes)
+        // Independent of the standard-format keys: assertStandardFormat returns early without them.
+        if let wanted = rawCreativeExpect?["interactiveExperience"] {
+            try assertInteractiveExperience(wanted, creatives[0], receivedAt: receivedAt, &notes)
+        }
     }
     if let pinTracking = entry.pinTracking {
         try await runPinTracking(pinTracking, driver, request, creatives[0], &notes)
@@ -466,6 +494,22 @@ private func assertStandardFormat(
         .append(
             "standard format: \(raw.keys.filter(LiveCreativeExpectations.standardFormatKeys.contains).sorted().joined(separator: ", "))"
         )
+}
+
+/// `expect.creative.interactiveExperience` (schemaVersion 8): the pure check lives in
+/// `ManifestExpectations`; this reads the launch URL through the SDK's testing seam.
+private func assertInteractiveExperience(
+    _ wanted: Any, _ creative: Creative, receivedAt: Date, _ notes: inout [String]
+) throws {
+    var launchURL: URL?
+    if case let .leadGeneration(experience) = creative.interactiveExperience {
+        launchURL = experience.launchUrlForTesting
+    }
+    let failures = LiveCreativeExpectations.interactiveExperienceFailures(
+        wanted, creative: creative, launchURL: launchURL, receivedAt: receivedAt
+    )
+    try check(failures.isEmpty, failures.joined(separator: "; "))
+    notes.append("interactiveExperience: \(wanted is Bool ? "absent" : "descriptor well formed")")
 }
 
 private func assertCreative(
